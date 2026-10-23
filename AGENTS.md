@@ -6,18 +6,114 @@
 
 对标项目位于同级目录 `../anc-desktop`，功能与交互以它为准，实现方式以本文件为准。
 
-要复刻的核心能力：
+要复刻的核心能力（按重要性排序）：
 
-- 多会话工作台、会话历史、全局搜索、分支 / Worktree 启动
-- 工具调用与任务进度展示、Diff 审阅、内置浏览器预览
-- 五档权限模式与图形化审批
-- 模型自选（官方账号、第三方预设、本地端点）、图片生成
-- MCP / SubAgent / Skills 可视化管理与技能市场
-- 模型请求追踪、用量统计、定时任务
-- Computer Use、桌面宠物、多主题
-- H5 远程访问、IM 接入（Telegram / 飞书 / 微信 / 钉钉 / WhatsApp）
+1. **Agent 运行时**：模型流式循环、工具调用与编排、权限审批、上下文压缩、会话恢复
+2. **Agent 扩展**：SubAgent / Agent Teams、Skills、记忆、MCP、Hooks、定时任务
+3. 多会话工作台、会话历史、全局搜索、分支 / Worktree 启动
+4. 工具调用与任务进度展示、Diff 审阅、内置浏览器预览
+5. 五档权限模式与图形化审批
+6. 模型自选（官方账号、第三方预设、本地端点）、图片生成
+7. MCP / SubAgent / Skills 可视化管理与技能市场
+8. 模型请求追踪、用量统计、定时任务
+9. Computer Use、桌面宠物、多主题
+10. H5 远程访问、IM 接入（Telegram / 飞书 / 微信 / 钉钉 / WhatsApp）
 
-当前阶段只搭好开发框架：Wails 窗口、React 页面、前后端绑定链路和一个示例方法 `Greet`。业务功能尚未实现。
+当前阶段只搭好开发框架：Wails 窗口、React 页面、前后端绑定链路和一个示例方法 `Greet`。Agent 与所有业务功能尚未实现。
+
+## Agent 运行时（项目核心）
+
+`anc-desktop` 的 Agent 不是自研的简单聊天循环，而是基于同级目录 `../cc` 中的 Claude Code 泄漏源码构建的完整编码 Agent。`../cc` 是**行为参考实现**（Bun + TypeScript）；本项目用 Go 重新实现同样的行为，不逐行翻译其代码。
+
+核心链路（对应 `../cc/src`）：
+
+```text
+用户输入
+  └─ QueryEngine.submitMessage            会话级编排：系统提示、记忆、hooks、落盘
+      └─ query/queryLoop                  单轮循环
+          ├─ 每次模型调用前：token 预算检查 → 微压缩/自动压缩
+          ├─ callModel 流式请求            text / thinking / tool_use 增量
+          ├─ 收集 tool_use
+          ├─ runTools                     只读工具并行（默认上限 10），写工具串行
+          │    └─ canUseTool              allow / ask / deny，ask 推给前端审批
+          ├─ tool_result 回灌消息历史
+          └─ 没有新的 tool_use → 本轮结束；否则继续下一轮（受 maxTurns 约束）
+```
+
+必须保持的行为约束：
+
+1. **工具调用是循环唯一的推进信号。** 模型返回 `tool_use` 就执行并把 `tool_result` 回灌；没有 `tool_use` 才结束本轮。
+2. **只读工具并行、写工具串行。** 按 `isReadOnly` / `isConcurrencySafe` 分组；每个 `tool_use` 必须有且只有一个对应的 `tool_result`，拒绝和异常也要生成结果。
+3. **权限检查在工具执行之前。** 决策只有 `allow` / `ask` / `deny`；`ask` 通过 Wails 事件交给前端审批，等待用户选择，禁止默认放行。
+4. **错误不能打断循环。** 工具错误、参数校验失败、模型请求失败都转成结构化结果/事件回灌，由模型决定下一步。
+5. **流式事件逐条转发。** 文本增量、thinking、工具开始/进度/结果、usage、压缩边界都要实时推给前端，不能等整轮结束再一次性返回。
+6. **上下文压缩自动执行。** 每次模型调用前检查 token 预算，超过阈值先微压缩、再自动压缩；压缩边界之后保留最近消息，保证可继续对话。
+7. **SubAgent 使用独立上下文。** 子 Agent 有自己的消息历史、工具池和权限范围，结果汇总回父 Agent；支持后台运行、取消和恢复。
+8. **会话 transcript 追加持久化。** 支持断点恢复；模型密钥、系统提示等敏感内容不下发前端。
+
+### 模块对照
+
+| 职责 | TypeScript 参考 | Go 目标包（规划） |
+|---|---|---|
+| 会话编排 | `src/QueryEngine.ts` | `internal/agent` |
+| 单轮循环 / 流式事件 | `src/query.ts` | `internal/agent` |
+| Tool 契约与注册 | `src/Tool.ts`、`src/tools.ts` | `internal/tool` |
+| 内置工具 | `src/tools/*` | `internal/tool/builtin/*` |
+| 权限模式与规则 | `src/types/permissions.ts`、`src/hooks/useCanUseTool.tsx` | `internal/permission` |
+| 模型与 Provider | `src/services/api/*` | `internal/llm` |
+| SubAgent / Teams | `src/tools/AgentTool/*`、`src/tasks/*`、`src/coordinator/*` | `internal/subagent`、`internal/task` |
+| 上下文与压缩 | `src/context.ts`、`src/services/compact/*` | `internal/context` |
+| 记忆 | `src/memdir/*` | `internal/memory` |
+| Skills | `src/skills/*` | `internal/skill` |
+| MCP | `src/services/mcp/*` | `internal/mcp` |
+| Hooks | `src/types/hooks.ts`、`src/utils/hooks*` | `internal/hook` |
+| 会话持久化 | `src/utils/sessionStorage.ts` | `internal/session` |
+| 本地 HTTP / WebSocket | `../anc-desktop/src/server/*` | `internal/server` |
+| IM 适配 | `../anc-desktop/adapters/*` | `internal/im` |
+
+### 工具集（按参考实现）
+
+- 文件：`Read`、`Write`、`Edit`、`Glob`、`Grep`、`NotebookEdit`
+- 执行：`Bash`、`PowerShell`
+- 网络：`WebFetch`、`WebSearch`
+- 协作：`Agent`、`SendMessage`、`TeamCreate`、`TeamDelete`、`Task*`、`TodoWrite`、`AskUserQuestion`
+- 流程：`EnterPlanMode`、`ExitPlanMode`、`EnterWorktree`、`ExitWorktree`
+- 扩展：`Skill`、`MCP`、`ListMcpResources`、`ReadMcpResource`、`ToolSearch`、`ScheduleCron`
+- 代码智能：`LSP`
+- 每个工具都要定义：输入 schema、给模型看的描述、`call`、`checkPermissions`、`isReadOnly`、`isConcurrencySafe`、结果到 API block 的映射。
+
+### 权限与会话
+
+- 权限模式：`default`、`acceptEdits`、`plan`、`bypassPermissions`、`dontAsk`，另有内部 `auto`。桌面端展示为五档，后端按模式 + 规则（工具名、参数模式、工作目录）判定。
+- 规则来源：用户设置、项目设置、会话临时授权、always allow / always deny。
+- 会话：每个会话一条追加式 transcript，记录用户消息、assistant 消息、tool_use/tool_result、压缩边界、usage；恢复时按边界重放。
+- 上下文注入：`AGENTS.md` / `CLAUDE.md`、git 状态与最近提交、可用 Skills 清单、可用 SubAgent 清单、MCP 指令。
+
+### 上下文、记忆与技能
+
+- **压缩**：参考实现有 `autoCompact`、`microCompact`、`sessionMemoryCompact` 三种路径；先用轻量手段删减旧工具结果，再让独立 Agent 生成摘要并写入压缩边界。
+- **记忆**：`MEMORY.md` 是索引（最多 200 行 / 25KB），每条记忆一个文件并带 frontmatter；每轮开始用一次侧查询挑出最多 5 条相关记忆注入上下文。
+- **Skills**：从 policy/managed、user、project、plugin、bundled、MCP 六类来源加载 `SKILL.md`；frontmatter 提供名称和描述，正文按需加载（渐进披露），通过 `Skill` 工具调用。
+- **Hooks**：支持 `PreToolUse`、`PostToolUse`、`PostToolUseFailure`、`UserPromptSubmit`、`SessionStart`、`SubagentStart`、`PermissionRequest`、`PermissionDenied`、`Notification`、`Elicitation`、`FileChanged`、`CwdChanged`、`WorktreeCreate` 等事件。
+
+### 参考实现边界
+
+| 目录 | 作用 |
+|---|---|
+| `../cc/src` | Agent 引擎原始实现：循环、工具、权限、压缩、记忆、Skills、MCP、Hooks |
+| `../anc-desktop/src` | 在 cc 基础上的扩展：多 Provider、SubAgent/Teams、本地 Server、H5、任务、目标、主动模式 |
+| `../anc-desktop/desktop` | Electron 桌面壳与 React UI，是本项目 UI 与交互的对照物 |
+| `../anc-desktop/adapters` | Telegram / 飞书 / 微信 / 钉钉 / WhatsApp 适配器 |
+
+### 建议实现顺序
+
+1. Agent 循环 + 流式事件 + Tool 契约 + 文件/命令工具 + 权限审批
+2. 会话持久化/恢复 + 上下文压缩 + 系统提示注入
+3. MCP + Skills + 记忆 + Hooks
+4. SubAgent / Teams / 后台任务
+5. Diff、预览、终端、搜索等桌面 UI 能力
+6. 本地 Server、H5 远程访问、IM 适配
+
 
 ## 技术栈
 
@@ -46,14 +142,28 @@ Wails 应用（单个 Go 进程）
 ```text
 main.go                  Wails 入口：窗口配置、资源嵌入、Bind
 internal/app/            Wails 绑定对象（前端可调用方法的唯一入口）
+internal/agent/          Agent 循环、流式事件、会话编排（规划）
+internal/tool/           Tool 契约、注册表与内置工具（规划）
+internal/permission/     权限模式、规则与审批（规划）
+internal/llm/            模型 Provider 与流式客户端（规划）
+internal/context/        系统提示、token 预算、压缩（规划）
+internal/memory/         记忆扫描与召回（规划）
+internal/skill/          SKILL.md 加载与执行（规划）
+internal/mcp/            MCP 客户端与传输（规划）
+internal/subagent/       SubAgent / Teams（规划）
+internal/task/           前台/后台任务与取消（规划）
+internal/hook/           Hook 事件执行（规划）
+internal/session/        transcript 与恢复（规划）
+internal/server/         本地 HTTP / WebSocket / H5（规划）
+internal/im/             IM 适配（规划）
 frontend/src/            React 源码（components / stores / lib 按需新增）
 frontend/wailsjs/        自动生成的 TS 绑定，禁止手改
 frontend/dist/           前端构建产物，由 go:embed 打进二进制
-vendor/                  Go 依赖源码，含 Wails，便于直接阅读
+vendor/                  Go 依赖源码，含 Wails，便于直接阅读（已 gitignore）
 wails.json               Wails 项目配置
 ```
 
-后续新增后端能力时：业务实现放 `internal/<domain>/`，在 `internal/app` 增加薄封装方法并绑定；前端通过生成的 `wailsjs/go/app/App` 调用。
+后续新增后端能力时：Agent 相关实现放上表中的 `internal/` 领域包，在 `internal/app` 增加薄封装方法并绑定；前端通过生成的 `wailsjs/go/app/App` 调用。
 
 ## 开发命令
 
