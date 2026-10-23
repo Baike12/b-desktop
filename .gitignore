@@ -1,0 +1,22 @@
+# Wails build output
+build/bin/
+build/darwin/
+build/windows/
+build/linux/
+
+# Go
+vendor/
+*.test
+*.out
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/.tmp/
+frontend/package.json.md5
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
