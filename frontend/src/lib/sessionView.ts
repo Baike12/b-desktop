@@ -1,0 +1,67 @@
+import type { app } from '../../wailsjs/go/models'
+import type { ToolResultView } from '../types/agent'
+import type { AssistantBlock, ChatItem } from '../types/chat'
+
+// viewToItems 把 LoadSession 的历史消息转成消息流模型。
+// tool_result 消息在历史里是独立的 user 消息，这里按 toolUseId 回挂到工具卡片上，
+// 不再渲染成用户气泡。
+export function viewToItems(view: app.SessionViewDTO): ChatItem[] {
+  const results = new Map<string, ToolResultView>()
+  for (const message of view.messages) {
+    for (const block of message.blocks) {
+      if (block.type !== 'tool_result' || !block.toolUseId) continue
+      const text = block.text ?? ''
+      results.set(block.toolUseId, {
+        preview: text,
+        isError: Boolean(block.isError),
+        truncated: false,
+        bytes: text.length,
+      })
+    }
+  }
+
+  const items: ChatItem[] = []
+  for (const message of view.messages) {
+    if (message.role === 'user') {
+      const text = message.blocks
+        .filter((block) => block.type === 'text')
+        .map((block) => block.text ?? '')
+        .join('\n')
+      if (text.trim() === '') continue
+      items.push({ kind: 'user', id: message.id, text, timeMs: message.timeMs })
+      continue
+    }
+    if (message.role !== 'assistant') continue
+
+    const blocks: AssistantBlock[] = []
+    message.blocks.forEach((block, index) => {
+      if (block.type === 'text') {
+        blocks.push({ kind: 'text', index, text: block.text ?? '' })
+      } else if (block.type === 'thinking') {
+        blocks.push({ kind: 'thinking', index, text: block.thinking ?? '' })
+      } else if (block.type === 'tool_use') {
+        const toolUseId = block.toolUseId ?? `${message.id}:${index}`
+        const result = results.get(toolUseId)
+        blocks.push({
+          kind: 'tool',
+          index,
+          toolUseId,
+          toolName: block.toolName ?? 'tool',
+          inputText: '',
+          input: block.input,
+          status: result ? (result.isError ? 'error' : 'success') : 'running',
+          result,
+        })
+      }
+    })
+    if (blocks.length === 0) continue
+    items.push({
+      kind: 'assistant',
+      id: message.id,
+      blocks,
+      timeMs: message.timeMs,
+      streaming: false,
+    })
+  }
+  return items
+}

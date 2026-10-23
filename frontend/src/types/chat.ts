@@ -1,0 +1,57 @@
+import type { ToolResultView } from './agent'
+
+// ToolStatus 是工具卡片的状态机：
+// pending（参数流式中）→ running（执行中）→ waiting（等待审批）
+// → success / error / denied。
+export type ToolStatus =
+  | 'pending'
+  | 'running'
+  | 'waiting'
+  | 'success'
+  | 'error'
+  | 'denied'
+
+// AssistantBlock 是 assistant 消息内的一个块。index 是后端 blockIndex，
+// 在同一条消息内唯一，用来做 React key 与增量定位。
+export type AssistantBlock =
+  | { kind: 'text'; index: number; text: string }
+  | { kind: 'thinking'; index: number; text: string }
+  | {
+      kind: 'tool'
+      index: number
+      toolUseId: string
+      toolName: string
+      // 参数流式阶段的原始 JSON 片段，参数完整后由 input 取代。
+      inputText: string
+      input: unknown
+      status: ToolStatus
+      result?: ToolResultView
+      progress?: string
+      note?: string
+    }
+
+export type AssistantItem = {
+  kind: 'assistant'
+  id: string
+  blocks: AssistantBlock[]
+  timeMs: number
+  streaming: boolean
+  discarded?: boolean
+}
+
+export type UserItem = {
+  kind: 'user'
+  id: string
+  text: string
+  timeMs: number
+}
+
+export type SystemItem = {
+  kind: 'system'
+  id: string
+  tone: 'info' | 'error'
+  text: string
+  timeMs: number
+}
+
+export type ChatItem = UserItem | AssistantItem | SystemItem

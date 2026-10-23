@@ -1,0 +1,55 @@
+# 前端 harness（浏览器验证）
+
+不启动 Wails，也不操作真实鼠标键盘。Vite 直接提供 `harness.html`，页面挂载**真实的 `<App/>`**（组件、store、reducer 全是生产代码），只把两层 Wails 接口替换成内存假实现：
+
+- `window.go.app.App.*`：`ListSessions` / `ListProjects` / `OpenProject` / `AddProject` / `LoadSession` / `CreateSession` / `SendMessage` / `CancelTurn` / `ApproveTool` / `SetPermissionMode` / `GetProviderConfig`
+- `window.runtime.*`：`EventsOnMultiple` / `EventsOff` / `WindowSet*Theme` / `Environment`
+
+假后端带三个项目（`anc-harness` 有会话、`anc-empty` 空分组、`anc-demo` 由 `OpenProject` 动态加入）、一份固定的 markdown 会话和一份空会话；`SendMessage` 会按 16ms 一帧推送 `text_delta`，走真实的事件归并链路。
+
+## 启动
+
+```bash
+cd frontend
+npm run harness        # 5173 是 strictPort；先探测端口，已占用就直接复用
+# 打开 http://localhost:5173/harness.html
+```
+
+产物构建（`npm run build`）只以 `index.html` 为入口，`harness.html` 不会进入 `frontend/dist`，不会打进 Wails 二进制。
+
+## 断言钩子
+
+| 钩子 | 说明 |
+|---|---|
+| `await window.__ancReady` | 等 `init()` 与首个会话加载完成 |
+| `window.__anc.metrics()` | 一次取回 DOM/状态指标（见下） |
+| `window.__anc.send(text)` | 走真实 `SendMessage`，触发模拟流式回复 |
+| `window.__anc.emit(events)` | 注入任意 `agent:event`（数组或单条） |
+| `window.__anc.select(id)` | 切换会话 |
+| `window.__anc.openProject()` | 走真实 `OpenProject`，模拟选中 `/tmp/anc-demo` |
+| `window.__anc.newSession(path?)` | 在指定项目里新建会话 |
+| `window.__anc.setTheme('light'｜'dark'｜'system')` | 切换主题 |
+| `window.__anc.openSettings()` / `closeSettings()` | 打开/关闭设置页 |
+| `window.__anc.toggleSidebar()` | 折叠/展开侧边栏 |
+| `window.__anc.setPermissionMode(mode)` | 切换会话权限模式 |
+| `window.__anc.text()` / `bootErrors()` | 页面文本 / 启动期错误 |
+
+`metrics()` 覆盖：`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
+
+## 已验证的基线
+
+- Markdown：`headings` / `codeBlocks` / `tables` / `inlineCode` / `links` 均大于 0，代码块含高亮 token。
+- Mermaid：合法代码块渲染为 `[data-testid="mermaid"] .mermaid-svg > svg`（`mermaidSvgs === 1`），非法代码块回退为 `mermaid-error`（`mermaidErrors === 1`）；流式期间只出现 `mermaid-streaming` 占位、不产生 SVG，结束后才渲染；切换明暗主题会按新配色重绘。点击 `mermaid-expand` 后 `mermaidFullscreen === true` 且 SVG 填满整个应用，按 Esc 关闭并恢复页面滚动。
+- 输入框位置：新会话 `welcome === true` 且 `heroComposer === true`，卡片中心与内容区中心偏差小于 10px；`send()` 后 `welcome === false`，输入框贴底。
+- 模型与上下文：模型名只在输入框内（`headerText` 不含模型），`modelContext` 形如 `deepseek-flash32.4k/128k`，`contextTokens` 来自会话最后一次调用；`enterHintPresent === false`。
+- 设置页：打开后回填 `settingsModelValue` / `settingsContextValue`；修改并保存后 `model`、`contextWindow`、`modelContext` 同步更新。
+- 侧边栏：`toggleSidebar()` 后宽度 71px，仍保留展开、新建任务、设置按钮；刷新后折叠状态保持。
+- 主题：`setTheme('dark')` 后 `document.documentElement.dataset.theme === 'dark'`；设置页文本包含三档外观。
+- 流式：`send()` 中 `running === true`，结束后 `running === false` 且累计用量与 `contextTokens` 更新。
+- 项目：初始 `projectNames === ['anc-harness', 'anc-empty']`、`projectSessionCounts === [2, 0]`，会话按 workDir 归组，未命中项目的会话出现在“其他会话”（`orphanRows === true`）；`openProject()` 后新增 `anc-demo` 并自动建会话；`newSession('/tmp/anc-empty')` 后该组会话数变为 1。
+- 启动期 `bootErrors()` 为空。
+
+## 约束
+
+- 浏览器交互与截图一律走 browseros；不要用系统级鼠标/键盘事件验证，会和用户正在做的工作冲突。
+- 新增断言钩子加在 `src/dev/harness.tsx`，模式照抄现有钩子。

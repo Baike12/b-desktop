@@ -87,7 +87,7 @@
 - 权限模式：`default`、`acceptEdits`、`plan`、`bypassPermissions`、`dontAsk`，另有内部 `auto`。桌面端展示为五档，后端按模式 + 规则（工具名、参数模式、工作目录）判定。
 - 规则来源：用户设置、项目设置、会话临时授权、always allow / always deny。
 - 会话：每个会话一条追加式 transcript，记录用户消息、assistant 消息、tool_use/tool_result、压缩边界、usage；恢复时按边界重放。
-- 上下文注入：`AGENTS.md` / `CLAUDE.md`、git 状态与最近提交、可用 Skills 清单、可用 SubAgent 清单、MCP 指令。
+- 上下文注入：`AGENTS.md`（用户级 + 项目根到工作目录逐级加载，越近优先级越高）、git 状态与最近提交、可用 Skills 清单、可用 SubAgent 清单、MCP 指令。
 
 ### 上下文、记忆与技能
 
@@ -154,6 +154,7 @@ internal/subagent/       SubAgent / Teams（规划）
 internal/task/           前台/后台任务与取消（规划）
 internal/hook/           Hook 事件执行（规划）
 internal/session/        transcript 与恢复（规划）
+internal/project/        已打开项目列表（projects.json）
 internal/server/         本地 HTTP / WebSocket / H5（规划）
 internal/im/             IM 适配（规划）
 frontend/src/            React 源码（components / stores / lib 按需新增）
@@ -179,6 +180,17 @@ go mod tidy && go mod vendor   # 依赖变更后同步 vendor
 Wails CLI 安装：`go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0`（默认在 `~/go/bin/wails`）。
 
 `main.go` 用 `go:embed` 嵌入 `frontend/dist`，所以首次执行 `go test ./...` 或 `go build` 前，需要先构建一次前端（`cd frontend && npm install && npm run build`）；直接执行 `wails build` 会自动完成这一步。
+
+## 前端验证（不要操作真实屏幕）
+
+UI 改动一律通过浏览器 harness 验证，不使用系统级鼠标/键盘事件或截图工具，避免干扰用户正在进行的工作。
+
+```bash
+cd frontend && npm run harness   # 5173，strictPort；已占用则直接复用
+# 打开 http://localhost:5173/harness.html
+```
+
+`harness.html` + `src/dev/harness.tsx` 挂载真实的 `<App/>`，只把 `window.go.app.App.*` 与 `window.runtime.*` 换成内存假实现；断言通过 `window.__ancReady`、`window.__anc.metrics()`、`__anc.send()`、`__anc.setTheme()` 等钩子完成。浏览器交互与截图使用 browseros。详见 `frontend/HARNESS.md`。`harness.html` 不进构建产物。
 
 ## 前后端边界（Wails 约定）
 

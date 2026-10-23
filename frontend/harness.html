@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>anc-dsk harness</title>
+    <style>
+      html,
+      body,
+      #root {
+        margin: 0;
+        height: 100%;
+      }
+    </style>
+    <script>
+      // 启动期错误捕获：模块图执行失败时页面只会白屏，错误只能从这里接住。
+      window.__bootErrors = [];
+      window.addEventListener("error", (e) =>
+        window.__bootErrors.push(String((e.error && e.error.stack) || e.message)),
+      );
+      window.addEventListener("unhandledrejection", (e) =>
+        window.__bootErrors.push(String((e.reason && e.reason.stack) || e.reason)),
+      );
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/dev/harness.tsx"></script>
+  </body>
+</html>
