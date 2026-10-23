@@ -7,7 +7,6 @@ import (
 	"github.com/Baike12/b-desktop/internal/agent"
 	"github.com/Baike12/b-desktop/internal/mcp"
 	"github.com/Baike12/b-desktop/internal/subagent"
-	"github.com/Baike12/b-desktop/internal/task"
 	"github.com/Baike12/b-desktop/internal/telemetry"
 )
 
@@ -57,13 +56,6 @@ func (a *App) buildExtensions(workDir string) (agent.Extensions, error) {
 		ext.Subagent = manager
 	}
 
-	// 定时任务：ScheduleCron 工具；调度循环由 Startup 启动。
-	if scheduler, err := a.taskComponent(); err != nil {
-		reportExtensionError("task", err)
-	} else {
-		ext.Tools = append(ext.Tools, scheduler.Tools()...)
-	}
-
 	// 用量追踪：模型调用指标落盘。
 	if sink, err := a.telemetryComponent(); err != nil {
 		reportExtensionError("telemetry", err)
@@ -79,19 +71,8 @@ func reportExtensionError(component string, err error) {
 	fmt.Fprintf(os.Stderr, "app: extension %s disabled: %v\n", component, err)
 }
 
-// startTaskScheduler 在 Wails 启动后拉起定时任务调度循环。
-// 调度器无法初始化时只写 stderr，不影响应用启动。
-func (a *App) startTaskScheduler() {
-	scheduler, err := a.taskComponent()
-	if err != nil {
-		reportExtensionError("task scheduler", err)
-		return
-	}
-	scheduler.Start(a.lifeCtx())
-}
-
 // closeExtensions 关闭并释放全部扩展组件。按依赖顺序执行：
-// 定时任务（停止触发）→ 子 Agent（取消后台任务）→ MCP（结束服务器进程）→ 用量存储。
+// 子 Agent（取消后台任务）→ MCP（结束服务器进程）→ 用量存储。
 // 每个组件的 Close 都要求可重复调用；extData 在关闭前摘空，避免重复关闭。
 func (a *App) closeExtensions() {
 	a.extMu.Lock()
@@ -102,11 +83,6 @@ func (a *App) closeExtensions() {
 	a.extData = nil
 	a.extMu.Unlock()
 
-	for _, value := range values {
-		if scheduler, ok := value.(*task.Scheduler); ok {
-			_ = scheduler.Close()
-		}
-	}
 	for _, value := range values {
 		if manager, ok := value.(*subagent.Manager); ok {
 			_ = manager.Close()

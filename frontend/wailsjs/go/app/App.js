@@ -22,20 +22,16 @@ export function CancelTurn(arg1) {
   return window['go']['app']['App']['CancelTurn'](arg1);
 }
 
+export function CreateProjectWorktree(arg1, arg2, arg3) {
+  return window['go']['app']['App']['CreateProjectWorktree'](arg1, arg2, arg3);
+}
+
 export function CreateSession(arg1) {
   return window['go']['app']['App']['CreateSession'](arg1);
 }
 
 export function CreateSkill(arg1) {
   return window['go']['app']['App']['CreateSkill'](arg1);
-}
-
-export function CreateTask(arg1) {
-  return window['go']['app']['App']['CreateTask'](arg1);
-}
-
-export function CreateWorktree(arg1, arg2, arg3) {
-  return window['go']['app']['App']['CreateWorktree'](arg1, arg2, arg3);
 }
 
 export function DeleteHook(arg1, arg2, arg3, arg4, arg5) {
@@ -48,14 +44,6 @@ export function DeleteMCPServer(arg1) {
 
 export function DeleteSkill(arg1) {
   return window['go']['app']['App']['DeleteSkill'](arg1);
-}
-
-export function DeleteTask(arg1) {
-  return window['go']['app']['App']['DeleteTask'](arg1);
-}
-
-export function GenerateImage(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['app']['App']['GenerateImage'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function GetProviderConfig() {
@@ -98,6 +86,10 @@ export function ListPermissionRules(arg1) {
   return window['go']['app']['App']['ListPermissionRules'](arg1);
 }
 
+export function ListProjectWorktrees(arg1) {
+  return window['go']['app']['App']['ListProjectWorktrees'](arg1);
+}
+
 export function ListProjects() {
   return window['go']['app']['App']['ListProjects']();
 }
@@ -124,14 +116,6 @@ export function ListSubagentTasks() {
 
 export function ListSubagentTypes() {
   return window['go']['app']['App']['ListSubagentTypes']();
-}
-
-export function ListTasks() {
-  return window['go']['app']['App']['ListTasks']();
-}
-
-export function ListWorktrees(arg1) {
-  return window['go']['app']['App']['ListWorktrees'](arg1);
 }
 
 export function LoadSession(arg1) {
@@ -162,8 +146,8 @@ export function RemovePermissionRule(arg1, arg2) {
   return window['go']['app']['App']['RemovePermissionRule'](arg1, arg2);
 }
 
-export function RemoveWorktree(arg1, arg2) {
-  return window['go']['app']['App']['RemoveWorktree'](arg1, arg2);
+export function RemoveProjectWorktree(arg1, arg2) {
+  return window['go']['app']['App']['RemoveProjectWorktree'](arg1, arg2);
 }
 
 export function SaveHook(arg1, arg2) {
@@ -188,10 +172,6 @@ export function SetPermissionMode(arg1, arg2) {
 
 export function SetProviderConfig(arg1) {
   return window['go']['app']['App']['SetProviderConfig'](arg1);
-}
-
-export function SetTaskEnabled(arg1, arg2) {
-  return window['go']['app']['App']['SetTaskEnabled'](arg1, arg2);
 }
 
 export function UpdateSkill(arg1) {

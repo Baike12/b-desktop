@@ -12,23 +12,17 @@ export function CancelSubagentTask(arg1:string):Promise<void>;
 
 export function CancelTurn(arg1:string):Promise<void>;
 
+export function CreateProjectWorktree(arg1:string,arg2:string,arg3:string):Promise<app.WorktreeDTO>;
+
 export function CreateSession(arg1:app.CreateSessionInput):Promise<app.SessionInfoDTO>;
 
 export function CreateSkill(arg1:app.SkillInput):Promise<app.SkillDetailDTO>;
-
-export function CreateTask(arg1:app.CreateTaskInput):Promise<app.TaskDTO>;
-
-export function CreateWorktree(arg1:string,arg2:string,arg3:string):Promise<app.WorktreeDTO>;
 
 export function DeleteHook(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<Array<app.HookDTO>>;
 
 export function DeleteMCPServer(arg1:string):Promise<void>;
 
 export function DeleteSkill(arg1:string):Promise<void>;
-
-export function DeleteTask(arg1:string):Promise<void>;
-
-export function GenerateImage(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<app.ImageResultDTO>;
 
 export function GetProviderConfig():Promise<app.ProviderConfigDTO>;
 
@@ -50,6 +44,8 @@ export function ListModelPresets():Promise<Array<app.ModelPresetDTO>>;
 
 export function ListPermissionRules(arg1:string):Promise<Array<app.RuleDTO>>;
 
+export function ListProjectWorktrees(arg1:string):Promise<app.ProjectWorktreesDTO>;
+
 export function ListProjects():Promise<Array<app.ProjectDTO>>;
 
 export function ListRequestTraces(arg1:number):Promise<Array<app.RequestTraceDTO>>;
@@ -63,10 +59,6 @@ export function ListSkills():Promise<Array<app.SkillDTO>>;
 export function ListSubagentTasks():Promise<Array<app.SubagentTaskDTO>>;
 
 export function ListSubagentTypes():Promise<Array<app.SubagentTypeDTO>>;
-
-export function ListTasks():Promise<Array<app.TaskDTO>>;
-
-export function ListWorktrees(arg1:string):Promise<Array<app.WorktreeDTO>>;
 
 export function LoadSession(arg1:string):Promise<app.SessionViewDTO>;
 
@@ -82,7 +74,7 @@ export function ReloadSkills():Promise<Array<app.SkillDTO>>;
 
 export function RemovePermissionRule(arg1:string,arg2:string):Promise<void>;
 
-export function RemoveWorktree(arg1:string,arg2:string):Promise<void>;
+export function RemoveProjectWorktree(arg1:string,arg2:string):Promise<void>;
 
 export function SaveHook(arg1:string,arg2:app.HookInput):Promise<Array<app.HookDTO>>;
 
@@ -95,7 +87,5 @@ export function SendMessage(arg1:string,arg2:string):Promise<app.SendMessageResu
 export function SetPermissionMode(arg1:string,arg2:string):Promise<void>;
 
 export function SetProviderConfig(arg1:app.ProviderConfigInput):Promise<void>;
-
-export function SetTaskEnabled(arg1:string,arg2:boolean):Promise<void>;
 
 export function UpdateSkill(arg1:app.SkillInput):Promise<app.SkillDetailDTO>;

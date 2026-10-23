@@ -6,6 +6,7 @@ import { groupSessionsByProject } from '../lib/projects'
 import { useAppStore } from '../stores/app'
 import { useSettingsStore } from '../stores/settings'
 import { useWorkbenchStore, type PanelId } from '../stores/workbench'
+import WorktreeMenu, { type WorktreeMenuAnchor } from './WorktreeMenu'
 
 const statusLabel = {
   idle: '正在连接后端…',
@@ -105,7 +106,8 @@ function SearchIcon() {
   )
 }
 
-function ClockIcon() {
+// WorktreeIcon 是分支加加号，用在项目行“新建工作树”按钮上。
+function WorktreeIcon({ className = 'size-3.5' }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -114,89 +116,15 @@ function ClockIcon() {
       strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="size-4 shrink-0"
+      className={`shrink-0 ${className}`}
       aria-hidden="true"
     >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  )
-}
-
-function BranchIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-4 shrink-0"
-      aria-hidden="true"
-    >
-      <circle cx="6" cy="6" r="2.5" />
-      <circle cx="6" cy="18" r="2.5" />
-      <circle cx="18" cy="8" r="2.5" />
-      <path d="M6 8.5v7M18 10.5c0 3-2 5-5.5 6" />
-    </svg>
-  )
-}
-
-function ExtensionsIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-4 shrink-0"
-      aria-hidden="true"
-    >
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
-    </svg>
-  )
-}
-
-function ChartIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-4 shrink-0"
-      aria-hidden="true"
-    >
-      <path d="M4 20V4" />
-      <path d="M4 20h16" />
-      <path d="M8 16v-4M12 16V8M16 16v-6M20 16v-9" />
-    </svg>
-  )
-}
-
-function ImageIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-4 shrink-0"
-      aria-hidden="true"
-    >
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <circle cx="8.5" cy="9.5" r="1.5" />
-      <path d="m4 17 5-5 4 4 3-3 4 4" />
+      <circle cx="6" cy="5" r="2.2" />
+      <circle cx="6" cy="19" r="2.2" />
+      <circle cx="17" cy="7" r="2.2" />
+      <path d="M6 7.2v9.6" />
+      <path d="M17 9.2c0 3.2-2.4 5.5-6.3 6.4" />
+      <path d="M17.5 16v5M15 18.5h5" />
     </svg>
   )
 }
@@ -208,14 +136,8 @@ interface NavItem {
 }
 
 // 一级导航：对话之外的工作台视图，展开态显示文字，折叠态只留图标。
-const NAV_ITEMS: readonly NavItem[] = [
-  { id: 'search', label: '搜索', Icon: SearchIcon },
-  { id: 'tasks', label: '定时任务', Icon: ClockIcon },
-  { id: 'worktrees', label: 'Worktree', Icon: BranchIcon },
-  { id: 'extensions', label: '扩展管理', Icon: ExtensionsIcon },
-  { id: 'usage', label: '用量', Icon: ChartIcon },
-  { id: 'image', label: '图片生成', Icon: ImageIcon },
-]
+// MCP、技能、子 Agent 与用量统一收进设置页；Worktree 挂在项目行上，不单独设入口。
+const NAV_ITEMS: readonly NavItem[] = [{ id: 'search', label: '搜索', Icon: SearchIcon }]
 
 function PanelIcon({ open }: { open: boolean }) {
   return (
@@ -279,9 +201,10 @@ interface ProjectSectionProps {
   onToggle: (path: string) => void
   onSelect: (id: string) => void | Promise<void>
   onCreate: (path: string) => void | Promise<void>
+  onNewWorktree: (project: app.ProjectDTO, anchor: WorktreeMenuAnchor) => void
 }
 
-// ProjectSection 是侧边栏的一个项目分组：标题行可折叠，悬停出现“新建会话”。
+// ProjectSection 是侧边栏的一个项目分组：标题行可折叠，悬停出现“新建工作树”与“新建会话”。
 const ProjectSection = memo(function ProjectSection({
   project,
   sessions,
@@ -290,6 +213,7 @@ const ProjectSection = memo(function ProjectSection({
   onToggle,
   onSelect,
   onCreate,
+  onNewWorktree,
 }: ProjectSectionProps) {
   return (
     <section data-testid="project-item" data-project={project.name} className="mt-1">
@@ -305,11 +229,19 @@ const ProjectSection = memo(function ProjectSection({
           <span className="min-w-0 flex-1 truncate text-xs font-medium text-fg">
             {project.name}
           </span>
-          {sessions.length > 0 && (
-            <span className="shrink-0 text-[10px] tabular-nums text-subtle">
-              {sessions.length}
-            </span>
-          )}
+        </button>
+        <button
+          type="button"
+          data-testid="project-new-worktree"
+          aria-label={`在 ${project.name} 中新建工作树`}
+          title="新建工作树"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect()
+            onNewWorktree(project, { top: rect.top, bottom: rect.bottom, right: rect.right })
+          }}
+          className="cursor-pointer rounded p-1 text-subtle opacity-0 transition hover:bg-raised hover:text-fg focus:opacity-100 group-hover:opacity-100"
+        >
+          <WorktreeIcon />
         </button>
         <button
           type="button"
@@ -366,13 +298,22 @@ export default function Sidebar() {
   const toggleSidebar = useSettingsStore((state) => state.toggleSidebar)
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  // worktreeMenu 同一时刻只服务一个项目；锚点是项目行按钮的视口矩形。
+  const [worktreeMenu, setWorktreeMenu] = useState<{
+    project: app.ProjectDTO
+    anchor: WorktreeMenuAnchor
+  } | null>(null)
   const { groups, orphans } = useMemo(
     () => groupSessionsByProject(projects, sessions),
     [projects, sessions],
   )
 
   // 当前会话所属项目始终展开；“新建任务”也优先落在该项目里。
-  const activeProjectPath = projects.find((project) => project.path === workDir)?.path ?? ''
+  // 工作树会话的 workDir 不是项目路径，优先使用后端标注的 projectPath。
+  const activeProjectPath =
+    sessions.find((session) => session.id === activeId)?.projectPath ||
+    projects.find((project) => project.path === workDir)?.path ||
+    ''
   const targetPath = activeProjectPath || projects[0]?.path
   const toggleProject = useCallback((path: string) => {
     setCollapsed((state) => ({ ...state, [path]: !state[path] }))
@@ -385,6 +326,18 @@ export default function Sidebar() {
     },
     [newSession],
   )
+
+  // 打开工作树菜单时展开该项目，创建出的工作树会话立即出现在任务列表里。
+  const openWorktreeMenu = useCallback((project: app.ProjectDTO, anchor: WorktreeMenuAnchor) => {
+    setCollapsed((state) => ({ ...state, [project.path]: false }))
+    setWorktreeMenu({ project, anchor })
+  }, [])
+  const closeWorktreeMenu = useCallback(() => setWorktreeMenu(null), [])
+
+  // 折叠侧边栏时项目行消失，锚点失效，菜单一并关闭。
+  useEffect(() => {
+    if (sidebarCollapsed) setWorktreeMenu(null)
+  }, [sidebarCollapsed])
 
   // 切换到某个会话时展开它所属的项目；其余分组的折叠状态保持不变。
   useEffect(() => {
@@ -545,14 +498,9 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="flex items-center justify-between px-4 pb-1.5 pt-2 text-[10px] font-medium uppercase tracking-wider text-subtle">
-        <span>任务列表</span>
-        <span className="tabular-nums">{sessions.length}</span>
-      </div>
-
       <nav
         data-testid="project-list"
-        className="min-h-0 flex-1 overflow-y-auto px-2 pb-4"
+        className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-2"
         aria-label="项目与会话"
       >
         {projects.length === 0 && sessions.length === 0 && (
@@ -575,6 +523,7 @@ export default function Sidebar() {
               onToggle={toggleProject}
               onSelect={selectSession}
               onCreate={createSession}
+              onNewWorktree={openWorktreeMenu}
             />
           )
         })}
@@ -609,6 +558,16 @@ export default function Sidebar() {
           设置
         </button>
       </div>
+
+      {worktreeMenu && (
+        <WorktreeMenu
+          project={worktreeMenu.project}
+          anchor={worktreeMenu.anchor}
+          sessions={sessions}
+          onStartSession={createSession}
+          onClose={closeWorktreeMenu}
+        />
+      )}
     </aside>
   )
 }

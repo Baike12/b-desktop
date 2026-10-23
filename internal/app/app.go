@@ -539,8 +539,8 @@ func newApp(cfg Config, sender Sender, store session.Store, factory ProviderFact
 	return a
 }
 
-// Startup 在窗口加载前由 Wails 调用：保存生命周期 context，必要时创建文件存储，
-// 并启动定时任务调度循环。存储或调度器初始化失败只记录错误，不阻止窗口加载。
+// Startup 在窗口加载前由 Wails 调用：保存生命周期 context，必要时创建文件存储。
+// 存储初始化失败只记录错误，不阻止窗口加载。
 func (a *App) Startup(ctx context.Context) {
 	a.mu.Lock()
 	if ctx != nil {
@@ -561,14 +561,12 @@ func (a *App) Startup(ctx context.Context) {
 		}
 		a.mu.Unlock()
 	}
-
-	a.startTaskScheduler()
 }
 
 // Shutdown 在应用退出时由 Wails 调用，幂等：
 //  1. 标记关闭，取消每个会话的当前轮次与待审批项，释放引擎；
 //  2. 等待进行中的轮次退出（最多 shutdownTimeout）；
-//  3. 关闭扩展组件：定时任务调度器、子 Agent、MCP 连接与用量存储；
+//  3. 关闭扩展组件：子 Agent、MCP 连接与用量存储；
 //  4. Flush 并关闭进程内唯一的会话存储。
 func (a *App) Shutdown(ctx context.Context) {
 	_ = ctx // 清理使用独立的后台超时，不复用可能已被取消的入参 ctx。
@@ -684,13 +682,19 @@ func (a *App) CreateSession(in CreateSessionInput) (SessionInfoDTO, error) {
 	a.sessions[id] = newSessionRuntime(meta)
 	a.mu.Unlock()
 
-	return toSessionInfoDTO(session.Info{
+	info := toSessionInfoDTO(session.Info{
 		ID:        id,
 		Title:     title,
 		WorkDir:   workDir,
 		Messages:  0,
 		UpdatedAt: meta.CreatedAt,
-	}, false), nil
+	}, false)
+	if projects, perr := a.projectPaths(); perr == nil {
+		info.ProjectPath = projectPathForWorkDir(workDir, projects)
+	} else {
+		fmt.Fprintf(os.Stderr, "app: resolve project for session %s: %v\n", id, perr)
+	}
+	return info, nil
 }
 
 // OpenProject 弹出系统目录选择框，并把选中的文件夹登记为项目。
@@ -774,13 +778,20 @@ func (a *App) ListSessions() ([]SessionInfoDTO, error) {
 		}
 	}
 
+	projects, err := a.projectPaths()
+	if err != nil {
+		return nil, fmt.Errorf("app: list sessions: %w", err)
+	}
+
 	out := make([]SessionInfoDTO, 0, len(infos))
 	for _, info := range infos {
 		running := false
 		if rt := runtimes[info.ID]; rt != nil {
 			running = rt.isRunning()
 		}
-		out = append(out, toSessionInfoDTO(info, running))
+		item := toSessionInfoDTO(info, running)
+		item.ProjectPath = projectPathForWorkDir(info.WorkDir, projects)
+		out = append(out, item)
 	}
 	return out, nil
 }

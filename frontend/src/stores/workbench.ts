@@ -57,14 +57,8 @@ function withSystemError(items: ChatItem[], text: string): ChatItem[] {
 }
 
 // PanelId 是主内容区的一级视图；'chat' 之外的视图都是独立工作台页面。
-export type PanelId =
-  | 'chat'
-  | 'search'
-  | 'tasks'
-  | 'worktrees'
-  | 'extensions'
-  | 'usage'
-  | 'image'
+// Worktree 不做独立视图：它挂在侧边栏项目行上，创建后直接进入会话。
+export type PanelId = 'chat' | 'search'
 
 // FilePreviewState 是右侧文件树点击文件后的只读预览。
 export interface FilePreviewState {

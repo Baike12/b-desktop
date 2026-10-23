@@ -14,7 +14,9 @@ import { errorMessage, useWorkbenchStore } from '../stores/workbench'
 import ModelPresetPicker from './ModelPresetPicker'
 import McpSettings from './McpSettings'
 import SkillSettings from './SkillSettings'
+import SubagentSettings from './SubagentSettings'
 import HookSettings from './HookSettings'
+import UsagePanel from './UsagePanel'
 
 interface ThemeOption {
   id: ThemeMode
@@ -51,7 +53,7 @@ const PROVIDERS = [
 ] as const
 
 interface NavItem {
-  id: 'appearance' | 'model' | 'mcp' | 'skills' | 'hooks' | 'rules'
+  id: 'appearance' | 'model' | 'mcp' | 'skills' | 'subagents' | 'hooks' | 'usage' | 'rules'
   label: string
   description: string
 }
@@ -74,12 +76,16 @@ const NAV_SECTIONS: readonly NavSection[] = [
     items: [
       { id: 'mcp', label: 'MCP 服务器', description: '配置 stdio 服务器并加载远端工具' },
       { id: 'skills', label: '技能', description: '管理 SKILL.md 与项目级技能' },
+      { id: 'subagents', label: '子 Agent', description: '子 Agent 类型与后台任务' },
       { id: 'hooks', label: '钩子', description: '在 Agent 生命周期事件中运行命令' },
     ],
   },
   {
-    title: '安全',
-    items: [{ id: 'rules', label: '权限规则', description: '当前会话的工具放行、询问与拒绝规则' }],
+    title: '数据与安全',
+    items: [
+      { id: 'usage', label: '用量统计', description: '本地模型请求与 token 消耗' },
+      { id: 'rules', label: '权限规则', description: '当前会话的工具放行、询问与拒绝规则' },
+    ],
   },
 ]
 
@@ -237,6 +243,21 @@ function NavIcon({ id }: { id: TabId }) {
           <path d="M10 14a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 10a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />
         </svg>
       )
+    case 'subagents':
+      return (
+        <svg {...common}>
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 20a6 6 0 0 1 12 0" />
+          <path d="M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 5" />
+        </svg>
+      )
+    case 'usage':
+      return (
+        <svg {...common}>
+          <path d="M4 20V4M4 20h16" />
+          <path d="M8 16v-4M12 16V8M16 16v-6M20 16v-9" />
+        </svg>
+      )
     case 'rules':
       return (
         <svg {...common}>
@@ -249,7 +270,7 @@ function NavIcon({ id }: { id: TabId }) {
   }
 }
 
-// SettingsDialog 是应用设置页：外观、模型配置与权限规则三个标签页。
+// SettingsDialog 是应用设置页：外观、模型、扩展能力、用量与权限规则。
 export default function SettingsDialog() {
   const open = useSettingsStore((state) => state.open)
   const theme = useSettingsStore((state) => state.theme)
@@ -983,7 +1004,9 @@ export default function SettingsDialog() {
 
           {tab === 'mcp' && <McpSettings />}
           {tab === 'skills' && <SkillSettings />}
+          {tab === 'subagents' && <SubagentSettings />}
           {tab === 'hooks' && <HookSettings />}
+          {tab === 'usage' && <UsagePanel showHeader={false} />}
           </div>
         </div>
 

@@ -40,6 +40,7 @@ export default function SkillSettings() {
   const [editingName, setEditingName] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [busyName, setBusyName] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -134,6 +135,12 @@ export default function SkillSettings() {
     }
   }
 
+  const keyword = query.trim().toLowerCase()
+  const filtered =
+    keyword === ''
+      ? skills
+      : skills.filter((skill) => skill.name.toLowerCase().includes(keyword))
+
   return (
     <section role="tabpanel" aria-label="技能" data-testid="settings-skills">
       <div className="flex items-center justify-between">
@@ -224,6 +231,17 @@ export default function SkillSettings() {
         </div>
       )}
 
+      <div className="mt-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="按名称过滤…"
+          aria-label="按名称过滤技能"
+          className={fieldClass}
+        />
+      </div>
+
       <div className="mt-3 space-y-2">
         {loading && skills.length === 0 && <p className="text-xs text-subtle">正在扫描技能…</p>}
         {!loading && skills.length === 0 && !form && (
@@ -232,7 +250,12 @@ export default function SkillSettings() {
             <p className="mt-1 text-[11px] text-subtle">新建一个技能，Agent 会在系统提示里看到它的名称与描述</p>
           </div>
         )}
-        {skills.map((skill) => (
+        {!loading && skills.length > 0 && filtered.length === 0 && (
+          <p className="rounded-lg border border-dashed border-line px-4 py-6 text-center text-xs text-subtle">
+            没有匹配「{query.trim()}」的技能
+          </p>
+        )}
+        {filtered.map((skill) => (
           <div
             key={`${skill.source}:${skill.name}`}
             data-testid={`skill-item-${skill.name}`}

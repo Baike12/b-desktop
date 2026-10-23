@@ -28,16 +28,19 @@ type SendMessageResult struct {
 
 // SessionInfoDTO 是会话列表项。UpdatedAtMS 是 Unix 毫秒。
 type SessionInfoDTO struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	WorkDir     string `json:"workDir"`
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	WorkDir string `json:"workDir"`
+	// ProjectPath 是会话归属的项目路径。工作树会话的 WorkDir 与它不同，
+	// 前端据此把工作树会话归到主项目下。
+	ProjectPath string `json:"projectPath,omitempty"`
 	Messages    int    `json:"messages"`
 	UpdatedAtMS int64  `json:"updatedAtMs"`
 	Running     bool   `json:"running"`
 }
 
 // ProjectDTO 是侧边栏项目列表项。Path 是解析后的绝对路径，
-// 会话按 WorkDir 与它精确匹配来归属项目。
+// 普通会话按 WorkDir 精确匹配归属项目，工作树会话按 ProjectPath 归属。
 type ProjectDTO struct {
 	Path      string `json:"path"`
 	Name      string `json:"name"`

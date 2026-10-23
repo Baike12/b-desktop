@@ -16,8 +16,9 @@ function normalizePath(path: string): string {
   return path
 }
 
-// groupSessionsByProject 把会话按 workDir 精确归属到已打开项目。
-// 未命中任何项目的会话单独返回，避免它们从侧边栏消失。
+// groupSessionsByProject 把会话归到已打开项目。
+// 普通会话按 workDir 精确匹配；工作树会话由后端标注 projectPath，
+// 因此会归到主项目而不是落进“其他会话”。
 export function groupSessionsByProject(
   projects: app.ProjectDTO[],
   sessions: app.SessionInfoDTO[],
@@ -29,7 +30,7 @@ export function groupSessionsByProject(
 
   const orphans: app.SessionInfoDTO[] = []
   for (const session of sessions) {
-    const bucket = byPath.get(normalizePath(session.workDir))
+    const bucket = byPath.get(normalizePath(session.projectPath || session.workDir))
     if (bucket) bucket.push(session)
     else orphans.push(session)
   }

@@ -7,17 +7,17 @@
 要复刻的核心能力（按重要性排序）：
 
 1. **Agent 运行时**：模型流式循环、工具调用与编排、权限审批、上下文压缩、会话恢复
-2. **Agent 扩展**：SubAgent / Agent Teams、Skills、记忆、MCP、Hooks、定时任务
+2. **Agent 扩展**：SubAgent / Agent Teams、Skills、记忆、MCP、Hooks
 3. 多会话工作台、会话历史、全局搜索、分支 / Worktree 启动
 4. 工具调用与任务进度展示、Diff 审阅、内置浏览器预览
 5. 五档权限模式与图形化审批
-6. 模型自选（官方账号、第三方预设、本地端点）、图片生成
-7. MCP / SubAgent / Skills 可视化管理与技能市场
-8. 模型请求追踪、用量统计、定时任务
+6. 模型自选（官方账号、第三方预设、本地端点）
+7. MCP / SubAgent / Skills 可视化管理
+8. 模型请求追踪、用量统计
 9. Computer Use、桌面宠物、多主题
 10. H5 远程访问、IM 接入（Telegram / 飞书 / 微信 / 钉钉 / WhatsApp）
 
-当前已实现 Agent 运行时、扩展体系（MCP / Skills / Hooks / SubAgent / 定时任务）、工作台与会话持久化；本地 Server、H5、IM 适配等能力按文末顺序继续补齐。
+当前已实现 Agent 运行时、扩展体系（MCP / Skills / Hooks / SubAgent）、工作台与会话持久化；本地 Server、H5、IM 适配等能力按文末顺序继续补齐。
 
 ## Agent 运行时（项目核心）
 
@@ -74,7 +74,7 @@
 - 网络：`WebFetch`、`WebSearch`
 - 协作：`Agent`、`SendMessage`、`TeamCreate`、`TeamDelete`、`Task*`、`TodoWrite`、`AskUserQuestion`
 - 流程：`EnterPlanMode`、`ExitPlanMode`、`EnterWorktree`、`ExitWorktree`
-- 扩展：`Skill`、`MCP`、`ListMcpResources`、`ReadMcpResource`、`ToolSearch`、`ScheduleCron`
+- 扩展：`Skill`、`MCP`、`ListMcpResources`、`ReadMcpResource`、`ToolSearch`
 - 代码智能：`LSP`
 - 每个工具都要定义：输入 schema、给模型看的描述、`call`、`checkPermissions`、`isReadOnly`、`isConcurrencySafe`、结果到 API block 的映射。
 

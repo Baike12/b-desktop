@@ -103,6 +103,7 @@ interface FakeSessionInfo {
   id: string
   title: string
   workDir: string
+  projectPath?: string
   messages: number
   updatedAtMs: number
   running: boolean
@@ -227,6 +228,7 @@ const sessions: FakeSessionInfo[] = [
     id: SESSION_MD,
     title: 'Markdown 验证',
     workDir: '/tmp/bdesk-harness',
+    projectPath: '/tmp/bdesk-harness',
     messages: 3,
     updatedAtMs: NOW - 100_000,
     running: false,
@@ -235,6 +237,7 @@ const sessions: FakeSessionInfo[] = [
     id: SESSION_EMPTY,
     title: '空会话',
     workDir: '/tmp/bdesk-harness',
+    projectPath: '/tmp/bdesk-harness',
     messages: 0,
     updatedAtMs: NOW - 3_600_000,
     running: false,
@@ -278,17 +281,6 @@ let providerConfig: Dict = {
 
 // ---------------- 工作台面板假数据 ----------------
 
-interface FakeTask {
-  id: string
-  cron: string
-  prompt: string
-  workDir: string
-  enabled: boolean
-  createdAtMs: number
-  lastRunAtMs?: number
-  nextRunAtMs?: number
-}
-
 interface FakeWorktree {
   path: string
   branch: string
@@ -298,6 +290,7 @@ interface FakeWorktree {
   locked: boolean
   prunable: boolean
   main: boolean
+  managed: boolean
 }
 
 interface FakeSkill {
@@ -357,20 +350,21 @@ interface FakeRule {
   note?: string
 }
 
-const fakeTasks: FakeTask[] = [
-  {
-    id: 'task_harness_1',
-    cron: '0 9 * * *',
-    prompt: '汇总昨天新增的 Issue 并给出处理建议',
-    workDir: '/tmp/bdesk-harness',
-    enabled: true,
-    createdAtMs: NOW - 86_400_000,
-    lastRunAtMs: NOW - 43_200_000,
-    nextRunAtMs: NOW + 43_200_000,
-  },
-]
-
 const fakeWorktrees = new Map<string, FakeWorktree[]>()
+
+// worktreesRootFor 复刻后端约定：<项目父目录>/worktrees/<项目名>。
+function worktreesRootFor(projectPath: string): string {
+  const parts = projectPath.split('/').filter(Boolean)
+  const name = parts.pop() ?? 'project'
+  return `/tmp/worktrees/${name}`
+}
+
+function projectPathForWorkDir(workDir: string): string {
+  const exact = projects.find((project) => project.path === workDir)
+  if (exact) return exact.path
+  const owner = projects.find((project) => workDir.startsWith(`${worktreesRootFor(project.path)}/`))
+  return owner?.path ?? ''
+}
 
 function worktreesFor(repo: string): FakeWorktree[] {
   let list = fakeWorktrees.get(repo)
@@ -385,6 +379,7 @@ function worktreesFor(repo: string): FakeWorktree[] {
         locked: false,
         prunable: false,
         main: true,
+        managed: false,
       },
     ]
     fakeWorktrees.set(repo, list)
@@ -719,6 +714,7 @@ const bindings = {
       id,
       title,
       workDir,
+      projectPath: projectPathForWorkDir(workDir),
       messages: 0,
       updatedAtMs: Date.now(),
       running: false,
@@ -843,7 +839,7 @@ const bindings = {
     if (view) view.permissionMode = mode
   },
 
-  // ---- 工作台面板：搜索 / 定时任务 / Worktree / 扩展 / 用量 / 图片 ----
+  // ---- 工作台面板：搜索 / 工作树 / 扩展设置 ----
 
   SearchSessions: async (query: string, limit: number) => {
     const needle = query.trim().toLowerCase()
@@ -872,43 +868,17 @@ const bindings = {
       }))
   },
 
-  ListTasks: async () => clone(fakeTasks),
+  ListProjectWorktrees: async (projectPath: string) => ({
+    projectPath,
+    repoRoot: projectPath,
+    worktreesRoot: worktreesRootFor(projectPath),
+    worktrees: clone(worktreesFor(projectPath)),
+  }),
 
-  CreateTask: async (input: {
-    cron: string
-    prompt: string
-    workDir?: string
-    enabled?: boolean
-  }) => {
-    const task: FakeTask = {
-      id: `task_harness_${fakeTasks.length + 1}`,
-      cron: input.cron,
-      prompt: input.prompt,
-      workDir: input.workDir ?? '',
-      enabled: input.enabled ?? true,
-      createdAtMs: Date.now(),
-      nextRunAtMs: Date.now() + 3_600_000,
-    }
-    fakeTasks.unshift(task)
-    return clone(task)
-  },
-
-  DeleteTask: async (id: string) => {
-    const index = fakeTasks.findIndex((task) => task.id === id)
-    if (index >= 0) fakeTasks.splice(index, 1)
-  },
-
-  SetTaskEnabled: async (id: string, enabled: boolean) => {
-    const task = fakeTasks.find((item) => item.id === id)
-    if (task) task.enabled = enabled
-  },
-
-  ListWorktrees: async (repo: string) => clone(worktreesFor(repo)),
-
-  CreateWorktree: async (repo: string, branch: string, base: string) => {
-    const list = worktreesFor(repo)
+  CreateProjectWorktree: async (projectPath: string, branch: string, base: string) => {
+    const list = worktreesFor(projectPath)
     const worktree: FakeWorktree = {
-      path: `${repo}-${branch || 'worktree'}`,
+      path: `${worktreesRootFor(projectPath)}/${branch || 'worktree'}`,
       branch: branch || `wt-${list.length}`,
       head: base || 'HEAD',
       detached: false,
@@ -916,13 +886,14 @@ const bindings = {
       locked: false,
       prunable: false,
       main: false,
+      managed: true,
     }
     list.push(worktree)
     return clone(worktree)
   },
 
-  RemoveWorktree: async (repo: string, path: string) => {
-    const list = worktreesFor(repo)
+  RemoveProjectWorktree: async (projectPath: string, path: string) => {
+    const list = worktreesFor(projectPath)
     const index = list.findIndex((item) => item.path === path)
     if (index >= 0) list.splice(index, 1)
   },
@@ -1057,10 +1028,6 @@ const bindings = {
 
   GetUsageSummary: async (days: number) => fakeUsageSummary(days),
   ListRequestTraces: async (limit: number) => fakeTraces(limit),
-
-  GenerateImage: async (_prompt: string, size: string) => ({
-    paths: [`/tmp/bdesk-images/${size}-${Date.now()}.png`],
-  }),
 
   ListModelPresets: async () => [
     {

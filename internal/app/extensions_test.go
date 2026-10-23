@@ -116,7 +116,7 @@ func TestBuildExtensionsWiresComponents(t *testing.T) {
 	for _, tl := range ext.Tools {
 		names[tl.Name()] = true
 	}
-	for _, want := range []string{"Skill", "MemorySave", "Agent", "ScheduleCron"} {
+	for _, want := range []string{"Skill", "MemorySave", "Agent"} {
 		if !names[want] {
 			t.Fatalf("扩展工具缺少 %s，实际 %v", want, names)
 		}
@@ -139,16 +139,16 @@ func TestBuildExtensionsWiresComponents(t *testing.T) {
 	for _, spec := range req.Tools {
 		sent[spec.Name] = true
 	}
-	for _, want := range []string{"Skill", "MemorySave", "Agent", "ScheduleCron"} {
+	for _, want := range []string{"Skill", "MemorySave", "Agent"} {
 		if !sent[want] {
 			t.Fatalf("模型请求缺少扩展工具 %s，实际 %v", want, sent)
 		}
 	}
 }
 
-// TestStartupStartsAndShutdownClosesExtensions 验证 Startup 创建并启动定时任务调度器，
-// Shutdown 释放全部扩展组件（extData 在关闭时摘空）。
-func TestStartupStartsAndShutdownClosesExtensions(t *testing.T) {
+// TestStartupAndShutdownClosesExtensions 验证 Shutdown 释放全部扩展组件
+// （extData 在关闭时摘空），且重复调用保持幂等。
+func TestStartupAndShutdownClosesExtensions(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	cfg := extensionsTestConfig(t)
@@ -158,13 +158,6 @@ func TestStartupStartsAndShutdownClosesExtensions(t *testing.T) {
 	}
 	ctx := context.Background()
 	app.Startup(ctx)
-
-	app.extMu.Lock()
-	_, hasTask := app.extData["task"]
-	app.extMu.Unlock()
-	if !hasTask {
-		t.Fatal("Startup 未创建定时任务调度器")
-	}
 
 	if _, err := app.buildExtensions(cfg.WorkDir); err != nil {
 		t.Fatalf("buildExtensions: %v", err)

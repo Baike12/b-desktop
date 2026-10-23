@@ -40,24 +40,6 @@ export namespace app {
 	        this.workDir = source["workDir"];
 	    }
 	}
-	export class CreateTaskInput {
-	    cron: string;
-	    prompt: string;
-	    workDir?: string;
-	    enabled?: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new CreateTaskInput(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.cron = source["cron"];
-	        this.prompt = source["prompt"];
-	        this.workDir = source["workDir"];
-	        this.enabled = source["enabled"];
-	    }
-	}
 	export class ModelUsageDTO {
 	    model: string;
 	    requestCount: number;
@@ -250,18 +232,6 @@ export namespace app {
 	        this.originalScope = source["originalScope"];
 	    }
 	}
-	export class ImageResultDTO {
-	    paths: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new ImageResultDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.paths = source["paths"];
-	    }
-	}
 	export class MCPServerDTO {
 	    name: string;
 	    command: string;
@@ -431,6 +401,70 @@ export namespace app {
 	        this.addedAtMs = source["addedAtMs"];
 	    }
 	}
+	export class WorktreeDTO {
+	    path: string;
+	    branch: string;
+	    head: string;
+	    detached: boolean;
+	    bare: boolean;
+	    locked: boolean;
+	    prunable: boolean;
+	    main: boolean;
+	    managed: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorktreeDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.branch = source["branch"];
+	        this.head = source["head"];
+	        this.detached = source["detached"];
+	        this.bare = source["bare"];
+	        this.locked = source["locked"];
+	        this.prunable = source["prunable"];
+	        this.main = source["main"];
+	        this.managed = source["managed"];
+	    }
+	}
+	export class ProjectWorktreesDTO {
+	    projectPath: string;
+	    repoRoot: string;
+	    worktreesRoot: string;
+	    worktrees: WorktreeDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectWorktreesDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.projectPath = source["projectPath"];
+	        this.repoRoot = source["repoRoot"];
+	        this.worktreesRoot = source["worktreesRoot"];
+	        this.worktrees = this.convertValues(source["worktrees"], WorktreeDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ProviderConfigDTO {
 	    provider: string;
 	    baseUrl: string;
@@ -583,6 +617,7 @@ export namespace app {
 	    id: string;
 	    title: string;
 	    workDir: string;
+	    projectPath?: string;
 	    messages: number;
 	    updatedAtMs: number;
 	    running: boolean;
@@ -596,6 +631,7 @@ export namespace app {
 	        this.id = source["id"];
 	        this.title = source["title"];
 	        this.workDir = source["workDir"];
+	        this.projectPath = source["projectPath"];
 	        this.messages = source["messages"];
 	        this.updatedAtMs = source["updatedAtMs"];
 	        this.running = source["running"];
@@ -851,32 +887,6 @@ export namespace app {
 	        this.path = source["path"];
 	    }
 	}
-	export class TaskDTO {
-	    id: string;
-	    cron: string;
-	    prompt: string;
-	    workDir?: string;
-	    enabled: boolean;
-	    createdAtMs: number;
-	    lastRunAtMs?: number;
-	    nextRunAtMs?: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new TaskDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.cron = source["cron"];
-	        this.prompt = source["prompt"];
-	        this.workDir = source["workDir"];
-	        this.enabled = source["enabled"];
-	        this.createdAtMs = source["createdAtMs"];
-	        this.lastRunAtMs = source["lastRunAtMs"];
-	        this.nextRunAtMs = source["nextRunAtMs"];
-	    }
-	}
 	
 	export class UsageSummaryDTO {
 	    from: string;
@@ -929,32 +939,6 @@ export namespace app {
 		    }
 		    return a;
 		}
-	}
-	export class WorktreeDTO {
-	    path: string;
-	    branch: string;
-	    head: string;
-	    detached: boolean;
-	    bare: boolean;
-	    locked: boolean;
-	    prunable: boolean;
-	    main: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new WorktreeDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.path = source["path"];
-	        this.branch = source["branch"];
-	        this.head = source["head"];
-	        this.detached = source["detached"];
-	        this.bare = source["bare"];
-	        this.locked = source["locked"];
-	        this.prunable = source["prunable"];
-	        this.main = source["main"];
-	    }
 	}
 
 }

@@ -60,7 +60,7 @@ func TestCreateListRemoveWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateWorktree: %v", err)
 	}
-	wantPath := filepath.Join(repo, worktreeDirName, "feature-x")
+	wantPath := filepath.Join(ManagedWorktreesRoot(repo), "feature-x")
 	if !samePath(created.Path, wantPath) {
 		t.Fatalf("worktree path = %q, want %q", created.Path, wantPath)
 	}
@@ -69,6 +69,9 @@ func TestCreateListRemoveWorktree(t *testing.T) {
 	}
 	if created.Main {
 		t.Fatalf("created worktree marked as main")
+	}
+	if !created.Managed {
+		t.Fatalf("created worktree not marked as managed")
 	}
 	if created.Head == "" {
 		t.Fatalf("created worktree has empty HEAD")
@@ -89,6 +92,12 @@ func TestCreateListRemoveWorktree(t *testing.T) {
 	}
 	if !samePath(list[1].Path, wantPath) || list[1].Branch != "feature-x" {
 		t.Fatalf("second worktree = %+v, want feature-x", list[1])
+	}
+	if list[0].Managed {
+		t.Fatalf("main worktree marked as managed: %+v", list[0])
+	}
+	if !list[1].Managed {
+		t.Fatalf("created worktree not marked as managed: %+v", list[1])
 	}
 
 	again, err := CreateWorktree(ctx, repo, "feature-x", "")
@@ -154,12 +163,66 @@ func TestCreateWorktreeNestedBranch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateWorktree(nested): %v", err)
 	}
-	wantPath := filepath.Join(repo, worktreeDirName, "team", "nested-feature")
+	wantPath := filepath.Join(ManagedWorktreesRoot(repo), "team", "nested-feature")
 	if !samePath(wt.Path, wantPath) {
 		t.Fatalf("nested path = %q, want %q", wt.Path, wantPath)
 	}
 	if wt.Branch != "team/nested-feature" {
 		t.Fatalf("branch = %q", wt.Branch)
+	}
+}
+
+func TestCreateWorktreeRejectsBranchInUse(t *testing.T) {
+	requireGit(t)
+	repo := initTestRepo(t)
+	ctx := context.Background()
+
+	external := filepath.Join(t.TempDir(), "external")
+	runGitTest(t, repo, "worktree", "add", "-b", "busy", external, "HEAD")
+
+	if _, err := CreateWorktree(ctx, repo, "busy", ""); !errors.Is(err, ErrBranchInUse) {
+		t.Fatalf("branch in use error = %v, want ErrBranchInUse", err)
+	}
+}
+
+func TestCreateWorktreeRejectsOccupiedPath(t *testing.T) {
+	requireGit(t)
+	repo := initTestRepo(t)
+	ctx := context.Background()
+
+	path := filepath.Join(ManagedWorktreesRoot(repo), "taken")
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if _, err := CreateWorktree(ctx, repo, "taken", ""); !errors.Is(err, ErrWorktreePathExists) {
+		t.Fatalf("occupied path error = %v, want ErrWorktreePathExists", err)
+	}
+}
+
+func TestWorktreeRootsAreProjectScoped(t *testing.T) {
+	requireGit(t)
+	repo := initTestRepo(t)
+	sub := filepath.Join(repo, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+
+	ctx := context.Background()
+	root, err := RepoRoot(ctx, sub)
+	if err != nil {
+		t.Fatalf("RepoRoot: %v", err)
+	}
+	if !samePath(root, repo) {
+		t.Fatalf("RepoRoot(sub) = %q, want %q", root, repo)
+	}
+
+	want := filepath.Join(filepath.Dir(root), "worktrees", filepath.Base(root))
+	got := ManagedWorktreesRoot(root)
+	if !samePath(got, want) {
+		t.Fatalf("ManagedWorktreesRoot(%q) = %q, want %q", root, got, want)
+	}
+	if isWithin(got, root) {
+		t.Fatalf("managed worktrees root %q is inside repo %q", got, root)
 	}
 }
 

@@ -1,7 +1,7 @@
 # 扩展接缝契约
 
-本文冻结 `internal/agent` 的唯一扩展入口。Skills、Memory、Hooks、MCP、SubAgent、定时任务、
-用量追踪九个模块并行实现时，只写自己的目录和 `internal/app/app_<module>.go`，
+本文冻结 `internal/agent` 的唯一扩展入口。Skills、Memory、Hooks、MCP、SubAgent、
+用量追踪六个模块并行实现时，只写自己的目录和 `internal/app/app_<module>.go`，
 不再改动 Agent 核心循环。
 
 核心实现：`internal/agent/extension.go`（类型）、`internal/agent/engine.go`（注册）、
@@ -164,10 +164,6 @@ func (a *App) mcpComponent() (*mcp.Manager, error)
 // SubAgent：子 Agent 与 Teams，实现 agent.SubagentRunner。
 func (a *App) subagentComponent(workDir string) (*subagent.Manager, error)
 // *subagent.Manager 实现 agent.SubagentRunner，且有 Tools() []tool.Tool 与 Close() error。
-
-// 定时任务：调度器提供 ScheduleCron 等工具。
-func (a *App) taskComponent() (*task.Scheduler, error)
-// *task.Scheduler 有 Tools() []tool.Tool、Start(ctx context.Context)、Close() error。
 
 // 用量追踪：模型调用指标持久化。
 func (a *App) telemetryComponent() (*telemetry.Store, error)

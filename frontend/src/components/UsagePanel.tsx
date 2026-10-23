@@ -11,6 +11,8 @@ interface UsagePanelProps {
   defaultDays?: number
   // traceLimit 是「最近请求」返回的最大条数。
   traceLimit?: number
+  // showHeader 控制是否渲染面板标题；嵌入设置页时由外层标题代替。
+  showHeader?: boolean
   className?: string
 }
 
@@ -48,6 +50,7 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
 export default function UsagePanel({
   defaultDays = 7,
   traceLimit = 20,
+  showHeader = true,
   className = '',
 }: UsagePanelProps) {
   const [days, setDays] = useState(defaultDays)
@@ -92,15 +95,23 @@ export default function UsagePanel({
       className={`flex flex-col gap-4 rounded-xl border border-line bg-surface p-4 ${className}`}
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-fg">用量统计</h2>
-          <p className="mt-0.5 text-[11px] text-subtle">
+        {showHeader ? (
+          <div>
+            <h2 className="text-sm font-semibold text-fg">用量统计</h2>
+            <p className="mt-0.5 text-[11px] text-subtle">
+              {summary
+                ? `${summary.from} ~ ${summary.to} · 数据来自 ~/.b-desktop/usage.jsonl`
+                : '读取本地模型调用记录'}
+            </p>
+          </div>
+        ) : (
+          <p className="text-[11px] text-subtle">
             {summary
               ? `${summary.from} ~ ${summary.to} · 数据来自 ~/.b-desktop/usage.jsonl`
               : '读取本地模型调用记录'}
           </p>
-        </div>
-        <div className="flex items-center gap-1">
+        )}
+        <div className="ml-auto flex items-center gap-1">
           {RANGE_OPTIONS.map((option) => (
             <button
               key={option}

@@ -3,9 +3,11 @@ package app
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/Baike12/b-desktop/internal/project"
 	"github.com/Baike12/b-desktop/internal/workspace"
 )
 
@@ -13,8 +15,8 @@ import (
 var (
 	// ErrEmptyQuery 表示全局搜索的查询串为空。
 	ErrEmptyQuery = errors.New("app: empty search query")
-	// ErrEmptyRepo 表示未提供仓库路径。
-	ErrEmptyRepo = errors.New("app: empty repository path")
+	// ErrEmptyProject 表示未提供项目路径。
+	ErrEmptyProject = errors.New("app: empty project path")
 	// ErrEmptyBranch 表示未提供分支名。
 	ErrEmptyBranch = errors.New("app: empty branch name")
 	// ErrEmptyWorktreePath 表示未提供工作树路径。
@@ -50,6 +52,17 @@ type WorktreeDTO struct {
 	Locked   bool   `json:"locked"`
 	Prunable bool   `json:"prunable"`
 	Main     bool   `json:"main"`
+	// Managed 表示该工作树位于本应用为当前项目管理的 worktrees 目录下。
+	Managed bool `json:"managed"`
+}
+
+// ProjectWorktreesDTO 是一个项目的工作树视图。
+// 工作树按仓库维度返回，ProjectPath 用于把工作树会话归回所属项目。
+type ProjectWorktreesDTO struct {
+	ProjectPath   string        `json:"projectPath"`
+	RepoRoot      string        `json:"repoRoot"`
+	WorktreesRoot string        `json:"worktreesRoot"`
+	Worktrees     []WorktreeDTO `json:"worktrees"`
 }
 
 // SearchSessions 在全部会话存档中搜索 query，匹配用户/assistant 文本与工具名。
@@ -73,30 +86,42 @@ func (a *App) SearchSessions(query string, limit int) ([]SessionSearchResultDTO,
 	return out, nil
 }
 
-// ListWorktrees 返回 repo 所属仓库的全部工作树，主工作树排在首位。
-func (a *App) ListWorktrees(repo string) ([]WorktreeDTO, error) {
-	if strings.TrimSpace(repo) == "" {
-		return nil, ErrEmptyRepo
+// ListProjectWorktrees 返回项目所属仓库的全部工作树，主工作树排在首位。
+// 项目路径可以是仓库内任意目录；工作树列表与托管目录都以主仓库为基准。
+func (a *App) ListProjectWorktrees(projectPath string) (ProjectWorktreesDTO, error) {
+	trimmed := strings.TrimSpace(projectPath)
+	if trimmed == "" {
+		return ProjectWorktreesDTO{}, ErrEmptyProject
 	}
 	if a.isClosed() {
-		return nil, ErrClosed
+		return ProjectWorktreesDTO{}, ErrClosed
 	}
-	items, err := workspace.ListWorktrees(a.lifeCtx(), repo)
+	ctx := a.lifeCtx()
+	repoRoot, err := workspace.RepoRoot(ctx, trimmed)
 	if err != nil {
-		return nil, fmt.Errorf("app: list worktrees: %w", err)
+		return ProjectWorktreesDTO{}, fmt.Errorf("app: list project worktrees: %w", err)
+	}
+	items, err := workspace.ListWorktrees(ctx, repoRoot)
+	if err != nil {
+		return ProjectWorktreesDTO{}, fmt.Errorf("app: list project worktrees: %w", err)
 	}
 	out := make([]WorktreeDTO, 0, len(items))
 	for _, item := range items {
 		out = append(out, toWorktreeDTO(item))
 	}
-	return out, nil
+	return ProjectWorktreesDTO{
+		ProjectPath:   trimmed,
+		RepoRoot:      repoRoot,
+		WorktreesRoot: workspace.ManagedWorktreesRoot(repoRoot),
+		Worktrees:     out,
+	}, nil
 }
 
-// CreateWorktree 在 <repo>/.b-desktop/worktrees/<branch> 创建或挂载工作树。
-// 分支已存在时直接挂载；base 为空时以 HEAD 为基线创建新分支。
-func (a *App) CreateWorktree(repo, branch, base string) (WorktreeDTO, error) {
-	if strings.TrimSpace(repo) == "" {
-		return WorktreeDTO{}, ErrEmptyRepo
+// CreateProjectWorktree 为项目创建或挂载工作树，落在仓库同级的
+// worktrees/<项目名>/<分支> 下。分支已存在时直接挂载；base 为空时以 HEAD 为基线。
+func (a *App) CreateProjectWorktree(projectPath, branch, base string) (WorktreeDTO, error) {
+	if strings.TrimSpace(projectPath) == "" {
+		return WorktreeDTO{}, ErrEmptyProject
 	}
 	if strings.TrimSpace(branch) == "" {
 		return WorktreeDTO{}, ErrEmptyBranch
@@ -104,17 +129,17 @@ func (a *App) CreateWorktree(repo, branch, base string) (WorktreeDTO, error) {
 	if a.isClosed() {
 		return WorktreeDTO{}, ErrClosed
 	}
-	wt, err := workspace.CreateWorktree(a.lifeCtx(), repo, branch, base)
+	wt, err := workspace.CreateWorktree(a.lifeCtx(), projectPath, branch, base)
 	if err != nil {
-		return WorktreeDTO{}, fmt.Errorf("app: create worktree: %w", err)
+		return WorktreeDTO{}, fmt.Errorf("app: create project worktree: %w", err)
 	}
 	return toWorktreeDTO(wt), nil
 }
 
-// RemoveWorktree 删除 repo 中已登记的工作树目录，保留分支本身；主工作树不可删除。
-func (a *App) RemoveWorktree(repo, path string) error {
-	if strings.TrimSpace(repo) == "" {
-		return ErrEmptyRepo
+// RemoveProjectWorktree 删除项目仓库中已登记的工作树目录，保留分支本身；主工作树不可删除。
+func (a *App) RemoveProjectWorktree(projectPath, path string) error {
+	if strings.TrimSpace(projectPath) == "" {
+		return ErrEmptyProject
 	}
 	if strings.TrimSpace(path) == "" {
 		return ErrEmptyWorktreePath
@@ -122,10 +147,48 @@ func (a *App) RemoveWorktree(repo, path string) error {
 	if a.isClosed() {
 		return ErrClosed
 	}
-	if err := workspace.RemoveWorktree(a.lifeCtx(), repo, path); err != nil {
-		return fmt.Errorf("app: remove worktree: %w", err)
+	if err := workspace.RemoveWorktree(a.lifeCtx(), projectPath, path); err != nil {
+		return fmt.Errorf("app: remove project worktree: %w", err)
 	}
 	return nil
+}
+
+// projectPaths 返回已打开的项目列表；调用方据此把会话归回项目。
+func (a *App) projectPaths() ([]project.Project, error) {
+	store, err := a.projectStore()
+	if err != nil {
+		return nil, err
+	}
+	return store.List(a.lifeCtx())
+}
+
+// projectPathForWorkDir 返回 workDir 归属的项目路径。
+//
+// 先按项目路径精确匹配；再按托管工作树目录
+// <项目父目录>/worktrees/<项目名> 判断。项目路径约定为主仓库根目录。
+func projectPathForWorkDir(workDir string, projects []project.Project) string {
+	clean := filepath.Clean(workDir)
+	for _, item := range projects {
+		if filepath.Clean(item.Path) == clean {
+			return item.Path
+		}
+	}
+	for _, item := range projects {
+		root := workspace.ManagedWorktreesRoot(item.Path)
+		if pathWithin(clean, root) {
+			return item.Path
+		}
+	}
+	return ""
+}
+
+// pathWithin 报告 path 是否位于 root 之内（不含 root 本身）。
+func pathWithin(path, root string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) {
+		return false
+	}
+	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // toSessionSearchResultDTO 把搜索结果转换成前端 DTO。
@@ -161,5 +224,6 @@ func toWorktreeDTO(wt workspace.Worktree) WorktreeDTO {
 		Locked:   wt.Locked,
 		Prunable: wt.Prunable,
 		Main:     wt.Main,
+		Managed:  wt.Managed,
 	}
 }

@@ -11,8 +11,11 @@ import (
 	"strings"
 )
 
-// worktreeDirName 是工作树相对仓库根目录的位置。
-const worktreeDirName = ".b-desktop/worktrees"
+// worktreesRootName 是托管工作树的目录名。
+//
+// 布局与 Zed 一致：工作树放在仓库同级的 worktrees/<项目名>/ 下，
+// 不写进项目目录，避免污染 git status 与 Agent 的文件检索。
+const worktreesRootName = "worktrees"
 
 // worktree 相关错误哨兵。
 var (
@@ -30,6 +33,10 @@ var (
 	ErrWorktreeNotFound = errors.New("workspace: worktree not found")
 	// ErrMainWorktree 表示试图删除主工作树。
 	ErrMainWorktree = errors.New("workspace: cannot remove the main worktree")
+	// ErrBranchInUse 表示分支已在另一个工作树中检出。
+	ErrBranchInUse = errors.New("workspace: branch already checked out in another worktree")
+	// ErrWorktreePathExists 表示目标路径已被占用但未登记为工作树。
+	ErrWorktreePathExists = errors.New("workspace: worktree path already exists")
 )
 
 // Worktree 描述 git worktree list 中的一个工作树。
@@ -42,6 +49,24 @@ type Worktree struct {
 	Locked   bool   // 是否被 git worktree lock 锁定
 	Prunable bool   // 是否可被 git worktree prune 清理
 	Main     bool   // 是否为主工作树（列表第一项）
+	Managed  bool   // 是否位于本应用为该仓库管理的 worktrees 目录下
+}
+
+// ManagedWorktreesRoot 返回仓库托管工作树的根目录。
+//
+// repoRoot 必须是主工作树根目录：结果是它的同级目录
+// <仓库父目录>/worktrees/<仓库名>。该函数只做路径推导，不访问 git。
+func ManagedWorktreesRoot(repoRoot string) string {
+	clean := filepath.Clean(strings.TrimSpace(repoRoot))
+	return filepath.Join(filepath.Dir(clean), worktreesRootName, filepath.Base(clean))
+}
+
+// RepoRoot 返回 path 所属仓库的主工作树根目录；从链接工作树内调用也回到主仓库。
+func RepoRoot(ctx context.Context, path string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", fmt.Errorf("workspace: resolve repo root: %w", err)
+	}
+	return mainRepoRoot(ctx, path)
 }
 
 // ListWorktrees 返回 repo 所属仓库的全部工作树，顺序与 git worktree list 一致（主工作树在前）。
@@ -57,16 +82,19 @@ func ListWorktrees(ctx context.Context, repo string) ([]Worktree, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %v", ErrInvalidRepo, repo, err)
 	}
-	return parseWorktreeList(out), nil
+	list := parseWorktreeList(out)
+	markManaged(list)
+	return list, nil
 }
 
-// CreateWorktree 在 <repo>/.b-desktop/worktrees/<branch> 创建或挂载工作树。
+// CreateWorktree 在 <仓库父目录>/worktrees/<项目名>/<branch> 创建或挂载工作树。
 //
 //   - 该路径已是已登记的工作树时直接返回，不重复创建；
+//   - 分支已在其他工作树检出时返回 ErrBranchInUse；
 //   - 分支已存在时执行 git worktree add <path> <branch>，直接挂载现有分支；
 //   - 分支不存在时以 base 为基线创建分支；base 为空取 HEAD。
 //
-// repo 可以是仓库内任意子目录，工作树始终落在主仓库根目录下。
+// repo 可以是仓库内任意子目录，工作树始终落在主仓库同级目录下。
 func CreateWorktree(ctx context.Context, repo, branch, base string) (Worktree, error) {
 	if err := ctx.Err(); err != nil {
 		return Worktree{}, fmt.Errorf("workspace: create worktree: %w", err)
@@ -97,11 +125,22 @@ func CreateWorktree(ctx context.Context, repo, branch, base string) (Worktree, e
 		if samePath(wt.Path, path) {
 			return wt, nil
 		}
+		if wt.Branch == trimmedBranch {
+			return Worktree{}, fmt.Errorf("%w: %q at %s", ErrBranchInUse, trimmedBranch, wt.Path)
+		}
+	}
+	if _, statErr := os.Stat(path); statErr == nil {
+		return Worktree{}, fmt.Errorf("%w: %s", ErrWorktreePathExists, path)
+	} else if !errors.Is(statErr, os.ErrNotExist) {
+		return Worktree{}, fmt.Errorf("workspace: stat worktree path %s: %w", path, statErr)
 	}
 
 	exists, err := localBranchExists(ctx, root, trimmedBranch)
 	if err != nil {
 		return Worktree{}, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return Worktree{}, fmt.Errorf("workspace: create worktree dir: %w", err)
 	}
 	if exists {
 		if _, err := runGit(ctx, root, "worktree", "add", path, trimmedBranch); err != nil {
@@ -128,7 +167,7 @@ func CreateWorktree(ctx context.Context, repo, branch, base string) (Worktree, e
 			return wt, nil
 		}
 	}
-	return Worktree{Path: path, Branch: trimmedBranch}, nil
+	return Worktree{Path: path, Branch: trimmedBranch, Managed: true}, nil
 }
 
 // RemoveWorktree 删除 repo 中已登记的工作树目录及其 git 登记信息，保留分支本身。
@@ -218,12 +257,12 @@ func mainRepoRoot(ctx context.Context, repo string) (string, error) {
 	return root, nil
 }
 
-// worktreePath 返回分支对应的工作树路径，并确认结果未越出工作树根目录。
+// worktreePath 返回分支对应的工作树路径，并确认结果未越出托管目录。
 func worktreePath(root, branch string) (string, error) {
-	base := filepath.Join(root, worktreeDirName)
+	base := ManagedWorktreesRoot(root)
 	path := filepath.Join(base, filepath.FromSlash(branch))
 	rel, err := filepath.Rel(base, path)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
 		return "", fmt.Errorf("%w: %q", ErrInvalidBranch, branch)
 	}
 	return path, nil
@@ -347,6 +386,34 @@ func parseWorktreeList(out string) []Worktree {
 	}
 	flush()
 	return list
+}
+
+// markManaged 标记位于托管 worktrees 目录下的工作树。
+// 托管目录基于主工作树路径推导；没有主工作树（裸仓库）时不标记。
+func markManaged(list []Worktree) {
+	mainRoot := ""
+	for _, wt := range list {
+		if wt.Main && !wt.Bare {
+			mainRoot = wt.Path
+			break
+		}
+	}
+	if mainRoot == "" {
+		return
+	}
+	base := ManagedWorktreesRoot(mainRoot)
+	for i := range list {
+		list[i].Managed = isWithin(list[i].Path, base)
+	}
+}
+
+// isWithin 报告 path 是否位于 root 之内（不含 root 本身）。
+func isWithin(path, root string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) {
+		return false
+	}
+	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // samePath 比较两个路径是否指向同一位置，必要时解析符号链接。
