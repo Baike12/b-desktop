@@ -1,6 +1,6 @@
 # OpenAI Codex 参考实现分析（codex-rs）
 
-> 阅读对象：`/Users/baike3/CodeRepo/codex/codex-rs`（只读）。本文所有结论均标注 `file:line`；本次未阅读或无法确认的内容明确写「不存在」或「未确认」。
+> 阅读对象：Codex 仓库的 `codex-rs` 目录（只读）。本文所有结论均标注 `file:line`；本次未阅读或无法确认的内容明确写「不存在」或「未确认」。
 > 目的：为 b-desktop（Go + Wails）实现 agent 运行时提供可落地依据。
 
 ## 0. 阅读范围与事实基线
@@ -397,7 +397,7 @@ if supports_parallel { lock.read().await } else { lock.write().await }   // core
 "不存在" 的检索依据（本次实际执行，输出均为 0 行）：
 
 ```bash
-cd /Users/baike3/CodeRepo/codex/codex-rs
+cd <codex-repo>/codex-rs
 grep -rn "max_turns" --include="*.rs" core/src protocol/src                                           # 0
 grep -rni "microcompact\|micro_compact\|micro compact" --include="*.rs" core/src protocol/src         # 0
 grep -rn "is_read_only\|isReadOnly\|is_concurrency_safe\|isConcurrencySafe" --include="*.rs" core/src tools/src protocol/src  # 0

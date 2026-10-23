@@ -2666,7 +2666,7 @@ func (p *Provider) Calls() []llm.Request
 本次实际执行并在修订中引用的验证：
 
 ```bash
-$ cd /tmp/ancverify && go run main.go
+$ cd /tmp/bdeskverify && go run main.go
 Match("src/**","src/a/b.go")=false err=<nil>
 Match("**/*.go","a.go")=false err=<nil>
 Match("src/*","src/a.go")=true err=<nil>
@@ -2689,7 +2689,7 @@ $ grep -n "func CommandContext" -A 18 "$(go env GOROOT)/src/os/exec/exec.go"
 第 2 轮补充实测：
 
 ```bash
-$ cd /tmp/ancverify && go run v2.go
+$ cd /tmp/bdeskverify && go run v2.go
 second registered runs first
 first registered runs last
 Rel= "..foo" err=<nil> HasPrefix(..)=true
@@ -2697,11 +2697,11 @@ escape Rel= "../x"
 ```
 
 ```bash
-$ cd /tmp/ancverify && go run v3.go
+$ cd /tmp/bdeskverify && go run v3.go
 byte-truncated valid=false runes="这是一段很长的中文标题用于\xe6"
 rune-truncated valid=true runes="这是一段很长的中文标题用于测试截断行为"
 
-$ cd /Users/baike3/CodeRepo/b-desktop && go vet ./...
+$ go vet ./...
 # 输出为空，退出码 0
 
 $ go test ./...
@@ -2714,7 +2714,7 @@ ok  	b-desktop/internal/app	(cached)
 第 3 轮补充实测：
 
 ```bash
-$ cd /tmp/ancverify && go run v4.go
+$ cd /tmp/bdeskverify && go run v4.go
 WithoutCancel err = <nil> value = events
 ```
 

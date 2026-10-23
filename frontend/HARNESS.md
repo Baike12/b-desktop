@@ -5,7 +5,7 @@
 - `window.go.app.App.*`：`ListSessions` / `ListProjects` / `OpenProject` / `AddProject` / `LoadSession` / `CreateSession` / `SendMessage` / `CancelTurn` / `ApproveTool` / `SetPermissionMode` / `GetProviderConfig`
 - `window.runtime.*`：`EventsOnMultiple` / `EventsOff` / `WindowSet*Theme` / `Environment`
 
-假后端带三个项目（`anc-harness` 有会话、`anc-empty` 空分组、`anc-demo` 由 `OpenProject` 动态加入）、一份固定的 markdown 会话和一份空会话；`SendMessage` 会按 16ms 一帧推送 `text_delta`，走真实的事件归并链路。
+假后端带三个项目（`bdesk-harness` 有会话、`bdesk-empty` 空分组、`bdesk-demo` 由 `OpenProject` 动态加入）、一份固定的 markdown 会话和一份空会话；`SendMessage` 会按 16ms 一帧推送 `text_delta`，走真实的事件归并链路。
 
 ## 启动
 
@@ -21,18 +21,18 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 
 | 钩子 | 说明 |
 |---|---|
-| `await window.__ancReady` | 等 `init()` 与首个会话加载完成 |
-| `window.__anc.metrics()` | 一次取回 DOM/状态指标（见下） |
-| `window.__anc.send(text)` | 走真实 `SendMessage`，触发模拟流式回复 |
-| `window.__anc.emit(events)` | 注入任意 `agent:event`（数组或单条） |
-| `window.__anc.select(id)` | 切换会话 |
-| `window.__anc.openProject()` | 走真实 `OpenProject`，模拟选中 `/tmp/anc-demo` |
-| `window.__anc.newSession(path?)` | 在指定项目里新建会话 |
-| `window.__anc.setTheme('light'｜'dark'｜'system')` | 切换主题 |
-| `window.__anc.openSettings()` / `closeSettings()` | 打开/关闭设置页 |
-| `window.__anc.toggleSidebar()` | 折叠/展开侧边栏 |
-| `window.__anc.setPermissionMode(mode)` | 切换会话权限模式 |
-| `window.__anc.text()` / `bootErrors()` | 页面文本 / 启动期错误 |
+| `await window.__bdeskReady` | 等 `init()` 与首个会话加载完成 |
+| `window.__bdesk.metrics()` | 一次取回 DOM/状态指标（见下） |
+| `window.__bdesk.send(text)` | 走真实 `SendMessage`，触发模拟流式回复 |
+| `window.__bdesk.emit(events)` | 注入任意 `agent:event`（数组或单条） |
+| `window.__bdesk.select(id)` | 切换会话 |
+| `window.__bdesk.openProject()` | 走真实 `OpenProject`，模拟选中 `/tmp/bdesk-demo` |
+| `window.__bdesk.newSession(path?)` | 在指定项目里新建会话 |
+| `window.__bdesk.setTheme('light'｜'dark'｜'system')` | 切换主题 |
+| `window.__bdesk.openSettings()` / `closeSettings()` | 打开/关闭设置页 |
+| `window.__bdesk.toggleSidebar()` | 折叠/展开侧边栏 |
+| `window.__bdesk.setPermissionMode(mode)` | 切换会话权限模式 |
+| `window.__bdesk.text()` / `bootErrors()` | 页面文本 / 启动期错误 |
 
 `metrics()` 覆盖：`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
 
@@ -46,7 +46,7 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 - 侧边栏：`toggleSidebar()` 后宽度 71px，仍保留展开、新建任务、设置按钮；刷新后折叠状态保持。
 - 主题：`setTheme('dark')` 后 `document.documentElement.dataset.theme === 'dark'`；设置页文本包含三档外观。
 - 流式：`send()` 中 `running === true`，结束后 `running === false` 且累计用量与 `contextTokens` 更新。
-- 项目：初始 `projectNames === ['anc-harness', 'anc-empty']`、`projectSessionCounts === [2, 0]`，会话按 workDir 归组，未命中项目的会话出现在“其他会话”（`orphanRows === true`）；`openProject()` 后新增 `anc-demo` 并自动建会话；`newSession('/tmp/anc-empty')` 后该组会话数变为 1。
+- 项目：初始 `projectNames === ['bdesk-harness', 'bdesk-empty']`、`projectSessionCounts === [2, 0]`，会话按 workDir 归组，未命中项目的会话出现在“其他会话”（`orphanRows === true`）；`openProject()` 后新增 `bdesk-demo` 并自动建会话；`newSession('/tmp/bdesk-empty')` 后该组会话数变为 1。
 - 启动期 `bootErrors()` 为空。
 
 ## 约束

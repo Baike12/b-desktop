@@ -183,7 +183,7 @@ cd frontend && npm run harness   # 5173，strictPort；已占用则直接复用
 # 打开 http://localhost:5173/harness.html
 ```
 
-`harness.html` + `src/dev/harness.tsx` 挂载真实的 `<App/>`，只把 `window.go.app.App.*` 与 `window.runtime.*` 换成内存假实现；断言通过 `window.__ancReady`、`window.__anc.metrics()`、`__anc.send()`、`__anc.setTheme()` 等钩子完成。浏览器交互与截图使用 browseros。详见 `frontend/HARNESS.md`。`harness.html` 不进构建产物。
+`harness.html` + `src/dev/harness.tsx` 挂载真实的 `<App/>`，只把 `window.go.app.App.*` 与 `window.runtime.*` 换成内存假实现；断言通过 `window.__bdeskReady`、`window.__bdesk.metrics()`、`__bdesk.send()`、`__bdesk.setTheme()` 等钩子完成。浏览器交互与截图使用 browseros。详见 `frontend/HARNESS.md`。`harness.html` 不进构建产物。
 
 ## 前后端边界（Wails 约定）
 

@@ -1,6 +1,6 @@
 # Zed Agent 参考实现调研
 
-> 参考目录：`/Users/baike3/CodeRepo/zed/crates`（只读）。
+> 参考目录：`../zed/crates`（只读）。
 > 本文所有 `path:line` 均相对 `crates/`（唯一例外：`assets/settings/default.json` 相对仓库根 `zed/`），行号以本次实际读取的版本为准。
 > 结论只写读到的代码；凡是参考实现里没有对应机制的，显式写「不存在」。
 

@@ -14,7 +14,7 @@ import type { AgentEvent, PermissionMode } from '../types/agent'
  *   - window.go.app.App.*（Wails 绑定）
  *   - window.runtime.*（事件与窗口外观）
  * 然后挂载真实的 <App/>，所有组件、store、reducer 都是生产代码。
- * 断言通过 window.__anc 暴露的钩子完成，不接触真实后端与真实屏幕。
+ * 断言通过 window.__bdesk 暴露的钩子完成，不接触真实后端与真实屏幕。
  */
 
 type Listener = (...data: unknown[]) => void
@@ -154,7 +154,7 @@ function seedView(): FakeView {
   return {
     id: SESSION_MD,
     title: 'Markdown 验证',
-    workDir: '/tmp/anc-harness',
+    workDir: '/tmp/bdesk-harness',
     model: 'deepseek-flash',
     permissionMode: 'default',
     createdAtMs: NOW - 600_000,
@@ -175,7 +175,7 @@ function seedView(): FakeView {
             type: 'tool_use',
             toolUseId: 'toolu_harness',
             toolName: 'Read',
-            input: { file_path: '/tmp/anc-harness/README.md' },
+            input: { file_path: '/tmp/bdesk-harness/README.md' },
           },
         ],
         timeMs: NOW - 110_000,
@@ -201,7 +201,7 @@ function seedView(): FakeView {
 const views = new Map<string, FakeView>([[SESSION_MD, seedView()], [SESSION_EMPTY, {
   id: SESSION_EMPTY,
   title: '空会话',
-  workDir: '/tmp/anc-harness',
+  workDir: '/tmp/bdesk-harness',
   model: 'deepseek-flash',
   permissionMode: 'default',
   createdAtMs: NOW - 3_600_000,
@@ -226,7 +226,7 @@ const sessions: FakeSessionInfo[] = [
   {
     id: SESSION_MD,
     title: 'Markdown 验证',
-    workDir: '/tmp/anc-harness',
+    workDir: '/tmp/bdesk-harness',
     messages: 3,
     updatedAtMs: NOW - 100_000,
     running: false,
@@ -234,7 +234,7 @@ const sessions: FakeSessionInfo[] = [
   {
     id: SESSION_EMPTY,
     title: '空会话',
-    workDir: '/tmp/anc-harness',
+    workDir: '/tmp/bdesk-harness',
     messages: 0,
     updatedAtMs: NOW - 3_600_000,
     running: false,
@@ -255,10 +255,10 @@ interface FakeProject {
   addedAtMs: number
 }
 
-// 两个项目：anc-harness 有会话，anc-empty 用于验证“暂无会话”的空分组。
+// 两个项目：bdesk-harness 有会话，bdesk-empty 用于验证“暂无会话”的空分组。
 const projects: FakeProject[] = [
-  { path: '/tmp/anc-harness', name: 'anc-harness', addedAtMs: NOW - 7_200_000 },
-  { path: '/tmp/anc-empty', name: 'anc-empty', addedAtMs: NOW - 86_400_000 },
+  { path: '/tmp/bdesk-harness', name: 'bdesk-harness', addedAtMs: NOW - 7_200_000 },
+  { path: '/tmp/bdesk-empty', name: 'bdesk-empty', addedAtMs: NOW - 86_400_000 },
 ]
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -273,7 +273,7 @@ let providerConfig: Dict = {
   contextWindow: 128000,
   maxOutputTokens: 8192,
   permissionMode: 'default',
-  workDir: '/tmp/anc-harness',
+  workDir: '/tmp/bdesk-harness',
 }
 
 // ---------------- 工作台面板假数据 ----------------
@@ -362,7 +362,7 @@ const fakeTasks: FakeTask[] = [
     id: 'task_harness_1',
     cron: '0 9 * * *',
     prompt: '汇总昨天新增的 Issue 并给出处理建议',
-    workDir: '/tmp/anc-harness',
+    workDir: '/tmp/bdesk-harness',
     enabled: true,
     createdAtMs: NOW - 86_400_000,
     lastRunAtMs: NOW - 43_200_000,
@@ -600,8 +600,8 @@ const fakeFileEntries: Record<string, FakeFileEntry[]> = {
 }
 
 const fakeFileContents: Record<string, string> = {
-  'README.md': '# anc-harness\n\n右侧文件栏验证。\n',
-  'package.json': '{\n  "name": "anc-harness"\n}\n',
+  'README.md': '# bdesk-harness\n\n右侧文件栏验证。\n',
+  'package.json': '{\n  "name": "bdesk-harness"\n}\n',
   'src/App.tsx': 'export default function App() {\n  return <div>demo</div>\n}\n',
   'src/components/RightSidebar.tsx': 'export default function RightSidebar() {\n  return null\n}\n',
 }
@@ -631,10 +631,10 @@ const bindings = {
 
   // 模拟用户选中一个新项目：登记后由 workbench store 自动建会话。
   OpenProject: async () => {
-    const path = '/tmp/anc-demo'
+    const path = '/tmp/bdesk-demo'
     const existing = projects.find((project) => project.path === path)
     if (existing) return clone(existing)
-    const project: FakeProject = { path, name: 'anc-demo', addedAtMs: Date.now() }
+    const project: FakeProject = { path, name: 'bdesk-demo', addedAtMs: Date.now() }
     projects.unshift(project)
     return clone(project)
   },
@@ -701,7 +701,7 @@ const bindings = {
   CreateSession: async (input: { title?: string; workDir?: string }) => {
     const id = `s_harness_${views.size + 1}`
     const title = input.title || '新会话'
-    const workDir = input.workDir || '/tmp/anc-harness'
+    const workDir = input.workDir || '/tmp/bdesk-harness'
     const view: FakeView = {
       id,
       title,
@@ -966,7 +966,7 @@ const bindings = {
     if (!skill) throw new Error(`skill not found: ${name}`)
     return {
       ...clone(skill),
-      path: `/tmp/anc-harness/.b-desktop/skills/${name}/SKILL.md`,
+      path: `/tmp/bdesk-harness/.b-desktop/skills/${name}/SKILL.md`,
       content: `# ${skill.name}\n\n${skill.description}\n\n## 用法\n\n在对话中调用 \`Skill\` 工具加载。`,
     }
   },
@@ -979,7 +979,7 @@ const bindings = {
       name: input.name,
       description: input.description,
       source: 'user',
-      path: `/tmp/anc-harness/.b-desktop/skills/${input.name}/SKILL.md`,
+      path: `/tmp/bdesk-harness/.b-desktop/skills/${input.name}/SKILL.md`,
       content: input.content,
     }
   },
@@ -989,7 +989,7 @@ const bindings = {
     skill.description = input.description
     return {
       ...clone(skill),
-      path: `/tmp/anc-harness/.b-desktop/skills/${input.name}/SKILL.md`,
+      path: `/tmp/bdesk-harness/.b-desktop/skills/${input.name}/SKILL.md`,
       content: input.content,
     }
   },
@@ -1059,7 +1059,7 @@ const bindings = {
   ListRequestTraces: async (limit: number) => fakeTraces(limit),
 
   GenerateImage: async (_prompt: string, size: string) => ({
-    paths: [`/tmp/anc-images/${size}-${Date.now()}.png`],
+    paths: [`/tmp/bdesk-images/${size}-${Date.now()}.png`],
   }),
 
   ListModelPresets: async () => [
@@ -1239,8 +1239,8 @@ const api = {
 }
 
 const globalWindow = window as unknown as {
-  __anc: typeof api
-  __ancReady: Promise<void>
+  __bdesk: typeof api
+  __bdeskReady: Promise<void>
 }
-globalWindow.__anc = api
-globalWindow.__ancReady = ready
+globalWindow.__bdesk = api
+globalWindow.__bdeskReady = ready

@@ -1,6 +1,6 @@
 # Claude Code Agent 运行时调研（参考实现 `../cc`）
 
-调研对象：`/Users/baike3/CodeRepo/cc/src`（Bun + TypeScript，泄漏源码，只读）。
+调研对象：`../cc/src`（Bun + TypeScript，只读行为参考）。
 目标：为 `b-desktop` 的 Go 实现提供可落地依据。本文所有结论都带 `file:line`；未在参考代码中找到的内容标注为「不存在」或「无法确认」。
 
 ## 0. 阅读范围与源码完整性
