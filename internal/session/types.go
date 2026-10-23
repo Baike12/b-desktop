@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 // RecordType 是 JSONL 行类型。
@@ -19,6 +19,7 @@ type RecordType string
 //   - compact：Compact
 //   - usage：Usage
 //   - mode：Meta["mode"]
+//   - title：Meta["title"]
 //   - turn_end：TurnEnd
 const (
 	RecordSessionMeta RecordType = "session_meta" // RecordSessionMeta 是首行元信息。
@@ -26,6 +27,7 @@ const (
 	RecordCompact     RecordType = "compact"      // RecordCompact 是压缩边界。
 	RecordUsage       RecordType = "usage"        // RecordUsage 是一次模型调用的用量。
 	RecordMode        RecordType = "mode"         // RecordMode 是权限模式变更。
+	RecordTitle       RecordType = "title"        // RecordTitle 是会话标题更新。
 	RecordTurnEnd     RecordType = "turn_end"     // RecordTurnEnd 是一轮结束。
 )
 

@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // defaultMaxResults 是 Glob 与 Grep 在未指定 max_results 时的结果上限。

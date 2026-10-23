@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 func TestEstimateString(t *testing.T) {

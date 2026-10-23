@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
-	"anc-dsk/internal/session"
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/session"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // requireOrder 断言这些事件类型第一次出现的顺序单调递增。

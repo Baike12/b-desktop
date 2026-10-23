@@ -4,7 +4,7 @@ import (
 	"embed"
 	"log"
 
-	"anc-dsk/internal/app"
+	"github.com/Baike12/b-desktop/internal/app"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -19,7 +19,7 @@ func main() {
 	application := app.New()
 
 	err := wails.Run(&options.App{
-		Title:     "ANC DSK",
+		Title:     "B Desktop",
 		Width:     1440,
 		Height:    900,
 		MinWidth:  1024,

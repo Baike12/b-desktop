@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	sysctx "anc-dsk/internal/context"
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
-	"anc-dsk/internal/session"
-	"anc-dsk/internal/tool"
+	sysctx "github.com/Baike12/b-desktop/internal/context"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/session"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 func TestThinkingDeltaAndSignatureForwarded(t *testing.T) {

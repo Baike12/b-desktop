@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	sysctx "anc-dsk/internal/context"
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
-	"anc-dsk/internal/session"
-	"anc-dsk/internal/tool"
+	sysctx "github.com/Baike12/b-desktop/internal/context"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/session"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // 运行时常量与默认值。
@@ -54,6 +54,9 @@ type Config struct {
 	Store       session.Store
 	Now         func() time.Time
 	NewID       func(prefix string) string
+	// Extensions 是可选的扩展集合：额外工具、钩子、上下文提供者、指标与子 Agent。
+	// Extensions.Tools 会在 NewEngine 中注册进 Tools，重名视为配置错误。
+	Extensions Extensions
 }
 
 // Validate 校验必填项与数值范围。可选字段的默认值由 NewEngine 填充。
@@ -148,8 +151,19 @@ func NewEngine(cfg Config) (*Engine, error) {
 	if cfg.NewID == nil {
 		cfg.NewID = defaultNewID
 	}
+	for _, tl := range cfg.Extensions.Tools {
+		if err := cfg.Tools.Register(tl); err != nil {
+			return nil, fmt.Errorf("agent: register extension tool: %w", err)
+		}
+	}
 	return &Engine{cfg: cfg}, nil
 }
+
+// Permissions 返回该引擎使用的权限引擎。
+func (e *Engine) Permissions() *permission.Engine { return e.cfg.Permissions }
+
+// Extensions 返回装配时注入的扩展集合。
+func (e *Engine) Extensions() Extensions { return e.cfg.Extensions }
 
 // defaultNewID 生成 "prefix_" + 16 字节随机数的十六进制。
 func defaultNewID(prefix string) string {

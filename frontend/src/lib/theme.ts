@@ -7,7 +7,7 @@ import {
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type ResolvedTheme = 'light' | 'dark'
 
-export const THEME_STORAGE_KEY = 'anc-dsk:theme'
+export const THEME_STORAGE_KEY = 'b-desktop:theme'
 
 const THEME_MODES = new Set<string>(['light', 'dark', 'system'])
 

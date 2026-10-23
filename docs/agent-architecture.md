@@ -1,4 +1,4 @@
-# anc-dsk Agent 核心运行时设计
+# b-desktop Agent 核心运行时设计
 
 > 范围：`internal/llm`、`internal/tool`、`internal/tool/builtin`、`internal/permission`、`internal/context`、`internal/session`、`internal/agent`、`internal/app`。
 > 依据：`AGENTS.md`（行为约束与包划分）、`internal/app/app.go`（现有绑定形态）、`docs/research/{cc,codex,zed,zcode}.md`（参考实现的 file:line 结论）。
@@ -31,7 +31,7 @@ agent      → llm, tool, permission, session, context
 app        → agent, llm, tool, tool/builtin, permission, session, context
 ```
 
-`permission` 依赖 `tool` 是为了消除路径匹配与路径解析的第二份实现（评审第 26 条）；`tool` 不反向依赖，仍然无环。`internal/context` 与标准库 `context` 同名，引用方统一别名 `sysctx`（agent/app 中为 `sysctx "anc-dsk/internal/context"`）。
+`permission` 依赖 `tool` 是为了消除路径匹配与路径解析的第二份实现（评审第 26 条）；`tool` 不反向依赖，仍然无环。`internal/context` 与标准库 `context` 同名，引用方统一别名 `sysctx`（agent/app 中为 `sysctx "b-desktop/internal/context"`）。
 
 ---
 
@@ -1419,7 +1419,7 @@ type Config struct {
 	BaseURL            string // ANC_BASE_URL，空时用供应商默认地址
 	Model              string // ANC_MODEL，无默认值，缺失时 initErr 记录并在 StartTurn 报错
 	PermissionMode     string // ANC_PERMISSION_MODE，默认 "default"
-	DataDir            string // ANC_DATA_DIR，默认 <os.UserConfigDir()>/anc-dsk
+	DataDir            string // ANC_DATA_DIR，默认 <os.UserConfigDir()>/b-desktop
 	WorkDir            string // ANC_WORKDIR，默认进程启动时的 cwd
 	MaxTurns           int    // ANC_MAX_TURNS，默认 100；0 表示不限
 	ContextWindow      int    // ANC_CONTEXT_WINDOW，0 时取 llm.ModelInfoOf(Model).ContextWindow（本地模型必须显式设置）
@@ -1440,7 +1440,7 @@ func LoadConfig() (Config, error)
 | `ANC_BASE_URL` | 空 | 用供应商默认地址 |
 | `ANC_MODEL` | 空 | 允许启动；`GetConfig().InitError` 与 `StartTurn` 报「model 未配置」 |
 | `ANC_PERMISSION_MODE` | `default` | 非法值在启动时记入 `initErr` |
-| `ANC_DATA_DIR` | `<UserConfigDir>/anc-dsk` | 取默认并创建 |
+| `ANC_DATA_DIR` | `<UserConfigDir>/b-desktop` | 取默认并创建 |
 | `ANC_WORKDIR` | 进程启动 cwd | 取默认 |
 | `ANC_MAX_TURNS` | 100 | 取默认；0 表示不限 |
 | `ANC_CONTEXT_WINDOW` | `ModelInfoOf(Model).ContextWindow`（未知模型 200000） | 本地模型必须显式设置；否则会被当成 200k，永不触发压缩（评审第 2 轮缺失项 1） |
@@ -2581,7 +2581,7 @@ func (p *Provider) Calls() []llm.Request
 
 验收命令（实现阶段执行）：`gofmt -l .`、`go vet ./...`、`go test -race ./...`。
 
-本轮实际执行（评审第 2 轮缺失项 8）：`go vet ./...` 返回 0；`go test ./...` 输出 `? anc-dsk [no test files]` 与 `ok anc-dsk/internal/app (cached)`。仓库 `find internal -type f` 只有 `internal/app/app.go` 与 `internal/app/app_test.go`，llm/tool/permission/session/context/agent 六个包尚不存在，因此上表中的包级测试**尚无可测对象**，本轮未运行 `go test -race ./...`。
+本轮实际执行（评审第 2 轮缺失项 8）：`go vet ./...` 返回 0；`go test ./...` 输出 `? b-desktop [no test files]` 与 `ok b-desktop/internal/app (cached)`。仓库 `find internal -type f` 只有 `internal/app/app.go` 与 `internal/app/app_test.go`，llm/tool/permission/session/context/agent 六个包尚不存在，因此上表中的包级测试**尚无可测对象**，本轮未运行 `go test -race ./...`。
 
 ---
 
@@ -2701,12 +2701,12 @@ $ cd /tmp/ancverify && go run v3.go
 byte-truncated valid=false runes="这是一段很长的中文标题用于\xe6"
 rune-truncated valid=true runes="这是一段很长的中文标题用于测试截断行为"
 
-$ cd /Users/baike3/CodeRepo/anc-dsk && go vet ./...
+$ cd /Users/baike3/CodeRepo/b-desktop && go vet ./...
 # 输出为空，退出码 0
 
 $ go test ./...
-?   	anc-dsk	[no test files]
-ok  	anc-dsk/internal/app	(cached)
+?   	b-desktop	[no test files]
+ok  	b-desktop/internal/app	(cached)
 ```
 
 结论：`defer` 是 LIFO（先注册后执行），所以 turn_end 不能拆成两个 defer；`filepath.Rel` 的合法结果可以是 `..foo`，判界必须比 `".."` 与 `".."+Separator`；按字节截断中文会产生非法 UTF-8，标题必须按 `[]rune` 截断；当前仓库只有 `internal/app` 一个包，`go vet ./...` 通过、`go test ./...` 只跑到 app。

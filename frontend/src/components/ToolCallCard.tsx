@@ -1,8 +1,62 @@
 import { memo, useState } from 'react'
 import { stringifyJSON, summarizeInput, truncate } from '../lib/format'
 import type { AssistantBlock, ToolStatus } from '../types/chat'
+import { DiffView } from './DiffView'
 
 type ToolBlock = Extract<AssistantBlock, { kind: 'tool' }>
+
+type DiffSpec = { diff: string } | { oldText: string; newText: string }
+
+interface ToolDiff {
+  path: string
+  spec: DiffSpec
+}
+
+const EDIT_TOOLS = new Set(['edit', 'write', 'multiedit', 'notebookedit'])
+
+function readString(record: Record<string, unknown>, keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string') return value
+  }
+  return undefined
+}
+
+// toolDiff 从 Edit/Write 参数或结果预览中提取可展示的差异：
+// 优先用真正的 unified diff 字段，拿不到就用 old_string/new_string 做行级对比。
+function toolDiff(block: ToolBlock): ToolDiff | null {
+  if (!EDIT_TOOLS.has(block.toolName.toLowerCase())) return null
+
+  const input =
+    block.input !== null && typeof block.input === 'object'
+      ? (block.input as Record<string, unknown>)
+      : null
+  const path =
+    (input && readString(input, ['file_path', 'filePath', 'path', 'notebook_path'])) ?? ''
+
+  if (input) {
+    const unified = readString(input, ['diff', 'patch', 'unified_diff'])
+    if (unified && unified.trim() !== '') return { path, spec: { diff: unified } }
+
+    const oldText = readString(input, ['old_string', 'oldText', 'old_str'])
+    const newText = readString(input, ['new_string', 'newText', 'new_str'])
+    if (oldText !== undefined || newText !== undefined) {
+      return { path, spec: { oldText: oldText ?? '', newText: newText ?? '' } }
+    }
+
+    const content = readString(input, ['content', 'text', 'file_text'])
+    if (content !== undefined) {
+      return { path, spec: { oldText: '', newText: content } }
+    }
+  }
+
+  // 部分后端会把 diff 放在工具结果预览里。
+  const preview = block.result?.preview?.trim() ?? ''
+  if (preview.startsWith('diff --git') || preview.startsWith('--- ') || preview.includes('\n@@ ')) {
+    return { path, spec: { diff: preview } }
+  }
+  return null
+}
 
 const STATUS_META: Record<ToolStatus, { label: string; className: string; dot: string }> = {
   pending: { label: '参数流式', className: 'bg-hover text-muted', dot: 'bg-slate-400' },
@@ -26,6 +80,7 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
 
   const inputDetail = block.input !== undefined ? stringifyJSON(block.input) : block.inputText
   const resultPreview = block.result?.preview ?? ''
+  const diff = toolDiff(block)
 
   return (
     <div className="overflow-hidden rounded-lg border border-line bg-raised">
@@ -54,6 +109,22 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
 
       {open && (
         <div className="space-y-2 border-t border-line px-3 py-2">
+          {diff && (
+            <div>
+              <p className="mb-1 text-[10px] uppercase tracking-wide text-subtle">差异</p>
+              {'diff' in diff.spec ? (
+                <DiffView diff={diff.spec.diff} title={diff.path} maxHeightClass="max-h-72" />
+              ) : (
+                <DiffView
+                  oldText={diff.spec.oldText}
+                  newText={diff.spec.newText}
+                  title={diff.path}
+                  maxHeightClass="max-h-72"
+                  emptyLabel="old_string 与 new_string 相同"
+                />
+              )}
+            </div>
+          )}
           {inputDetail && (
             <div>
               <p className="mb-1 text-[10px] uppercase tracking-wide text-subtle">参数</p>

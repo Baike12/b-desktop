@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // ErrPathRequired 表示输入缺少路径，或工作区根目录为空。

@@ -40,6 +40,318 @@ export namespace app {
 	        this.workDir = source["workDir"];
 	    }
 	}
+	export class CreateTaskInput {
+	    cron: string;
+	    prompt: string;
+	    workDir?: string;
+	    enabled?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateTaskInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cron = source["cron"];
+	        this.prompt = source["prompt"];
+	        this.workDir = source["workDir"];
+	        this.enabled = source["enabled"];
+	    }
+	}
+	export class ModelUsageDTO {
+	    model: string;
+	    requestCount: number;
+	    errorCount: number;
+	    inputTokens: number;
+	    outputTokens: number;
+	    cacheReadInputTokens: number;
+	    cacheCreationInputTokens: number;
+	    totalTokens: number;
+	    durationMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModelUsageDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.model = source["model"];
+	        this.requestCount = source["requestCount"];
+	        this.errorCount = source["errorCount"];
+	        this.inputTokens = source["inputTokens"];
+	        this.outputTokens = source["outputTokens"];
+	        this.cacheReadInputTokens = source["cacheReadInputTokens"];
+	        this.cacheCreationInputTokens = source["cacheCreationInputTokens"];
+	        this.totalTokens = source["totalTokens"];
+	        this.durationMs = source["durationMs"];
+	    }
+	}
+	export class DailyUsageDTO {
+	    date: string;
+	    requestCount: number;
+	    errorCount: number;
+	    inputTokens: number;
+	    outputTokens: number;
+	    cacheReadInputTokens: number;
+	    cacheCreationInputTokens: number;
+	    totalTokens: number;
+	    durationMs: number;
+	    models: ModelUsageDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DailyUsageDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.date = source["date"];
+	        this.requestCount = source["requestCount"];
+	        this.errorCount = source["errorCount"];
+	        this.inputTokens = source["inputTokens"];
+	        this.outputTokens = source["outputTokens"];
+	        this.cacheReadInputTokens = source["cacheReadInputTokens"];
+	        this.cacheCreationInputTokens = source["cacheCreationInputTokens"];
+	        this.totalTokens = source["totalTokens"];
+	        this.durationMs = source["durationMs"];
+	        this.models = this.convertValues(source["models"], ModelUsageDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class FileContentDTO {
+	    path: string;
+	    size: number;
+	    content: string;
+	    binary: boolean;
+	    truncated: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileContentDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.size = source["size"];
+	        this.content = source["content"];
+	        this.binary = source["binary"];
+	        this.truncated = source["truncated"];
+	    }
+	}
+	export class FileEntryDTO {
+	    name: string;
+	    path: string;
+	    isDir: boolean;
+	    isSymlink: boolean;
+	    size: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileEntryDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.isDir = source["isDir"];
+	        this.isSymlink = source["isSymlink"];
+	        this.size = source["size"];
+	    }
+	}
+	export class FileListDTO {
+	    entries: FileEntryDTO[];
+	    truncated: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileListDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.entries = this.convertValues(source["entries"], FileEntryDTO);
+	        this.truncated = source["truncated"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class HookDTO {
+	    event: string;
+	    matcher: string;
+	    command: string;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HookDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.event = source["event"];
+	        this.matcher = source["matcher"];
+	        this.command = source["command"];
+	        this.source = source["source"];
+	    }
+	}
+	export class HookInput {
+	    event: string;
+	    matcher: string;
+	    command: string;
+	    scope: string;
+	    originalEvent: string;
+	    originalMatcher: string;
+	    originalCommand: string;
+	    originalScope: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HookInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.event = source["event"];
+	        this.matcher = source["matcher"];
+	        this.command = source["command"];
+	        this.scope = source["scope"];
+	        this.originalEvent = source["originalEvent"];
+	        this.originalMatcher = source["originalMatcher"];
+	        this.originalCommand = source["originalCommand"];
+	        this.originalScope = source["originalScope"];
+	    }
+	}
+	export class ImageResultDTO {
+	    paths: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImageResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.paths = source["paths"];
+	    }
+	}
+	export class MCPServerDTO {
+	    name: string;
+	    command: string;
+	    args: string[];
+	    envKeys: string[];
+	    state: string;
+	    error?: string;
+	    toolCount: number;
+	    protocolVersion?: string;
+	    serverName?: string;
+	    serverVersion?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MCPServerDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.command = source["command"];
+	        this.args = source["args"];
+	        this.envKeys = source["envKeys"];
+	        this.state = source["state"];
+	        this.error = source["error"];
+	        this.toolCount = source["toolCount"];
+	        this.protocolVersion = source["protocolVersion"];
+	        this.serverName = source["serverName"];
+	        this.serverVersion = source["serverVersion"];
+	    }
+	}
+	export class MCPServerInput {
+	    name: string;
+	    command: string;
+	    args: string[];
+	    env: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new MCPServerInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.command = source["command"];
+	        this.args = source["args"];
+	        this.env = source["env"];
+	    }
+	}
+	export class MCPToolDTO {
+	    name: string;
+	    server: string;
+	    tool: string;
+	    description: string;
+	    inputSchema: any;
+	    readOnly: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new MCPToolDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.server = source["server"];
+	        this.tool = source["tool"];
+	        this.description = source["description"];
+	        this.inputSchema = source["inputSchema"];
+	        this.readOnly = source["readOnly"];
+	    }
+	}
+	export class MemoryDTO {
+	    name: string;
+	    description: string;
+	    type: string;
+	    fileName: string;
+	    updatedAtMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MemoryDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.type = source["type"];
+	        this.fileName = source["fileName"];
+	        this.updatedAtMs = source["updatedAtMs"];
+	    }
+	}
 	export class MessageDTO {
 	    id: string;
 	    role: string;
@@ -78,6 +390,31 @@ export namespace app {
 		    return a;
 		}
 	}
+	export class ModelPresetDTO {
+	    id: string;
+	    name: string;
+	    provider: string;
+	    baseUrl: string;
+	    defaultModel: string;
+	    needsKey: boolean;
+	    local: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModelPresetDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.provider = source["provider"];
+	        this.baseUrl = source["baseUrl"];
+	        this.defaultModel = source["defaultModel"];
+	        this.needsKey = source["needsKey"];
+	        this.local = source["local"];
+	    }
+	}
+	
 	export class ProjectDTO {
 	    path: string;
 	    name: string;
@@ -146,6 +483,86 @@ export namespace app {
 	        this.maxOutputTokens = source["maxOutputTokens"];
 	    }
 	}
+	export class RequestTraceDTO {
+	    atMs: number;
+	    sessionId: string;
+	    model: string;
+	    inputTokens: number;
+	    outputTokens: number;
+	    cacheReadInputTokens: number;
+	    cacheCreationInputTokens: number;
+	    totalTokens: number;
+	    durationMs: number;
+	    stopReason: string;
+	    err?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RequestTraceDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.atMs = source["atMs"];
+	        this.sessionId = source["sessionId"];
+	        this.model = source["model"];
+	        this.inputTokens = source["inputTokens"];
+	        this.outputTokens = source["outputTokens"];
+	        this.cacheReadInputTokens = source["cacheReadInputTokens"];
+	        this.cacheCreationInputTokens = source["cacheCreationInputTokens"];
+	        this.totalTokens = source["totalTokens"];
+	        this.durationMs = source["durationMs"];
+	        this.stopReason = source["stopReason"];
+	        this.err = source["err"];
+	    }
+	}
+	export class RuleDTO {
+	    id: string;
+	    tool: string;
+	    pattern?: string;
+	    matchMode: string;
+	    effect: string;
+	    source: string;
+	    note?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RuleDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.tool = source["tool"];
+	        this.pattern = source["pattern"];
+	        this.matchMode = source["matchMode"];
+	        this.effect = source["effect"];
+	        this.source = source["source"];
+	        this.note = source["note"];
+	    }
+	}
+	export class RuleInput {
+	    id?: string;
+	    tool: string;
+	    pattern?: string;
+	    matchMode: string;
+	    effect: string;
+	    source?: string;
+	    note?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RuleInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.tool = source["tool"];
+	        this.pattern = source["pattern"];
+	        this.matchMode = source["matchMode"];
+	        this.effect = source["effect"];
+	        this.source = source["source"];
+	        this.note = source["note"];
+	    }
+	}
 	export class SendMessageResult {
 	    sessionId: string;
 	    turnId: string;
@@ -183,6 +600,86 @@ export namespace app {
 	        this.updatedAtMs = source["updatedAtMs"];
 	        this.running = source["running"];
 	    }
+	}
+	export class SessionSearchHitDTO {
+	    role: string;
+	    toolName?: string;
+	    line: number;
+	    snippet: string;
+	    // Go type: time
+	    time: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionSearchHitDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.role = source["role"];
+	        this.toolName = source["toolName"];
+	        this.line = source["line"];
+	        this.snippet = source["snippet"];
+	        this.time = this.convertValues(source["time"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SessionSearchResultDTO {
+	    sessionId: string;
+	    title: string;
+	    workDir: string;
+	    // Go type: time
+	    updatedAt: any;
+	    matchCount: number;
+	    matches: SessionSearchHitDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionSearchResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sessionId = source["sessionId"];
+	        this.title = source["title"];
+	        this.workDir = source["workDir"];
+	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.matchCount = source["matchCount"];
+	        this.matches = this.convertValues(source["matches"], SessionSearchHitDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class UsageDTO {
 	    inputTokens: number;
@@ -249,6 +746,215 @@ export namespace app {
 		    }
 		    return a;
 		}
+	}
+	export class SkillDTO {
+	    name: string;
+	    description: string;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SkillDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.source = source["source"];
+	    }
+	}
+	export class SkillDetailDTO {
+	    name: string;
+	    description: string;
+	    source: string;
+	    path: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SkillDetailDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.source = source["source"];
+	        this.path = source["path"];
+	        this.content = source["content"];
+	    }
+	}
+	export class SkillInput {
+	    name: string;
+	    description: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SkillInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.content = source["content"];
+	    }
+	}
+	export class SubagentTaskDTO {
+	    id: string;
+	    sessionId: string;
+	    description: string;
+	    agentType: string;
+	    status: string;
+	    background: boolean;
+	    startedAt: string;
+	    finishedAt: string;
+	    result?: string;
+	    error?: string;
+	    turns: number;
+	    inputTokens: number;
+	    outputTokens: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SubagentTaskDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.sessionId = source["sessionId"];
+	        this.description = source["description"];
+	        this.agentType = source["agentType"];
+	        this.status = source["status"];
+	        this.background = source["background"];
+	        this.startedAt = source["startedAt"];
+	        this.finishedAt = source["finishedAt"];
+	        this.result = source["result"];
+	        this.error = source["error"];
+	        this.turns = source["turns"];
+	        this.inputTokens = source["inputTokens"];
+	        this.outputTokens = source["outputTokens"];
+	    }
+	}
+	export class SubagentTypeDTO {
+	    name: string;
+	    description: string;
+	    path?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SubagentTypeDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.path = source["path"];
+	    }
+	}
+	export class TaskDTO {
+	    id: string;
+	    cron: string;
+	    prompt: string;
+	    workDir?: string;
+	    enabled: boolean;
+	    createdAtMs: number;
+	    lastRunAtMs?: number;
+	    nextRunAtMs?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TaskDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.cron = source["cron"];
+	        this.prompt = source["prompt"];
+	        this.workDir = source["workDir"];
+	        this.enabled = source["enabled"];
+	        this.createdAtMs = source["createdAtMs"];
+	        this.lastRunAtMs = source["lastRunAtMs"];
+	        this.nextRunAtMs = source["nextRunAtMs"];
+	    }
+	}
+	
+	export class UsageSummaryDTO {
+	    from: string;
+	    to: string;
+	    requestCount: number;
+	    errorCount: number;
+	    inputTokens: number;
+	    outputTokens: number;
+	    cacheReadInputTokens: number;
+	    cacheCreationInputTokens: number;
+	    totalTokens: number;
+	    durationMs: number;
+	    days: DailyUsageDTO[];
+	    models: ModelUsageDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new UsageSummaryDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.from = source["from"];
+	        this.to = source["to"];
+	        this.requestCount = source["requestCount"];
+	        this.errorCount = source["errorCount"];
+	        this.inputTokens = source["inputTokens"];
+	        this.outputTokens = source["outputTokens"];
+	        this.cacheReadInputTokens = source["cacheReadInputTokens"];
+	        this.cacheCreationInputTokens = source["cacheCreationInputTokens"];
+	        this.totalTokens = source["totalTokens"];
+	        this.durationMs = source["durationMs"];
+	        this.days = this.convertValues(source["days"], DailyUsageDTO);
+	        this.models = this.convertValues(source["models"], ModelUsageDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class WorktreeDTO {
+	    path: string;
+	    branch: string;
+	    head: string;
+	    detached: boolean;
+	    bare: boolean;
+	    locked: boolean;
+	    prunable: boolean;
+	    main: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorktreeDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.branch = source["branch"];
+	        this.head = source["head"];
+	        this.detached = source["detached"];
+	        this.bare = source["bare"];
+	        this.locked = source["locked"];
+	        this.prunable = source["prunable"];
+	        this.main = source["main"];
+	    }
 	}
 
 }

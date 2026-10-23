@@ -26,7 +26,7 @@ const (
 
 	defaultAnthropicBaseURL = "https://api.anthropic.com"
 	defaultOpenAIBaseURL    = "https://api.openai.com"
-	defaultUserAgent        = "anc-dsk-llm/1.0"
+	defaultUserAgent        = "b-desktop-llm/1.0"
 
 	// maxErrorBody 是读取非 2xx 响应体的上限，避免恶意端点返回超大数据。
 	maxErrorBody = 64 << 10

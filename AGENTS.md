@@ -2,9 +2,7 @@
 
 ## 项目是什么
 
-`anc-dsk` 是桌面 AI 工作台 `anc-desktop` 的 Go 重写版。原项目基于 Electron + React，在低性能电脑上内存占用高、启动和交互卡顿；本项目改用 **Wails v2 + 系统 WebView**，把原本分散在 Electron 主进程、Node sidecar、Bun server 中的能力收敛到一个 Go 二进制里，React 只负责界面。
-
-对标项目位于同级目录 `../anc-desktop`，功能与交互以它为准，实现方式以本文件为准。
+`b-desktop` 是桌面 AI 工作台，采用 **Wails v2 + 系统 WebView**：会话、模型调用、工具执行、MCP、存储等能力收敛到一个 Go 二进制里，React 只负责界面。
 
 要复刻的核心能力（按重要性排序）：
 
@@ -19,11 +17,11 @@
 9. Computer Use、桌面宠物、多主题
 10. H5 远程访问、IM 接入（Telegram / 飞书 / 微信 / 钉钉 / WhatsApp）
 
-当前阶段只搭好开发框架：Wails 窗口、React 页面、前后端绑定链路和一个示例方法 `Greet`。Agent 与所有业务功能尚未实现。
+当前已实现 Agent 运行时、扩展体系（MCP / Skills / Hooks / SubAgent / 定时任务）、工作台与会话持久化；本地 Server、H5、IM 适配等能力按文末顺序继续补齐。
 
 ## Agent 运行时（项目核心）
 
-`anc-desktop` 的 Agent 不是自研的简单聊天循环，而是基于同级目录 `../cc` 中的 Claude Code 泄漏源码构建的完整编码 Agent。`../cc` 是**行为参考实现**（Bun + TypeScript）；本项目用 Go 重新实现同样的行为，不逐行翻译其代码。
+本项目的 Agent 不是自研的简单聊天循环，而是按完整编码 Agent 的行为模型实现。同级目录 `../cc` 是**行为参考实现**（Bun + TypeScript）；本项目用 Go 重新实现同样的行为，不逐行翻译其代码。
 
 核心链路（对应 `../cc/src`）：
 
@@ -68,8 +66,6 @@
 | MCP | `src/services/mcp/*` | `internal/mcp` |
 | Hooks | `src/types/hooks.ts`、`src/utils/hooks*` | `internal/hook` |
 | 会话持久化 | `src/utils/sessionStorage.ts` | `internal/session` |
-| 本地 HTTP / WebSocket | `../anc-desktop/src/server/*` | `internal/server` |
-| IM 适配 | `../anc-desktop/adapters/*` | `internal/im` |
 
 ### 工具集（按参考实现）
 
@@ -101,9 +97,6 @@
 | 目录 | 作用 |
 |---|---|
 | `../cc/src` | Agent 引擎原始实现：循环、工具、权限、压缩、记忆、Skills、MCP、Hooks |
-| `../anc-desktop/src` | 在 cc 基础上的扩展：多 Provider、SubAgent/Teams、本地 Server、H5、任务、目标、主动模式 |
-| `../anc-desktop/desktop` | Electron 桌面壳与 React UI，是本项目 UI 与交互的对照物 |
-| `../anc-desktop/adapters` | Telegram / 飞书 / 微信 / 钉钉 / WhatsApp 适配器 |
 
 ### 建议实现顺序
 
@@ -135,7 +128,7 @@ Wails 应用（单个 Go 进程）
     └── React 渲染进程，通过 wailsjs 绑定调用 Go
 ```
 
-与 Electron 版的关键差异：没有 Node runtime、没有 Chromium 副本、没有 sidecar 进程；前端不能使用 Node API。
+运行时特性：没有 Node runtime、没有 Chromium 副本、没有 sidecar 进程；前端不能使用 Node API。
 
 ## 目录结构
 

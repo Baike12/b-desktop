@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // writeTestFile 在 root 下创建文件并返回绝对路径。

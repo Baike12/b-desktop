@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	sysctx "anc-dsk/internal/context"
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
-	"anc-dsk/internal/tool"
-	"anc-dsk/internal/tool/builtin"
+	sysctx "github.com/Baike12/b-desktop/internal/context"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool/builtin"
 )
 
 // Registry 保存本次会话可用的工具集合，读写安全。

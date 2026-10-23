@@ -1,7 +1,7 @@
 # Claude Code Agent 运行时调研（参考实现 `../cc`）
 
 调研对象：`/Users/baike3/CodeRepo/cc/src`（Bun + TypeScript，泄漏源码，只读）。
-目标：为 `anc-dsk` 的 Go 实现提供可落地依据。本文所有结论都带 `file:line`；未在参考代码中找到的内容标注为「不存在」或「无法确认」。
+目标：为 `b-desktop` 的 Go 实现提供可落地依据。本文所有结论都带 `file:line`；未在参考代码中找到的内容标注为「不存在」或「无法确认」。
 
 ## 0. 阅读范围与源码完整性
 
@@ -557,5 +557,5 @@ checkPermissions  → allow（交给通用权限系统再判）
 - `src/query/transitions.ts` 不存在：`Terminal` / `Continue` 的联合类型无法确认（import 见 `query.ts:104`）。本文的退出原因表是从 `return` 字面量汇总的。
 - `src/services/compact/reactiveCompact.ts` 不存在：reactive compact 的内部策略无法确认，只能确认调用契约（`query.ts:1119-1135`）。
 - `src/services/contextCollapse/` 为空目录：折叠算法无法确认，只能确认调用点与「先折叠再 autocompact」的顺序约束（`query.ts:428-447`）。
-- 未在本项目源码中找到「桌面端审批 UI」的实现（参考实现是 Ink/REPL 终端 UI，`interactiveHandler.ts` 推进的是终端确认队列）；`anc-dsk` 的 Wails 事件映射需要自行设计，参考实现只能提供「ask 必须阻塞到用户回调」这一语义。
+- 未在本项目源码中找到「桌面端审批 UI」的实现（参考实现是 Ink/REPL 终端 UI，`interactiveHandler.ts` 推进的是终端确认队列）；`b-desktop` 的 Wails 事件映射需要自行设计，参考实现只能提供「ask 必须阻塞到用户回调」这一语义。
 - `src/services/compact/microCompact.ts` 明确写明旧版阈值型 microcompact 已被删除（`microCompact.ts:288-292`），因此「microcompact 按 token 阈值触发」在本参考版本中**不成立**。

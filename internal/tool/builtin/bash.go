@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 const (

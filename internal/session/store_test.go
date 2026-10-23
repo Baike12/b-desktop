@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 var testTime = time.Date(2026, 10, 23, 10, 0, 0, 0, time.UTC)

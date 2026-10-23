@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 // 预算与压缩的默认值，与设计文档 §7.3、§7.4、§7.5 一致。

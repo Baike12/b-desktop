@@ -1,4 +1,4 @@
-module anc-dsk
+module github.com/Baike12/b-desktop
 
 go 1.26.5
 

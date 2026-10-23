@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 func metaRec(id string, at time.Time) Record {

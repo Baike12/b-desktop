@@ -20,11 +20,11 @@ import (
 	"sync"
 	"time"
 
-	"anc-dsk/internal/agent"
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
-	"anc-dsk/internal/project"
-	"anc-dsk/internal/session"
+	"github.com/Baike12/b-desktop/internal/agent"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/project"
+	"github.com/Baike12/b-desktop/internal/session"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -33,6 +33,9 @@ import (
 const (
 	// EventNameAgent 是后端主动推送 Agent 事件的唯一 Wails 事件名。
 	EventNameAgent = "agent:event"
+	// EventNameSessionTitle 是会话标题更新事件名。标题由首轮消息异步生成，
+	// 前端收到后只更新对应列表项，不重新加载会话。
+	EventNameSessionTitle = "session:title"
 	// shutdownTimeout 是 Shutdown 等待进行中轮次退出的上限。
 	shutdownTimeout = 3 * time.Second
 	// maxPromptBytes 是单条用户输入的字节上限，防止前端误传超大文本。
@@ -43,8 +46,8 @@ const (
 	defaultMaxOutputTokens    = 8192
 	defaultMaxTurns           = 100
 	defaultMaxToolConcurrency = 10
-	defaultDataDirName        = "anc-dsk"
-	defaultConfigDirName      = ".anc_dsk"
+	defaultDataDirName        = "b-desktop"
+	defaultConfigDirName      = ".b-desktop"
 	defaultConfigFileName     = "config.json"
 )
 
@@ -126,7 +129,7 @@ type Config struct {
 // Getenv 读取环境变量的函数；测试可替换 LoadConfig 的注入点。
 type Getenv func(string) string
 
-// fileConfig 是 ~/.anc_dsk/config.json 的字段集合。
+// fileConfig 是 ~/.b-desktop/config.json 的字段集合。
 // 字段与前端 DTO 同名，便于对照；未知字段被忽略，方便后续版本向前兼容。
 type fileConfig struct {
 	Provider           string `json:"provider"`
@@ -142,13 +145,27 @@ type fileConfig struct {
 	MaxToolConcurrency int    `json:"maxToolConcurrency"`
 }
 
-// defaultConfigPath 返回 ~/.anc_dsk/config.json。
+// defaultConfigPath 返回 ~/.b-desktop/config.json。
 func defaultConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("app: resolve home dir: %w", err)
 	}
 	return filepath.Join(home, defaultConfigDirName, defaultConfigFileName), nil
+}
+
+// settingsDir 返回用户级设置目录 ~/.b-desktop，并确保它以 0700 权限存在。
+// 记忆、技能、hooks、MCP 配置等扩展数据都存放在该目录下。
+func (a *App) settingsDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("app: resolve home dir: %w", err)
+	}
+	dir := filepath.Join(home, defaultConfigDirName)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("app: create settings dir %s: %w", dir, err)
+	}
+	return dir, nil
 }
 
 // loadConfigFile 读取 JSON 配置文件；文件不存在时返回空配置，不视为错误。
@@ -243,7 +260,7 @@ func saveConfigFile(path string, cfg Config) error {
 	return nil
 }
 
-// LoadConfig 先读 ~/.anc_dsk/config.json，再用 ANC_* 环境变量覆盖（同名字段以环境变量为准）。
+// LoadConfig 先读 ~/.b-desktop/config.json，再用 ANC_* 环境变量覆盖（同名字段以环境变量为准）。
 // ANC_CONFIG 可以指定另一份配置文件；文件不存在时使用默认值。
 // 返回的错误只表示配置文件不可读、数值或枚举非法；缺少 API Key 与 Model 不算配置错误，
 // 分别由 GetProviderConfig().HasAPIKey 与 SendMessage 报告。
@@ -412,6 +429,9 @@ type sessionRuntime struct {
 	turnCancel context.CancelFunc
 	running    bool
 	closed     bool
+	// titleChecked 表示本次进程内已检查过是否需要一个自动标题，
+	// 避免每轮消息都读取 transcript。
+	titleChecked bool
 }
 
 // newSessionRuntime 创建运行时。
@@ -457,9 +477,12 @@ type App struct {
 	closed   bool
 	turns    sync.WaitGroup
 	initErr  error
+	// extMu 保护 extData：扩展组件（skills / memory / mcp / …）按 key 惰性创建并复用。
+	extMu   sync.Mutex
+	extData map[string]any
 }
 
-// New 创建生产用应用实例：读取 ~/.anc_dsk/config.json，再用 ANC_* 环境变量覆盖；
+// New 创建生产用应用实例：读取 ~/.b-desktop/config.json，再用 ANC_* 环境变量覆盖；
 // 事件发送器为 runtime.EventsEmit。
 // 配置或存储初始化失败会记录在 initErr 中，由 GetProviderConfig / 绑定方法返回。
 func New() *App {
@@ -516,7 +539,8 @@ func newApp(cfg Config, sender Sender, store session.Store, factory ProviderFact
 	return a
 }
 
-// Startup 在窗口加载前由 Wails 调用：保存生命周期 context，必要时创建文件存储。
+// Startup 在窗口加载前由 Wails 调用：保存生命周期 context，必要时创建文件存储，
+// 并启动定时任务调度循环。存储或调度器初始化失败只记录错误，不阻止窗口加载。
 func (a *App) Startup(ctx context.Context) {
 	a.mu.Lock()
 	if ctx != nil {
@@ -525,25 +549,27 @@ func (a *App) Startup(ctx context.Context) {
 	needStore := a.store == nil
 	cfg := a.cfg
 	a.mu.Unlock()
-	if !needStore {
-		return
+
+	if needStore {
+		store, err := session.NewFileStore(cfg.DataDir)
+		a.mu.Lock()
+		if a.store == nil {
+			a.store = store
+		}
+		if err != nil {
+			a.initErr = errors.Join(a.initErr, fmt.Errorf("app: open session store: %w", err))
+		}
+		a.mu.Unlock()
 	}
 
-	store, err := session.NewFileStore(cfg.DataDir)
-	a.mu.Lock()
-	if a.store == nil {
-		a.store = store
-	}
-	if err != nil {
-		a.initErr = errors.Join(a.initErr, fmt.Errorf("app: open session store: %w", err))
-	}
-	a.mu.Unlock()
+	a.startTaskScheduler()
 }
 
 // Shutdown 在应用退出时由 Wails 调用，幂等：
 //  1. 标记关闭，取消每个会话的当前轮次与待审批项，释放引擎；
 //  2. 等待进行中的轮次退出（最多 shutdownTimeout）；
-//  3. Flush 并关闭进程内唯一的会话存储。
+//  3. 关闭扩展组件：定时任务调度器、子 Agent、MCP 连接与用量存储；
+//  4. Flush 并关闭进程内唯一的会话存储。
 func (a *App) Shutdown(ctx context.Context) {
 	_ = ctx // 清理使用独立的后台超时，不复用可能已被取消的入参 ctx。
 
@@ -576,6 +602,9 @@ func (a *App) Shutdown(ctx context.Context) {
 	case <-done:
 	case <-timer.C:
 	}
+
+	// 轮次已退出，扩展组件不会再有新的调用：先停调度循环，再释放子进程与会话。
+	a.closeExtensions()
 
 	if store != nil {
 		flushCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -731,6 +760,20 @@ func (a *App) ListSessions() ([]SessionInfoDTO, error) {
 	}
 
 	runtimes := a.runtimeSnapshot()
+	// 旧版本创建的会话没有标题记录：首次出现在列表时用首条用户消息补一个，
+	// 之后读取到的就是已落盘的标题。正在生成标题的会话跳过，避免覆盖模型结果。
+	for i := range infos {
+		if !isDefaultSessionTitle(infos[i].Title) {
+			continue
+		}
+		if rt := runtimes[infos[i].ID]; rt != nil && rt.titleScheduled() {
+			continue
+		}
+		if title, ok := a.deriveSessionTitle(store, infos[i].ID); ok {
+			infos[i].Title = title
+		}
+	}
+
 	out := make([]SessionInfoDTO, 0, len(infos))
 	for _, info := range infos {
 		running := false
@@ -818,6 +861,8 @@ func (a *App) SendMessage(sessionID, prompt string) (SendMessageResult, error) {
 		rt.mu.Unlock()
 		return SendMessageResult{}, ErrTurnRunning
 	}
+	// 首次发送消息时异步生成会话标题；它不参与本轮，也不阻塞返回。
+	a.startSessionTitle(rt, prompt, cfg)
 	engine, err := a.ensureEngineLocked(rt, cfg, gen)
 	if err != nil {
 		rt.mu.Unlock()
@@ -1001,7 +1046,7 @@ func (a *App) SetProviderConfig(in ProviderConfigInput) error {
 
 // Greet 是脚手架示例方法，保留以避免既有前端调用失效。
 func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, ANC DSK is running.", name)
+	return fmt.Sprintf("Hello %s, B Desktop is running.", name)
 }
 
 // sessionStore 返回存储与配置快照；存储未就绪或应用已关闭时返回错误。
@@ -1183,6 +1228,11 @@ func (a *App) buildEngine(rt *sessionRuntime, cfg Config) (*agent.Engine, error)
 		return nil, fmt.Errorf("app: wire session %q: %w", rt.id, err)
 	}
 
+	extensions, err := a.buildExtensions(workDir)
+	if err != nil {
+		return nil, fmt.Errorf("app: extensions session %q: %w", rt.id, err)
+	}
+
 	engine, err := agent.NewEngine(agent.Config{
 		SessionID:          rt.id,
 		WorkDir:            workDir,
@@ -1196,6 +1246,7 @@ func (a *App) buildEngine(rt *sessionRuntime, cfg Config) (*agent.Engine, error)
 		Builder:            components.Builder,
 		Compactor:          components.Compactor,
 		Store:              store,
+		Extensions:         extensions,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("app: engine session %q: %w", rt.id, err)

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 // fixedEstimator 对任何输入都返回同一个 token 数，用于精确控制阈值。

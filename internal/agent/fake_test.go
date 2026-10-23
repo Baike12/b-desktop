@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	sysctx "anc-dsk/internal/context"
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
-	"anc-dsk/internal/session"
-	"anc-dsk/internal/tool"
+	sysctx "github.com/Baike12/b-desktop/internal/context"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/session"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // fixedNow 是测试用的固定时间源。
@@ -270,6 +270,7 @@ type harnessOptions struct {
 	maxConcurrency int
 	budget         sysctx.Budget
 	summarizer     sysctx.Summarizer
+	extensions     Extensions
 }
 
 // idGen 生成稳定可读的 ID。
@@ -339,6 +340,7 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 		Store:              store,
 		Now:                fixedNow,
 		NewID:              ids.next,
+		Extensions:         opts.extensions,
 	})
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)

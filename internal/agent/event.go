@@ -5,8 +5,8 @@ package agent
 import (
 	"encoding/json"
 
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
 )
 
 // EventType 是推给前端的事件名。

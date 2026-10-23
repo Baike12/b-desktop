@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 func fixedNow() time.Time {
@@ -72,7 +72,7 @@ func TestSystemOrderAndInstructionLookup(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"你是 anc-dsk 桌面工作台里的编码 Agent",
+		"你是 b-desktop 桌面工作台里的编码 Agent",
 		"<env>", "cwd: " + sub, "date: 2026-10-23", "model: test-model",
 		"ROOT AGENTS", "SUB AGENTS",
 		"branch: feature/x", "main branch: main", " M main.go", "abc123 feat: first",
@@ -92,7 +92,7 @@ func TestSystemOrderAndInstructionLookup(t *testing.T) {
 	}
 
 	assertOrder(t, got,
-		"你是 anc-dsk",
+		"你是 b-desktop",
 		"<env>",
 		"<project-instructions>",
 		"<git>",
@@ -210,10 +210,10 @@ func TestBeginTurnKeepsStaticCache(t *testing.T) {
 func TestInstructionHierarchyRootToLeaf(t *testing.T) {
 	root := t.TempDir()
 	sub := filepath.Join(root, "sub")
-	if err := os.MkdirAll(filepath.Join(sub, ".anc_dsk"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(sub, ".b-desktop"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(root, ".anc_dsk"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, ".b-desktop"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mustWrite := func(path, content string) {
@@ -223,9 +223,9 @@ func TestInstructionHierarchyRootToLeaf(t *testing.T) {
 		}
 	}
 	mustWrite(filepath.Join(root, "AGENTS.md"), "ROOT")
-	mustWrite(filepath.Join(root, ".anc_dsk", "AGENTS.md"), "ROOT-DOT")
+	mustWrite(filepath.Join(root, ".b-desktop", "AGENTS.md"), "ROOT-DOT")
 	mustWrite(filepath.Join(sub, "AGENTS.md"), "SUB")
-	mustWrite(filepath.Join(sub, ".anc_dsk", "AGENTS.md"), "SUB-DOT")
+	mustWrite(filepath.Join(sub, ".b-desktop", "AGENTS.md"), "SUB-DOT")
 	mustWrite(filepath.Join(sub, "CLAUDE.md"), "IGNORED")
 
 	b := NewBuilder(Options{

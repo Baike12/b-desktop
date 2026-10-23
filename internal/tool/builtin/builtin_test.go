@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // newTestRoot 返回已解析符号链接的临时工作区根目录。

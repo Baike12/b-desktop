@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // grepSchema 是 Grep 的输入 schema。

@@ -3,7 +3,7 @@
 package context
 
 import (
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 // Estimator 估算文本与消息的 token 数。Compactor 通过它计算阈值与节省量，

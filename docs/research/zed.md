@@ -460,7 +460,7 @@ Provider 契约只有一个方法：`stream_completion(&self, model, request, cx
 
 ---
 
-## 11. 对 anc-dsk 的映射建议（基于以上事实）
+## 11. 对 b-desktop 的映射建议（基于以上事实）
 
 1. **循环判据照搬**：Go 里用「本轮是否产生了 tool_result」作为唯一续轮信号，忽略 provider 的 stop reason；不要引入 maxTurns（参考实现没有，且用户可在 UI 里取消）。
 2. **tool_result 兜底必须有**：每次把 pending 消息落盘时遍历所有 tool_use，缺结果的补 `is_error` + cancel 文案；Tool 接口用 `Result[Output, Output]` 的等价物（错误也走同一结构体），避免 `error` 逃出循环。
@@ -473,6 +473,6 @@ Provider 契约只有一个方法：`stream_completion(&self, model, request, cx
 
 ## 12. 交叉验证说明
 
-- 本文没有修改参考目录或 `anc-dsk` 的任何源码，只新增本文件。
+- 本文没有修改参考目录或 `b-desktop` 的任何源码，只新增本文件。
 - 未运行 Zed 的测试（`cargo test` 未执行）；所有结论来自静态阅读上述文件。
 - 「不存在」类结论通过在 `agent/src`、`agent_settings/src`、`acp_thread/src` 内 grep 关键词得到（`bypass_permissions|permission_mode|accept_edits|dont_ask`、`micro.compact`、`is_read_only|concurren`），属于「在本次搜索范围内未找到」，不等于全仓绝对不存在。

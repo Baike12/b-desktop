@@ -5,7 +5,7 @@ package session
 import (
 	"fmt"
 
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 // interruptedResultText 是重放时为缺失的工具结果填写的占位文本（§8.4）。
@@ -56,6 +56,11 @@ func Replay(recs []Record) (Loaded, error) {
 		case RecordMode:
 			if v, ok := r.Meta["mode"]; ok {
 				out.Mode = v
+			}
+		case RecordTitle:
+			// 标题更新是追加记录：位置无关，最后一条生效。
+			if v := r.Meta["title"]; v != "" {
+				out.Meta.Title = v
 			}
 		}
 	}

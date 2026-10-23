@@ -20,6 +20,14 @@ export function truncate(value: string, max: number): string {
   return `${value.slice(0, max)}…`
 }
 
+// formatBytes 把字节数格式化成 B / KB / MB。
+export function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0 B'
+  if (value < 1024) return `${Math.round(value)} B`
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1).replace(/\.0$/, '')} KB`
+  return `${(value / (1024 * 1024)).toFixed(1).replace(/\.0$/, '')} MB`
+}
+
 // formatTokens 把 token 数压缩成 1.2k / 3.4M 形式，整数结果不带小数位。
 export function formatTokens(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return '0'

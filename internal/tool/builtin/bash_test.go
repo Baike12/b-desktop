@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // runBash 以 root 为工作目录执行一次 Bash 调用。

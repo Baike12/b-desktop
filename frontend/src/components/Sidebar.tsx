@@ -1,11 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { app } from '../../wailsjs/go/models'
 import { formatRelative } from '../lib/format'
 import { DRAG_REGION, IS_MAC, NO_DRAG } from '../lib/platform'
 import { groupSessionsByProject } from '../lib/projects'
 import { useAppStore } from '../stores/app'
 import { useSettingsStore } from '../stores/settings'
-import { useWorkbenchStore } from '../stores/workbench'
+import { useWorkbenchStore, type PanelId } from '../stores/workbench'
 
 const statusLabel = {
   idle: '正在连接后端…',
@@ -86,6 +86,136 @@ function ChevronIcon({ open }: { open: boolean }) {
     </svg>
   )
 }
+
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+function BranchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="6" cy="18" r="2.5" />
+      <circle cx="18" cy="8" r="2.5" />
+      <path d="M6 8.5v7M18 10.5c0 3-2 5-5.5 6" />
+    </svg>
+  )
+}
+
+function ExtensionsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  )
+}
+
+function ChartIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M4 20V4" />
+      <path d="M4 20h16" />
+      <path d="M8 16v-4M12 16V8M16 16v-6M20 16v-9" />
+    </svg>
+  )
+}
+
+function ImageIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="m4 17 5-5 4 4 3-3 4 4" />
+    </svg>
+  )
+}
+
+interface NavItem {
+  id: PanelId
+  label: string
+  Icon: () => ReactElement
+}
+
+// 一级导航：对话之外的工作台视图，展开态显示文字，折叠态只留图标。
+const NAV_ITEMS: readonly NavItem[] = [
+  { id: 'search', label: '搜索', Icon: SearchIcon },
+  { id: 'tasks', label: '定时任务', Icon: ClockIcon },
+  { id: 'worktrees', label: 'Worktree', Icon: BranchIcon },
+  { id: 'extensions', label: '扩展管理', Icon: ExtensionsIcon },
+  { id: 'usage', label: '用量', Icon: ChartIcon },
+  { id: 'image', label: '图片生成', Icon: ImageIcon },
+]
 
 function PanelIcon({ open }: { open: boolean }) {
   return (
@@ -228,6 +358,8 @@ export default function Sidebar() {
   const newSession = useWorkbenchStore((state) => state.newSession)
   const openProject = useWorkbenchStore((state) => state.openProject)
   const selectSession = useWorkbenchStore((state) => state.selectSession)
+  const activePanel = useWorkbenchStore((state) => state.activePanel)
+  const setPanel = useWorkbenchStore((state) => state.setPanel)
   const status = useAppStore((state) => state.status)
   const openSettings = useSettingsStore((state) => state.openSettings)
   const sidebarCollapsed = useSettingsStore((state) => state.sidebarCollapsed)
@@ -293,6 +425,29 @@ export default function Sidebar() {
         >
           <PlusIcon />
         </button>
+        <nav aria-label="工作台面板" className="mt-1 flex flex-col items-center gap-1">
+          {NAV_ITEMS.map(({ id, label, Icon }) => {
+            const active = activePanel === id
+            return (
+              <button
+                key={id}
+                type="button"
+                data-testid={`nav-${id}`}
+                aria-label={label}
+                aria-current={active ? 'page' : undefined}
+                title={label}
+                onClick={() => setPanel(id)}
+                className={
+                  active
+                    ? 'cursor-pointer rounded-lg bg-hover p-2 text-fg'
+                    : 'cursor-pointer rounded-lg p-2 text-subtle transition hover:bg-hover hover:text-fg'
+                }
+              >
+                <Icon />
+              </button>
+            )
+          })}
+        </nav>
         <div className="flex-1" />
         <button
           type="button"
@@ -320,7 +475,7 @@ export default function Sidebar() {
       >
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-sm font-semibold tracking-tight text-fg">ANC DSK</div>
+            <div className="text-sm font-semibold tracking-tight text-fg">B Desktop</div>
             <div className="mt-1 flex items-center gap-1.5 text-[11px] text-subtle">
               <span className={`size-1.5 rounded-full ${statusColor[status]}`} />
               {statusLabel[status]}
@@ -363,7 +518,34 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <div className="flex items-center justify-between px-4 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-subtle">
+      <nav
+        data-testid="panel-nav"
+        aria-label="工作台面板"
+        className="space-y-0.5 border-t border-line px-2 py-2"
+      >
+        {NAV_ITEMS.map(({ id, label, Icon }) => {
+          const active = activePanel === id
+          return (
+            <button
+              key={id}
+              type="button"
+              data-testid={`nav-${id}`}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => setPanel(id)}
+              className={
+                active
+                  ? 'flex w-full cursor-pointer items-center gap-2 rounded-lg bg-hover px-3 py-1.5 text-left text-[13px] text-fg'
+                  : 'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] text-muted transition hover:bg-hover hover:text-fg'
+              }
+            >
+              <Icon />
+              <span className="min-w-0 flex-1 truncate">{label}</span>
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="flex items-center justify-between px-4 pb-1.5 pt-2 text-[10px] font-medium uppercase tracking-wider text-subtle">
         <span>任务列表</span>
         <span className="tabular-nums">{sessions.length}</span>
       </div>

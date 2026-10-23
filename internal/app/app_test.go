@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"anc-dsk/internal/agent"
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
-	"anc-dsk/internal/session"
+	"github.com/Baike12/b-desktop/internal/agent"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/session"
 )
 
 // testConfig 返回隔离的测试配置：临时工作目录 + 允许写操作的模式。
@@ -106,19 +106,38 @@ func (s *fakeStream) Close() error { return nil }
 
 // eventCollector 捕获 Sender 收到的载荷。
 type eventCollector struct {
-	mu     sync.Mutex
-	events []agent.Event
-	names  []string
-	ch     chan agent.Event
+	mu      sync.Mutex
+	events  []agent.Event
+	names   []string
+	titles  []SessionTitleDTO
+	ch      chan agent.Event
+	titleCh chan SessionTitleDTO
 }
 
 // newEventCollector 创建采集器。
 func newEventCollector() *eventCollector {
-	return &eventCollector{ch: make(chan agent.Event, 1024)}
+	return &eventCollector{
+		ch:      make(chan agent.Event, 1024),
+		titleCh: make(chan SessionTitleDTO, 16),
+	}
 }
 
 // send 实现 Sender。
 func (c *eventCollector) send(_ context.Context, name string, payload any) {
+	if name == EventNameSessionTitle {
+		dto, ok := payload.(SessionTitleDTO)
+		if !ok {
+			return
+		}
+		c.mu.Lock()
+		c.titles = append(c.titles, dto)
+		c.mu.Unlock()
+		select {
+		case c.titleCh <- dto:
+		default:
+		}
+		return
+	}
 	ev, ok := payload.(agent.Event)
 	if !ok {
 		return
@@ -130,6 +149,18 @@ func (c *eventCollector) send(_ context.Context, name string, payload any) {
 	select {
 	case c.ch <- ev:
 	default:
+	}
+}
+
+// waitForTitle 等待一条会话标题事件。
+func (c *eventCollector) waitForTitle(t *testing.T, timeout time.Duration) SessionTitleDTO {
+	t.Helper()
+	select {
+	case dto := <-c.titleCh:
+		return dto
+	case <-time.After(timeout):
+		t.Fatal("timeout waiting for session title event")
+		return SessionTitleDTO{}
 	}
 }
 
@@ -340,7 +371,7 @@ func TestProjectSessionUsesProjectWorkDir(t *testing.T) {
 
 func TestGreet(t *testing.T) {
 	got := New().Greet("ANC")
-	want := "Hello ANC, ANC DSK is running."
+	want := "Hello ANC, B Desktop is running."
 	if got != want {
 		t.Fatalf("Greet() = %q, want %q", got, want)
 	}

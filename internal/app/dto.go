@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/project"
-	"anc-dsk/internal/session"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/project"
+	"github.com/Baike12/b-desktop/internal/session"
 )
 
 // CreateSessionInput 是 CreateSession 的入参。

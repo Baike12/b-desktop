@@ -8,6 +8,7 @@ import {
   ListSessions,
   LoadSession,
   OpenProject,
+  ReadSessionFile,
   SendMessage,
   SetPermissionMode,
 } from '../../wailsjs/go/app/App'
@@ -55,7 +56,30 @@ function withSystemError(items: ChatItem[], text: string): ChatItem[] {
   ]
 }
 
+// PanelId 是主内容区的一级视图；'chat' 之外的视图都是独立工作台页面。
+export type PanelId =
+  | 'chat'
+  | 'search'
+  | 'tasks'
+  | 'worktrees'
+  | 'extensions'
+  | 'usage'
+  | 'image'
+
+// FilePreviewState 是右侧文件树点击文件后的只读预览。
+export interface FilePreviewState {
+  path: string
+  loading: boolean
+  content: string
+  size: number
+  binary: boolean
+  truncated: boolean
+  error: string | null
+}
+
 export interface WorkbenchState {
+  // 当前主视图；切换视图不会重置会话状态。
+  activePanel: PanelId
   // 会话列表
   sessions: app.SessionInfoDTO[]
   // 已打开的项目
@@ -83,8 +107,13 @@ export interface WorkbenchState {
   loading: boolean
   bootstrapped: boolean
   bootstrapping: boolean
+  // 中间区域的只读文件预览；null 表示显示对话。
+  preview: FilePreviewState | null
+  // 文件树刷新信号：每轮结束后自增，右侧栏据此重载已展开目录。
+  filesRevision: number
 
   init: () => Promise<void>
+  setPanel: (panel: PanelId) => void
   refreshSessions: () => Promise<void>
   selectSession: (id: string) => Promise<void>
   newSession: (projectPath?: string) => Promise<void>
@@ -94,10 +123,14 @@ export interface WorkbenchState {
   approve: (requestId: string, option: string) => Promise<void>
   setPermissionMode: (mode: PermissionMode) => Promise<void>
   applyProviderConfig: (config: app.ProviderConfigDTO) => void
+  openFile: (path: string) => Promise<void>
+  closePreview: () => void
+  applySessionTitle: (sessionId: string, title: string) => void
   ingest: (events: AgentEvent[]) => void
 }
 
 export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
+  activePanel: 'chat',
   sessions: [],
   projects: [],
   activeId: null,
@@ -121,6 +154,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   loading: false,
   bootstrapped: false,
   bootstrapping: false,
+  preview: null,
+  filesRevision: 0,
 
   init: async () => {
     if (get().bootstrapping || get().bootstrapped) return
@@ -152,6 +187,12 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     }
   },
 
+  setPanel: (panel) => {
+    // 只切换视图，不动 items / running / approvals 等会话状态。
+    // 离开对话视图时关闭文件预览，避免预览遮挡工作台页面。
+    if (get().activePanel !== panel) set({ activePanel: panel, preview: null })
+  },
+
   refreshSessions: async () => {
     try {
       const sessions = await ListSessions()
@@ -165,11 +206,15 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
   selectSession: async (id) => {
     // 重复点击正在运行的会话不应重载：那会丢掉尚未落盘的流式消息。
-    if (get().activeId === id && get().running) return
+    if (get().activeId === id && get().running) {
+      set({ activePanel: 'chat' })
+      return
+    }
     set({ loading: true, error: null, notice: null })
     try {
       const view = await LoadSession(id)
       set({
+        activePanel: 'chat',
         activeId: view.id,
         title: view.title,
         workDir: view.workDir,
@@ -187,6 +232,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         stopReason: null,
         loading: false,
         error: null,
+        preview: null,
       })
     } catch (err) {
       set({ loading: false, error: errorMessage(err) })
@@ -321,6 +367,61 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     })
   },
 
+  // applySessionTitle 同步后端生成的标题；只改标题，不重载消息历史。
+  applySessionTitle: (sessionId, title) => {
+    if (!sessionId || !title) return
+    set((state) => ({
+      sessions: state.sessions.map((session) =>
+        session.id === sessionId ? { ...session, title } : session,
+      ),
+      ...(state.activeId === sessionId ? { title } : {}),
+    }))
+  },
+
+  // openFile 打开右侧文件树点击的文件：切回对话视图并显示只读预览。
+  // 快速连点不同文件时，只接受最后一次请求的结果。
+  openFile: async (path) => {
+    const sessionId = get().activeId
+    if (!sessionId || !path) return
+    const workDir = get().workDir
+    set({
+      activePanel: 'chat',
+      preview: {
+        path,
+        loading: true,
+        content: '',
+        size: 0,
+        binary: false,
+        truncated: false,
+        error: null,
+      },
+    })
+    try {
+      const file = await ReadSessionFile(sessionId, workDir, path)
+      if (get().preview?.path !== path) return
+      set({
+        preview: {
+          path: file.path || path,
+          loading: false,
+          content: file.content ?? '',
+          size: file.size ?? 0,
+          binary: Boolean(file.binary),
+          truncated: Boolean(file.truncated),
+          error: null,
+        },
+      })
+    } catch (err) {
+      if (get().preview?.path !== path) return
+      set((state) =>
+        state.preview
+          ? { preview: { ...state.preview, loading: false, error: errorMessage(err) } }
+          : {},
+      )
+    }
+  },
+
+  closePreview: () => set({ preview: null }),
+
   ingest: (events) => {
     const activeId = get().activeId
     if (!activeId) return
@@ -358,6 +459,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       stopReason: next.stopReason,
       usage,
       notice: null,
+      // 一轮结束可能改了文件；右侧文件树据此刷新已展开目录。
+      filesRevision: ended ? previous.filesRevision + 1 : previous.filesRevision,
     })
 
     if (ended) {

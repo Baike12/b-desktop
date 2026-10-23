@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 func TestGrepBasicOutput(t *testing.T) {

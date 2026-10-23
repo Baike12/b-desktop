@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"anc-dsk/internal/llm"
+	"github.com/Baike12/b-desktop/internal/llm"
 )
 
 const (
@@ -143,7 +143,7 @@ func Decode(line []byte) (Record, error) {
 
 func isKnownType(t RecordType) bool {
 	switch t {
-	case RecordSessionMeta, RecordMessage, RecordCompact, RecordUsage, RecordMode, RecordTurnEnd:
+	case RecordSessionMeta, RecordMessage, RecordCompact, RecordUsage, RecordMode, RecordTitle, RecordTurnEnd:
 		return true
 	}
 	return false
@@ -167,6 +167,10 @@ func validatePayload(r Record) error {
 		if r.TurnEnd == nil {
 			return errors.New("session: turn_end record without turnEnd")
 		}
+	case RecordTitle:
+		if strings.TrimSpace(r.Meta["title"]) == "" {
+			return errors.New("session: title record without title")
+		}
 	}
 	return nil
 }
@@ -174,7 +178,7 @@ func validatePayload(r Record) error {
 // needsSync 报告该类型写入后是否必须 fsync。mode 等低价值记录只写页缓存。
 func needsSync(t RecordType) bool {
 	switch t {
-	case RecordSessionMeta, RecordMessage, RecordCompact, RecordUsage, RecordTurnEnd:
+	case RecordSessionMeta, RecordMessage, RecordCompact, RecordUsage, RecordTitle, RecordTurnEnd:
 		return true
 	}
 	return false
@@ -774,6 +778,11 @@ func (s *FileStore) scanInfo(ctx context.Context, id, path string) (Info, bool, 
 				if h.Type == RecordMessage {
 					info.Messages++
 				}
+				if h.Type == RecordTitle {
+					if v := h.Meta["title"]; v != "" {
+						info.Title = v
+					}
+				}
 				if h.Time.After(info.UpdatedAt) {
 					info.UpdatedAt = h.Time
 				}
@@ -991,6 +1000,11 @@ func (m *MemStore) List(ctx context.Context) ([]Info, error) {
 		for _, r := range recs {
 			if r.Type == RecordMessage {
 				info.Messages++
+			}
+			if r.Type == RecordTitle {
+				if v := r.Meta["title"]; v != "" {
+					info.Title = v
+				}
 			}
 			if r.Time.After(info.UpdatedAt) {
 				info.UpdatedAt = r.Time

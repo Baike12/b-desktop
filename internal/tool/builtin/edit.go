@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 const editSchema = `{

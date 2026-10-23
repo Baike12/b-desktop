@@ -15,7 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"anc-dsk/internal/tool"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // 系统提示的默认参数。
@@ -24,7 +24,7 @@ const (
 	defaultGitTimeout          = 2 * time.Second
 	gitStatusLimit             = 2000
 	// defaultConfigDirName 是用户级配置目录，用户级 AGENTS.md 位于其中。
-	defaultConfigDirName = ".anc_dsk"
+	defaultConfigDirName = ".b-desktop"
 )
 
 // 系统提示中各段的包裹标签，导出供调用方与测试断言。
@@ -36,7 +36,7 @@ const (
 )
 
 // identityText 是系统提示第一段：身份与行为约定（固定文案，中文）。
-const identityText = "你是 anc-dsk 桌面工作台里的编码 Agent。你可以在工作目录内读写文件、执行命令并调用工具完成任务。\n" +
+const identityText = "你是 b-desktop 桌面工作台里的编码 Agent。你可以在工作目录内读写文件、执行命令并调用工具完成任务。\n" +
 	"要求：先读再改；工具失败时阅读错误信息并调整；回答简洁，用中文。"
 
 // Options 是 Builder 的构造参数。
@@ -250,8 +250,8 @@ func (b *Builder) instructionSection() (text, contentSig string) {
 }
 
 // instructionFileNames 是每个目录下依次检查的指令文件名。
-// `.anc_dsk/AGENTS.md` 对应 cc 的 `.claude/CLAUDE.md`：项目内可提交的补充指令。
-var instructionFileNames = []string{"AGENTS.md", filepath.Join(".anc_dsk", "AGENTS.md")}
+// `.b-desktop/AGENTS.md` 对应 cc 的 `.claude/CLAUDE.md`：项目内可提交的补充指令。
+var instructionFileNames = []string{"AGENTS.md", filepath.Join(".b-desktop", "AGENTS.md")}
 
 // instructionSignature 返回指令文件签名。
 // 默认读盘时用 (path, mtime, size) 组成签名，任一文件变化即触发静态层重建；
@@ -301,7 +301,7 @@ func (b *Builder) instructionPaths() []string {
 		paths = append(paths, path)
 	}
 
-	// 用户级：~/.anc_dsk/AGENTS.md（对应 cc 的 ~/.claude/CLAUDE.md）。
+	// 用户级：~/.b-desktop/AGENTS.md（对应 cc 的 ~/.claude/CLAUDE.md）。
 	if home, err := os.UserHomeDir(); err == nil {
 		add(filepath.Join(home, defaultConfigDirName, "AGENTS.md"))
 	}

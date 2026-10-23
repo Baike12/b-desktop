@@ -12,11 +12,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	sysctx "anc-dsk/internal/context"
-	"anc-dsk/internal/llm"
-	"anc-dsk/internal/permission"
-	"anc-dsk/internal/session"
-	"anc-dsk/internal/tool"
+	sysctx "github.com/Baike12/b-desktop/internal/context"
+	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/session"
+	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 // toolResultPreviewBytes 是 tool_result 事件里预览文本的上限（完整结果在历史里）。
@@ -27,6 +27,17 @@ const emptyToolOutput = "<tool returned no output>"
 
 // continuationPrompt 是恢复中断会话时追加的用户消息。
 const continuationPrompt = "Continue from where you left off."
+
+// modelFailurePrefix 是模型请求失败后回灌给模型的用户消息前缀。
+// 回灌的内容是一条普通 user 消息，模型据此调整下一次请求。
+const modelFailurePrefix = "模型请求失败，请调整后继续："
+
+// maxModelFailureRetries 是同一轮内模型请求连续失败允许的重试次数。
+// 第 maxModelFailureRetries+1 次连续失败按不可恢复错误结束本轮。
+const maxModelFailureRetries = 2
+
+// modelFailureMaxAttempts 是一轮内模型请求允许的连续尝试次数（首次 + 重试）。
+const modelFailureMaxAttempts = maxModelFailureRetries + 1
 
 // turn 是一次 Run 的可变状态。所有字段只在 turn goroutine 中读写，
 // 因此事件发射天然单线程，满足 EventSink 契约。
@@ -43,7 +54,25 @@ type turn struct {
 	contextTokens int
 	finished      bool
 	turnEndSent   bool
+	// promptExtra 是 UserPromptSubmit 钩子返回的文本，每次 Run 只取一次，
+	// 追加到本轮所有系统提示末尾。
+	promptExtra string
+	// modelFailures 是本轮内模型请求的连续失败次数；一次成功调用后归零。
+	// 达到 maxModelFailureRetries+1 时本轮以 StopError 结束。
+	modelFailures int
 }
+
+// callOutcome 是一次模型调用之后的循环走向。
+type callOutcome int
+
+const (
+	// callProduced 表示拿到了完整 assistant 消息，按其中的 tool_use 推进。
+	callProduced callOutcome = iota
+	// callRetry 表示请求失败但失败摘要已回灌历史，应立即进入下一次调用。
+	callRetry
+	// callEnded 表示本轮已经结束（取消、重试耗尽或存储故障）。
+	callEnded
+)
 
 // run 是单层状态机循环。唯一推进信号是 assistant 消息里的 tool_use：
 // 有则执行并回灌，没有才结束本轮。
@@ -51,6 +80,7 @@ func (t *turn) run() error {
 	e := t.engine
 	e.cfg.Builder.BeginTurn()
 	t.emitEvent(EventTurnStart, nil)
+	t.notifySessionStart()
 
 	userMsg := llm.Message{
 		ID:     e.cfg.NewID("msg"),
@@ -63,6 +93,7 @@ func (t *turn) run() error {
 		return err
 	}
 	t.appendHistory(userMsg)
+	t.applyUserPromptSubmit()
 
 	for {
 		if t.ctx.Err() != nil {
@@ -87,13 +118,19 @@ func (t *turn) run() error {
 			return nil
 		}
 
-		msg, ended, err := t.callModel(system, specs)
+		msg, outcome, err := t.callModel(system, specs)
 		if err != nil {
 			t.fail("storage", err)
 			return err
 		}
-		if ended {
+		if outcome == callEnded {
 			return nil
+		}
+		if outcome == callRetry {
+			// 模型请求失败但可恢复：失败摘要已在 callModel 中回灌历史，
+			// 直接进入下一次调用，不结束本轮。重试与普通调用一样消耗
+			// 一次 step，因此仍受 MaxTurns 约束。
+			continue
 		}
 
 		calls := toolCalls(msg)
@@ -197,7 +234,7 @@ func (t *turn) prepare() (system string, specs []llm.ToolSpec, ended bool, err e
 	if serr != nil {
 		return "", nil, false, fmt.Errorf("agent: system prompt: %w", serr)
 	}
-	return prompt, specs, false, nil
+	return t.appendExtraContext(prompt), specs, false, nil
 }
 
 // persistCompaction 写入压缩边界记录，并把保留的消息作为普通 message 记录追加，
@@ -243,10 +280,213 @@ func (t *turn) persistCompaction(res sysctx.BeforeCallResult, preTokens int) err
 	return nil
 }
 
+// notifySessionStart 调用 SessionStart 钩子；错误与 panic 只上报，不中断轮次。
+func (t *turn) notifySessionStart() {
+	h := t.engine.cfg.Extensions.Hooks
+	if h == nil {
+		return
+	}
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic: %v", r)
+			}
+		}()
+		err = h.SessionStart(t.ctx, t.engine.cfg.SessionID, t.engine.cfg.WorkDir)
+	}()
+	if err != nil {
+		t.emitErrorView("hook", &ErrorView{Kind: "hook", Message: "session start hook: " + err.Error()})
+	}
+}
+
+// applyUserPromptSubmit 调用 UserPromptSubmit 钩子并把返回文本保存在 turn 上；
+// 钩子报错时视为不追加，轮次继续。
+func (t *turn) applyUserPromptSubmit() {
+	h := t.engine.cfg.Extensions.Hooks
+	if h == nil {
+		return
+	}
+	var (
+		text string
+		err  error
+	)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic: %v", r)
+			}
+		}()
+		text, err = h.UserPromptSubmit(t.ctx, t.engine.cfg.SessionID, t.in.Prompt)
+	}()
+	if err != nil {
+		t.emitErrorView("hook", &ErrorView{Kind: "hook", Message: "user prompt submit hook: " + err.Error()})
+		return
+	}
+	t.promptExtra = text
+}
+
+// appendExtraContext 在系统提示之后追加 UserPromptSubmit 文本与各 ContextProvider 的文本。
+// 空文本被跳过；提供者 panic 只上报，不影响其他提供者。
+func (t *turn) appendExtraContext(system string) string {
+	parts := make([]string, 0, len(t.engine.cfg.Extensions.Context)+1)
+	if strings.TrimSpace(t.promptExtra) != "" {
+		parts = append(parts, t.promptExtra)
+	}
+	for _, provider := range t.engine.cfg.Extensions.Context {
+		if provider == nil {
+			continue
+		}
+		text, err := t.safeExtraContext(provider)
+		if err != nil {
+			t.emitErrorView("extension", &ErrorView{Kind: "extension", Message: "context provider: " + err.Error()})
+			continue
+		}
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		parts = append(parts, text)
+	}
+	if len(parts) == 0 {
+		return system
+	}
+	return system + "\n\n" + strings.Join(parts, "\n\n")
+}
+
+// safeExtraContext 调用一个 ContextProvider，把 panic 转成错误。
+func (t *turn) safeExtraContext(provider ContextProvider) (text string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			text = ""
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	return provider.ExtraContext(t.ctx, t.engine.cfg.SessionID, t.engine.cfg.WorkDir, t.in.Prompt), nil
+}
+
+// preToolUse 调用 PreToolUse 钩子并按「deny 覆盖、ask 只升级」合并到既有判定。
+// 钩子报错或 panic 时保持原有判定不变。
+func (t *turn) preToolUse(decision permission.Decision, c tool.Call, paths []string) permission.Decision {
+	h := t.engine.cfg.Extensions.Hooks
+	if h == nil {
+		return decision
+	}
+	ev := ToolEvent{
+		SessionID: t.engine.cfg.SessionID,
+		ToolName:  c.Name,
+		Input:     c.Input,
+		Paths:     paths,
+	}
+	var (
+		effect permission.Effect
+		reason string
+		err    error
+	)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic: %v", r)
+			}
+		}()
+		effect, reason, err = h.PreToolUse(t.ctx, ev)
+	}()
+	if err != nil {
+		t.emitErrorView("hook", &ErrorView{Kind: "hook", Message: "pre tool use hook: " + err.Error()})
+		return decision
+	}
+	switch effect {
+	case permission.EffectDeny:
+		if decision.Effect != permission.EffectDeny {
+			if strings.TrimSpace(reason) == "" {
+				reason = "denied by hook"
+			}
+			return permission.Decision{Effect: permission.EffectDeny, Reason: reason}
+		}
+	case permission.EffectAsk:
+		if decision.Effect == permission.EffectAllow {
+			if strings.TrimSpace(reason) == "" {
+				reason = "requires approval by hook"
+			}
+			return permission.Decision{Effect: permission.EffectAsk, Reason: reason}
+		}
+	}
+	return decision
+}
+
+// postToolUse 在单个工具结果产生后调用 PostToolUse 钩子；panic 只上报。
+func (t *turn) postToolUse(c tool.Call, res tool.Result, paths []string) {
+	h := t.engine.cfg.Extensions.Hooks
+	if h == nil {
+		return
+	}
+	err := func() (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic: %v", r)
+			}
+		}()
+		h.PostToolUse(t.ctx, ToolEvent{
+			SessionID: t.engine.cfg.SessionID,
+			ToolName:  c.Name,
+			Input:     c.Input,
+			Paths:     paths,
+		}, res)
+		return nil
+	}()
+	if err != nil {
+		t.emitErrorView("hook", &ErrorView{Kind: "hook", Message: "post tool use hook: " + err.Error()})
+	}
+}
+
+// recordMetric 向 MetricsSink 上报一次模型调用；失败的 sink 或 panic 不影响轮次。
+func (t *turn) recordMetric(started time.Time, u llm.Usage, stop StopReason, errMsg string) {
+	sink := t.engine.cfg.Extensions.Metrics
+	if sink == nil {
+		return
+	}
+	now := t.engine.now()
+	metric := RequestMetric{
+		SessionID:  t.engine.cfg.SessionID,
+		Model:      t.engine.cfg.Model,
+		Usage:      u,
+		DurationMS: now.Sub(started).Milliseconds(),
+		StopReason: stop,
+		Err:        errMsg,
+		At:         now,
+	}
+	defer func() { _ = recover() }()
+	sink.Record(metric)
+}
+
 // callModel 发起一次流式请求，逐条转发事件，最后把完整 assistant 消息落盘。
-// 返回 ended=true 表示本轮已经结束（取消或错误），调用方应立即返回。
-func (t *turn) callModel(system string, specs []llm.ToolSpec) (llm.Message, bool, error) {
+// 模型请求失败不直接结束本轮：失败摘要回灌历史后返回 callRetry，
+// 连续失败达到上限或 ctx 已取消时返回 callEnded。
+func (t *turn) callModel(system string, specs []llm.ToolSpec) (llm.Message, callOutcome, error) {
 	e := t.engine
+	started := e.now()
+	var (
+		metricUsage llm.Usage
+		metricStop  = StopCompleted
+		metricErr   string
+	)
+	defer func() { t.recordMetric(started, metricUsage, metricStop, metricErr) }()
+
+	// onFailure 统一处理取消与可恢复失败；取消与重试耗尽都由它收尾。
+	onFailure := func(cause error) (llm.Message, callOutcome, error) {
+		if isCanceled(t.ctx, cause) {
+			metricStop = StopCanceled
+			t.end(StopCanceled, "")
+			return llm.Message{}, callEnded, nil
+		}
+		metricStop, metricErr = StopError, cause.Error()
+		t.emitErrorView("model", errorViewOf(cause))
+		outcome, err := t.afterModelFailure(cause)
+		if err != nil {
+			return llm.Message{}, callEnded, err
+		}
+		return llm.Message{}, outcome, nil
+	}
+
 	req := llm.Request{
 		Model:     e.cfg.Model,
 		System:    system,
@@ -258,13 +498,7 @@ func (t *turn) callModel(system string, specs []llm.ToolSpec) (llm.Message, bool
 
 	stream, err := e.cfg.Provider.Stream(t.ctx, req)
 	if err != nil {
-		if isCanceled(t.ctx, err) {
-			t.end(StopCanceled, "")
-			return llm.Message{}, true, nil
-		}
-		t.emitErrorView("model", errorViewOf(err))
-		t.end(StopError, err.Error())
-		return llm.Message{}, true, nil
+		return onFailure(err)
 	}
 	defer func() { _ = stream.Close() }()
 
@@ -273,21 +507,18 @@ func (t *turn) callModel(system string, specs []llm.ToolSpec) (llm.Message, bool
 		if sr.hadDelta {
 			t.emitMessageDiscard(sr.msg.ID, sr.err)
 		}
-		if isCanceled(t.ctx, sr.err) {
-			t.end(StopCanceled, "")
-			return llm.Message{}, true, nil
-		}
-		t.emitErrorView("model", errorViewOf(sr.err))
-		t.end(StopError, sr.err.Error())
-		return llm.Message{}, true, nil
+		return onFailure(sr.err)
 	}
 	if t.ctx.Err() != nil {
 		if sr.hadDelta {
 			t.emitMessageDiscard(sr.msg.ID, t.ctx.Err())
 		}
+		metricStop = StopCanceled
 		t.end(StopCanceled, "")
-		return llm.Message{}, true, nil
+		return llm.Message{}, callEnded, nil
 	}
+	// 一次成功调用打断连续失败计数。
+	t.modelFailures = 0
 
 	msg := sr.msg
 	msg.Model = e.cfg.Model
@@ -295,6 +526,7 @@ func (t *turn) callModel(system string, specs []llm.ToolSpec) (llm.Message, bool
 		msg.Time = e.now()
 	}
 	usage := sr.usage
+	metricUsage = usage
 	msg.Usage = &usage
 	e.recordAssistantMeta(msg.Time, usage)
 	t.roundUsage = sumUsage(t.roundUsage, usage)
@@ -306,12 +538,14 @@ func (t *turn) callModel(system string, specs []llm.ToolSpec) (llm.Message, bool
 
 	if len(msg.Blocks) > 0 {
 		if err := t.appendMessage(msg); err != nil {
-			return msg, false, err
+			metricStop, metricErr = StopError, err.Error()
+			return msg, callProduced, err
 		}
 		t.appendHistory(msg)
 	}
 	if err := t.appendRecord(session.Record{Type: session.RecordUsage, Usage: &usage}); err != nil {
-		return msg, false, err
+		metricStop, metricErr = StopError, err.Error()
+		return msg, callProduced, err
 	}
 	t.emitEvent(EventMessageStop, func(ev *Event) { ev.MessageID = msg.ID })
 
@@ -322,7 +556,43 @@ func (t *turn) callModel(system string, specs []llm.ToolSpec) (llm.Message, bool
 		ev.Usage = &round
 		ev.ContextTokens = contextTokens
 	})
-	return msg, false, nil
+	return msg, callProduced, nil
+}
+
+// afterModelFailure 决定模型请求失败后的走向：把失败摘要作为一条 user 消息
+// 写回历史并允许重试；连续失败达到 modelFailureMaxAttempts 次时以 StopError 结束。
+// 返回的 error 只表示历史落盘失败，由调用方按内部故障处理。
+func (t *turn) afterModelFailure(cause error) (callOutcome, error) {
+	if t.ctx.Err() != nil {
+		t.end(StopCanceled, "")
+		return callEnded, nil
+	}
+	t.modelFailures++
+	if t.modelFailures >= modelFailureMaxAttempts {
+		t.end(StopError, cause.Error())
+		return callEnded, nil
+	}
+
+	msg := llm.Message{
+		ID:     t.engine.cfg.NewID("msg"),
+		Role:   llm.RoleUser,
+		Blocks: []llm.ContentBlock{{Type: llm.BlockText, Text: modelFailurePrefix + cause.Error()}},
+		Time:   t.engine.now(),
+	}
+	if err := t.appendMessage(msg); err != nil {
+		return callEnded, err
+	}
+	t.appendHistory(msg)
+
+	attempt := t.modelFailures + 1
+	t.emitEvent(EventRetry, func(ev *Event) {
+		ev.Retry = &llm.RetryInfo{
+			Attempt: attempt,
+			Max:     modelFailureMaxAttempts,
+			Reason:  cause.Error(),
+		}
+	})
+	return callRetry, nil
 }
 
 // streamResult 是一次流消费的结果。
@@ -696,6 +966,7 @@ func (t *turn) precheck(c tool.Call) (plan callPlan) {
 		plan.immediate = &r
 		return plan
 	}
+	decision = t.preToolUse(decision, c, plan.paths)
 	switch decision.Effect {
 	case permission.EffectAllow:
 		return plan
@@ -892,14 +1163,16 @@ func (t *turn) executeTools(calls []tool.Call) error {
 	resolved := make([]tool.Tool, n)
 	runnable := make([]bool, n)
 	safe := make([]bool, n)
+	paths := make([][]string, n)
 
 	for i, c := range calls {
 		plan := t.precheck(c)
 		resolved[i] = plan.tool
+		paths[i] = plan.paths
 		if plan.immediate != nil {
 			results[i] = *plan.immediate
 			done[i] = true
-			t.emitToolResult(c, results[i])
+			t.emitToolResult(c, results[i], plan.paths)
 			continue
 		}
 		runnable[i] = true
@@ -928,7 +1201,7 @@ func (t *turn) executeTools(calls []tool.Call) error {
 					if pending == 0 {
 						break
 					}
-					if t.drainTool(calls, results, done, doneCh, progressCh) {
+					if t.drainTool(calls, results, done, paths, doneCh, progressCh) {
 						canceled = true
 						break outer
 					}
@@ -938,7 +1211,7 @@ func (t *turn) executeTools(calls []tool.Call) error {
 			for _, c := range batch.Calls {
 				t.startTool(c, resolved[c.Index], doneCh, progressCh)
 				for !done[c.Index] {
-					if t.drainTool(calls, results, done, doneCh, progressCh) {
+					if t.drainTool(calls, results, done, paths, doneCh, progressCh) {
 						canceled = true
 						break outer
 					}
@@ -947,7 +1220,7 @@ func (t *turn) executeTools(calls []tool.Call) error {
 		}
 	}
 
-	return t.finishToolExecution(calls, results, done, canceled)
+	return t.finishToolExecution(calls, results, done, paths, canceled)
 }
 
 // startTool 启动一个工具 goroutine。进度与结果都经 channel 汇入 turn goroutine，
@@ -965,7 +1238,7 @@ func (t *turn) startTool(c tool.Call, tl tool.Tool, doneCh chan<- toolDone, prog
 }
 
 // drainTool 处理一个就绪事件；返回 true 表示收到 ctx 取消。
-func (t *turn) drainTool(calls []tool.Call, results []tool.Result, done []bool, doneCh <-chan toolDone, progressCh <-chan progressMsg) bool {
+func (t *turn) drainTool(calls []tool.Call, results []tool.Result, done []bool, paths [][]string, doneCh <-chan toolDone, progressCh <-chan progressMsg) bool {
 	select {
 	case <-t.ctx.Done():
 		return true
@@ -980,21 +1253,21 @@ func (t *turn) drainTool(calls []tool.Call, results []tool.Result, done []bool, 
 	case d := <-doneCh:
 		results[d.index] = d.result
 		done[d.index] = true
-		t.emitToolResult(calls[d.index], d.result)
+		t.emitToolResult(calls[d.index], d.result, paths[d.index])
 		return false
 	}
 }
 
 // finishToolExecution 为未完成的调用补取消结果、落盘一条工具结果消息；
 // 取消时随后结束本轮。
-func (t *turn) finishToolExecution(calls []tool.Call, results []tool.Result, done []bool, canceled bool) error {
+func (t *turn) finishToolExecution(calls []tool.Call, results []tool.Result, done []bool, paths [][]string, canceled bool) error {
 	for i, c := range calls {
 		if done[i] {
 			continue
 		}
 		results[i] = errorResult("canceled by user")
 		done[i] = true
-		t.emitToolResult(c, results[i])
+		t.emitToolResult(c, results[i], paths[i])
 	}
 
 	msg := toolResultMessage(calls, results, t.engine.cfg.NewID("msg"), t.engine.now())
@@ -1183,8 +1456,9 @@ func (t *turn) emitEvent(typ EventType, mutate func(*Event)) {
 	t.emit(ev)
 }
 
-// emitToolResult 发出单个工具结束事件（完成即发，不整批聚集）。
-func (t *turn) emitToolResult(c tool.Call, res tool.Result) {
+// emitToolResult 调用 PostToolUse 钩子并发出一条工具结束事件（完成即发，不整批聚集）。
+func (t *turn) emitToolResult(c tool.Call, res tool.Result, paths []string) {
+	t.postToolUse(c, res, paths)
 	view := &ToolResultView{
 		Preview:   toolPreview(res),
 		IsError:   res.IsError,

@@ -1,7 +1,7 @@
 # OpenAI Codex 参考实现分析（codex-rs）
 
 > 阅读对象：`/Users/baike3/CodeRepo/codex/codex-rs`（只读）。本文所有结论均标注 `file:line`；本次未阅读或无法确认的内容明确写「不存在」或「未确认」。
-> 目的：为 anc-dsk（Go + Wails）实现 agent 运行时提供可落地依据。
+> 目的：为 b-desktop（Go + Wails）实现 agent 运行时提供可落地依据。
 
 ## 0. 阅读范围与事实基线
 
@@ -72,7 +72,7 @@ RegularTask::run                  core/src/tasks/regular.rs:37-50
 | 其它错误 | `core/src/session/turn.rs:892-908` | 发 `Error` 事件后 `break`（注释明确「let the user continue the conversation」） |
 | 压缩后需要重开一步 | `core/src/session/turn.rs:682-705`（`should_roll_over` 分支内） | `continue` |
 
-**没有最大轮次上限。** 在 `core/src` 与 `protocol/src` 中检索 `max_turns` 无命中；`core/src/session/turn.rs`、`core/src/tasks/regular.rs` 也无迭代计数。循环只由「模型不再要工具 + 无新输入」或错误/取消终止。这一点与 anc-dsk AGENTS.md 里「受 maxTurns 约束」的假设不一致。
+**没有最大轮次上限。** 在 `core/src` 与 `protocol/src` 中检索 `max_turns` 无命中；`core/src/session/turn.rs`、`core/src/tasks/regular.rs` 也无迭代计数。循环只由「模型不再要工具 + 无新输入」或错误/取消终止。这一点与 b-desktop AGENTS.md 里「受 maxTurns 约束」的假设不一致。
 
 ### 1.4 用户中途输入（steering）
 
@@ -365,7 +365,7 @@ if supports_parallel { lock.read().await } else { lock.write().await }   // core
 
 ---
 
-## 7. 与 anc-dsk AGENTS.md 假设的差异
+## 7. 与 b-desktop AGENTS.md 假设的差异
 
 以下不是评价，是事实对照，直接影响 Go 端设计：
 
