@@ -38,9 +38,9 @@ function formatTimestamp(ms: number): string {
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-line bg-raised px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-subtle">{label}</div>
-      <div className="mt-0.5 text-sm font-semibold tabular-nums text-fg">{value}</div>
+    <div className="border border-line bg-panel px-3 py-2">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">{label}</div>
+      <div className="mt-1 font-mono text-[15px] font-semibold tabular-nums text-fg">{value}</div>
       {hint && <div className="mt-0.5 text-[10px] text-subtle">{hint}</div>}
     </div>
   )
@@ -92,20 +92,20 @@ export default function UsagePanel({
   return (
     <section
       data-testid="usage-panel"
-      className={`flex flex-col gap-4 rounded-xl border border-line bg-surface p-4 ${className}`}
+      className={`flex flex-col gap-4 border border-line bg-surface p-4 ${className}`}
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
         {showHeader ? (
           <div>
-            <h2 className="text-sm font-semibold text-fg">用量统计</h2>
-            <p className="mt-0.5 text-[11px] text-subtle">
+            <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-fg">用量统计</h2>
+            <p className="mt-0.5 font-mono text-[10px] text-subtle">
               {summary
                 ? `${summary.from} ~ ${summary.to} · 数据来自 ~/.b-desktop/usage.jsonl`
                 : '读取本地模型调用记录'}
             </p>
           </div>
         ) : (
-          <p className="text-[11px] text-subtle">
+          <p className="font-mono text-[10px] text-subtle">
             {summary
               ? `${summary.from} ~ ${summary.to} · 数据来自 ~/.b-desktop/usage.jsonl`
               : '读取本地模型调用记录'}
@@ -119,11 +119,7 @@ export default function UsagePanel({
               data-testid={`usage-range-${option}`}
               aria-pressed={option === days}
               onClick={() => setDays(option)}
-              className={`cursor-pointer rounded-md border px-2 py-1 text-[11px] transition ${
-                option === days
-                  ? 'border-accent bg-accent-soft text-accent-text'
-                  : 'border-line text-muted hover:border-line-strong hover:bg-hover'
-              }`}
+              className={`cursor-pointer border px-2 py-1 font-mono text-[11px] transition ${ option === days ? 'border-accent bg-accent-soft text-accent-text' : 'border-line text-muted hover:border-line-strong hover:bg-hover' }`}
             >
               {option} 天
             </button>
@@ -133,7 +129,7 @@ export default function UsagePanel({
             data-testid="usage-refresh"
             onClick={() => setReloadToken((value) => value + 1)}
             disabled={loading}
-            className="ml-1 cursor-pointer rounded-md border border-line px-2 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-1 cursor-pointer border border-line px-2 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? '刷新中…' : '刷新'}
           </button>
@@ -143,7 +139,7 @@ export default function UsagePanel({
       {error && (
         <p
           role="alert"
-          className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-[11px] text-danger-text"
+          className="border border-danger-line bg-danger-soft px-3 py-2 text-[11px] text-danger-text"
         >
           {error}
         </p>
@@ -173,8 +169,10 @@ export default function UsagePanel({
 
       <div>
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-medium text-fg">按天</h3>
-          <span className="text-[11px] text-subtle">{dailyRows.length} 天有记录</span>
+          <h3 className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-fg">
+            按天
+          </h3>
+          <span className="font-mono text-[10px] text-subtle">{dailyRows.length} 天有记录</span>
         </div>
         {dailyRows.length === 0 ? (
           <p data-testid="usage-days-empty" className="mt-2 text-[11px] text-subtle">
@@ -185,11 +183,11 @@ export default function UsagePanel({
             {dailyRows.map((day) => {
               const ratio = maxDailyTokens > 0 ? day.totalTokens / maxDailyTokens : 0
               return (
-                <li key={day.date} className="flex items-center gap-2 text-[11px]">
+                <li key={day.date} className="flex items-center gap-2 font-mono text-[11px]">
                   <span className="w-14 shrink-0 tabular-nums text-muted">{day.date.slice(5)}</span>
-                  <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-raised">
+                  <span className="h-2 min-w-0 flex-1 overflow-hidden border border-line bg-raised">
                     <span
-                      className="block h-full rounded-full bg-accent"
+                      className="block h-full bg-accent"
                       style={{ width: `${Math.max(ratio * 100, day.totalTokens > 0 ? 2 : 0)}%` }}
                     />
                   </span>
@@ -200,9 +198,7 @@ export default function UsagePanel({
                     {day.requestCount} 次
                   </span>
                   <span
-                    className={`w-12 shrink-0 text-right tabular-nums ${
-                      day.errorCount > 0 ? 'text-danger-text' : 'text-subtle'
-                    }`}
+                    className={`w-12 shrink-0 text-right tabular-nums ${ day.errorCount > 0 ? 'text-danger-text' : 'text-subtle' }`}
                   >
                     {day.errorCount > 0 ? `${day.errorCount} 错` : '—'}
                   </span>
@@ -214,14 +210,16 @@ export default function UsagePanel({
       </div>
 
       <div>
-        <h3 className="text-xs font-medium text-fg">按模型</h3>
+        <h3 className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-fg">
+          按模型
+        </h3>
         {modelRows.length === 0 ? (
           <p data-testid="usage-models-empty" className="mt-2 text-[11px] text-subtle">
             暂无模型统计。
           </p>
         ) : (
           <div className="mt-2 overflow-x-auto">
-            <table data-testid="usage-models" className="w-full border-collapse text-[11px]">
+            <table data-testid="usage-models" className="w-full border-collapse font-mono text-[11px]">
               <thead>
                 <tr>
                   <th className="border-b border-line px-2 py-1.5 text-left font-medium text-subtle">
@@ -257,9 +255,7 @@ export default function UsagePanel({
                       {model.requestCount}
                     </td>
                     <td
-                      className={`border-b border-line px-2 py-1.5 text-right tabular-nums ${
-                        model.errorCount > 0 ? 'text-danger-text' : 'text-muted'
-                      }`}
+                      className={`border-b border-line px-2 py-1.5 text-right tabular-nums ${ model.errorCount > 0 ? 'text-danger-text' : 'text-muted' }`}
                     >
                       {model.errorCount}
                     </td>
@@ -285,8 +281,10 @@ export default function UsagePanel({
 
       <div>
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-medium text-fg">最近请求</h3>
-          <span className="text-[11px] text-subtle">最多 {traceLimit} 条</span>
+          <h3 className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-fg">
+            最近请求
+          </h3>
+          <span className="font-mono text-[10px] text-subtle">最多 {traceLimit} 条</span>
         </div>
         {traces.length === 0 ? (
           <p data-testid="usage-traces-empty" className="mt-2 text-[11px] text-subtle">
@@ -294,7 +292,7 @@ export default function UsagePanel({
           </p>
         ) : (
           <div className="mt-2 overflow-x-auto">
-            <table data-testid="usage-traces" className="w-full border-collapse text-[11px]">
+            <table data-testid="usage-traces" className="w-full border-collapse font-mono text-[11px]">
               <thead>
                 <tr>
                   <th className="border-b border-line px-2 py-1.5 text-left font-medium text-subtle">
@@ -342,9 +340,7 @@ export default function UsagePanel({
                       {formatDuration(trace.durationMs)}
                     </td>
                     <td
-                      className={`max-w-56 truncate border-b border-line px-2 py-1.5 ${
-                        trace.err ? 'text-danger-text' : 'text-subtle'
-                      }`}
+                      className={`max-w-56 truncate border-b border-line px-2 py-1.5 ${ trace.err ? 'text-danger-text' : 'text-subtle' }`}
                       title={trace.err || trace.stopReason}
                     >
                       {trace.err || trace.stopReason || '—'}

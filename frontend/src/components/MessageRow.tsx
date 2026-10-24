@@ -10,11 +10,11 @@ function blockKey(block: AssistantBlock): string {
 
 function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }) {
   return (
-    <details className="rounded-lg border border-line bg-raised px-3 py-2">
-      <summary className="cursor-pointer select-none text-[11px] text-subtle">
+    <details className="border border-line bg-raised">
+      <summary className="cursor-pointer select-none px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
         思考过程 · {text.length} 字{streaming ? '（进行中）' : ''}
       </summary>
-      <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-muted">
+      <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words border-t border-line px-3 py-2 font-mono text-[11px] leading-5 text-muted">
         {text}
       </pre>
     </details>
@@ -27,9 +27,9 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
   if (item.kind === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-accent-soft px-4 py-2.5">
-          <p className="whitespace-pre-wrap break-words text-sm leading-6 text-fg">{item.text}</p>
-          <p className="mt-1 text-right text-[10px] text-subtle">{formatClock(item.timeMs)}</p>
+        <div className="max-w-[85%] border border-line bg-panel px-3.5 py-2.5">
+          <p className="whitespace-pre-wrap break-words text-[13px] leading-6 text-fg">{item.text}</p>
+          <p className="mt-1 text-right font-mono text-[10px] text-subtle">{formatClock(item.timeMs)}</p>
         </div>
       </div>
     )
@@ -42,7 +42,7 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
         : 'border-line bg-raised text-subtle'
     return (
       <div className="flex justify-center">
-        <p className={`rounded-md border px-3 py-1.5 text-xs ${tone}`}>{item.text}</p>
+        <p className={`border px-3 py-1 font-mono text-[11px] ${tone}`}>{item.text}</p>
       </div>
     )
   }
@@ -51,8 +51,8 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 text-[11px] text-subtle">
-        <span>助手</span>
+      <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
+        <span className="text-fg">助手</span>
         <span>·</span>
         <span>{formatClock(item.timeMs)}</span>
         {item.discarded && <span className="text-danger-text">已丢弃</span>}

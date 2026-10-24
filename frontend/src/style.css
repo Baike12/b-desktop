@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+/*
+ * 设计语言：技术文档工作台（参考 DeepEval 文档站）。
+ *
+ * 规则：
+ * 1. 全局消灭圆角 —— 形状只由直角、发丝描边与色块构成。
+ * 2. 用发丝级边框与分隔线代替阴影，界面没有浮起层。
+ * 3. 元信息（路径、计数、时间、状态）一律等宽小字，正文用无衬线。
+ * 4. 单一强调色（电光蓝）只用于当前项、主按钮、链接与焦点环。
+ */
+
+/* 字体与圆角尺度：圆角尺度整体归零。 */
+@theme {
+  --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
+    "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+}
+
 /* 语义色板：组件只使用 surface/panel/fg 这类语义类名，
    切换 data-theme 时只替换下面两组变量。 */
 @theme inline {
@@ -37,86 +64,88 @@
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --surface: #020617;
-  --panel: #020617;
-  --raised: #0f172a;
-  --hover: #1e293b;
-  --code: #0b1220;
-  --line: #1e293b;
-  --line-strong: #334155;
-  --fg: #f1f5f9;
-  --muted: #94a3b8;
-  --subtle: #64748b;
-  --accent: #0284c7;
-  --accent-hover: #0ea5e9;
-  --accent-text: #7dd3fc;
-  --accent-soft: rgba(14, 165, 233, 0.16);
-  --on-accent: #ffffff;
-  --danger: #be123c;
-  --danger-hover: #e11d48;
-  --danger-text: #fda4af;
-  --danger-soft: rgba(159, 18, 57, 0.28);
-  --danger-line: #881337;
-  --warn-text: #fcd34d;
-  --warn-soft: rgba(245, 158, 11, 0.14);
-  --warn-line: #78350f;
-  --success: #047857;
-  --success-hover: #059669;
-  --success-text: #6ee7b7;
-  --success-soft: rgba(16, 185, 129, 0.14);
-  --success-line: #065f46;
-  --overlay: rgba(2, 6, 23, 0.78);
-  --hl-comment: #64748b;
-  --hl-keyword: #c084fc;
-  --hl-string: #86efac;
-  --hl-number: #fbbf24;
-  --hl-title: #60a5fa;
-  --hl-variable: #e2e8f0;
-  --hl-builtin: #22d3ee;
-  --hl-meta: #94a3b8;
-  --scrollbar: #334155;
+  --surface: #0b0b0e;
+  --panel: #0f0f13;
+  --raised: #17171d;
+  --hover: #1f1f27;
+  --code: #131319;
+  --line: #24242d;
+  --line-strong: #3a3a46;
+  --fg: #f3f3f5;
+  --muted: #9d9daa;
+  --subtle: #6b6b78;
+  --accent: #6b83ff;
+  --accent-hover: #8296ff;
+  --accent-text: #9dadff;
+  --accent-soft: rgba(107, 131, 255, 0.14);
+  --on-accent: #0b0b0e;
+  --danger: #e0405a;
+  --danger-hover: #f0556d;
+  --danger-text: #ff8a9d;
+  --danger-soft: rgba(224, 64, 90, 0.13);
+  --danger-line: #5a2431;
+  --warn-text: #e0b054;
+  --warn-soft: rgba(224, 176, 84, 0.13);
+  --warn-line: #55401f;
+  --success: #16a06a;
+  --success-hover: #1cba7b;
+  --success-text: #4cd39a;
+  --success-soft: rgba(22, 160, 106, 0.13);
+  --success-line: #1c4a37;
+  --overlay: rgba(4, 4, 6, 0.72);
+  --grid-line: rgba(255, 255, 255, 0.032);
+  --hl-comment: #6b6b78;
+  --hl-keyword: #c08cf5;
+  --hl-string: #64d99b;
+  --hl-number: #e8b45c;
+  --hl-title: #7fa8ff;
+  --hl-variable: #e6e6ec;
+  --hl-builtin: #4fd1e0;
+  --hl-meta: #9d9daa;
+  --scrollbar: #34343f;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
   --surface: #ffffff;
-  --panel: #f8fafc;
-  --raised: #f1f5f9;
-  --hover: #e8eef5;
-  --code: #f6f8fa;
-  --line: #e2e8f0;
-  --line-strong: #cbd5e1;
-  --fg: #0f172a;
-  --muted: #475569;
-  --subtle: #64748b;
-  --accent: #0284c7;
-  --accent-hover: #0369a1;
-  --accent-text: #0369a1;
-  --accent-soft: #e0f2fe;
+  --panel: #fbfbfc;
+  --raised: #f4f4f6;
+  --hover: #ececee;
+  --code: #f7f7f9;
+  --line: #e4e4e8;
+  --line-strong: #cdccd3;
+  --fg: #101014;
+  --muted: #52525c;
+  --subtle: #8a8a95;
+  --accent: #3b5bff;
+  --accent-hover: #2b47e0;
+  --accent-text: #2f47cc;
+  --accent-soft: #edf0ff;
   --on-accent: #ffffff;
-  --danger: #be123c;
-  --danger-hover: #9f1239;
-  --danger-text: #be123c;
-  --danger-soft: #ffe4e6;
-  --danger-line: #fecdd3;
-  --warn-text: #b45309;
-  --warn-soft: #fef3c7;
-  --warn-line: #fde68a;
-  --success: #047857;
-  --success-hover: #065f46;
-  --success-text: #047857;
-  --success-soft: #d1fae5;
-  --success-line: #a7f3d0;
-  --overlay: rgba(15, 23, 42, 0.42);
-  --hl-comment: #94a3b8;
+  --danger: #c81e3a;
+  --danger-hover: #a5162e;
+  --danger-text: #b3122f;
+  --danger-soft: #fdeef0;
+  --danger-line: #f2c3cb;
+  --warn-text: #8f5c07;
+  --warn-soft: #fdf4e2;
+  --warn-line: #edd8a6;
+  --success: #0a7d55;
+  --success-hover: #086946;
+  --success-text: #0a7d55;
+  --success-soft: #e8f7f0;
+  --success-line: #b3e2cc;
+  --overlay: rgba(16, 16, 20, 0.42);
+  --grid-line: rgba(16, 16, 20, 0.032);
+  --hl-comment: #8a8a95;
   --hl-keyword: #7c3aed;
-  --hl-string: #047857;
-  --hl-number: #b45309;
+  --hl-string: #0a7d55;
+  --hl-number: #8f5c07;
   --hl-title: #1d4ed8;
-  --hl-variable: #334155;
+  --hl-variable: #33333c;
   --hl-builtin: #0e7490;
-  --hl-meta: #64748b;
-  --scrollbar: #cbd5e1;
+  --hl-meta: #52525c;
+  --scrollbar: #c8c8d0;
 }
 
 html,
@@ -133,25 +162,84 @@ body {
   margin: 0;
   background: var(--surface);
   color: var(--fg);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 ::selection {
   background: var(--accent-soft);
+  color: var(--fg);
 }
 
+/* 设计约束：全局消灭圆角。形状只由直角构成。 */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* 焦点环是直角描边，不用默认的圆角光晕。 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 方形滚动条：滑块与轨道都是直角。 */
 * {
-  scrollbar-width: thin;
+  scrollbar-width: auto;
   scrollbar-color: var(--scrollbar) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--line-strong);
+  background-clip: content-box;
+}
+
+@layer components {
+  /* 网格画布：文档站内容区的底纹，替代纯色背景。 */
+  .grid-canvas {
+    background-color: var(--surface);
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+
+  /* 当前项标记：左侧 2px 强调色竖线，不占布局宽度。 */
+  .accent-edge {
+    box-shadow: inset 2px 0 0 0 var(--accent);
+  }
+
+  /* 顶部/底部强调线：用于强调色横条。 */
+  .accent-rule {
+    box-shadow: inset 0 2px 0 0 var(--accent);
+  }
 }
 
 /* ---------- Markdown 正文 ---------- */
 
 .markdown-body {
   color: var(--fg);
-  font-size: 0.875rem;
-  line-height: 1.7;
+  font-size: 0.9375rem;
+  line-height: 1.75;
   overflow-wrap: anywhere;
 }
 
@@ -164,7 +252,7 @@ body {
 }
 
 .markdown-body p {
-  margin: 0.5rem 0;
+  margin: 0.6rem 0;
 }
 
 .markdown-body h1,
@@ -173,21 +261,25 @@ body {
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  margin: 1.15rem 0 0.5rem;
+  margin: 1.5rem 0 0.6rem;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
 }
 
 .markdown-body h1 {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
+  letter-spacing: -0.02em;
 }
 
 .markdown-body h2 {
-  font-size: 1.125rem;
+  font-size: 1.1875rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
 }
 
 .markdown-body h3 {
-  font-size: 1rem;
+  font-size: 1.0625rem;
 }
 
 .markdown-body h4,
@@ -198,8 +290,8 @@ body {
 
 .markdown-body ul,
 .markdown-body ol {
-  margin: 0.5rem 0;
-  padding-left: 1.35rem;
+  margin: 0.6rem 0;
+  padding-left: 1.5rem;
 }
 
 .markdown-body ul {
@@ -211,21 +303,27 @@ body {
 }
 
 .markdown-body li {
-  margin: 0.2rem 0;
+  margin: 0.25rem 0;
 }
 
 .markdown-body li > p {
-  margin: 0.2rem 0;
+  margin: 0.25rem 0;
 }
 
 .markdown-body li::marker {
   color: var(--subtle);
+  font-variant-numeric: tabular-nums;
 }
 
 .markdown-body a {
   color: var(--accent-text);
   text-decoration: underline;
+  text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+}
+
+.markdown-body a:hover {
+  color: var(--accent);
 }
 
 .markdown-body strong {
@@ -233,14 +331,14 @@ body {
 }
 
 .markdown-body blockquote {
-  margin: 0.75rem 0;
-  border-left: 3px solid var(--line-strong);
-  padding-left: 0.75rem;
+  margin: 0.9rem 0;
+  border-left: 2px solid var(--line-strong);
+  padding-left: 0.9rem;
   color: var(--muted);
 }
 
 .markdown-body hr {
-  margin: 1rem 0;
+  margin: 1.4rem 0;
   border: 0;
   border-top: 1px solid var(--line);
 }
@@ -250,13 +348,13 @@ body {
   max-width: 100%;
   overflow-x: auto;
   border-collapse: collapse;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .markdown-body th,
 .markdown-body td {
   border: 1px solid var(--line);
-  padding: 0.35rem 0.6rem;
+  padding: 0.4rem 0.7rem;
   text-align: left;
 }
 
@@ -265,34 +363,43 @@ body {
   font-weight: 600;
 }
 
+/* 行内代码：发丝描边的小色块，不用圆角药丸。 */
 .markdown-body code {
-  border-radius: 0.25rem;
-  background: var(--raised);
-  padding: 0.1em 0.35em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border: 1px solid var(--line);
+  background: var(--code);
+  padding: 0.05em 0.3em;
+  font-family: var(--font-mono);
   font-size: 0.8125em;
 }
 
 .markdown-body pre {
-  margin: 0.6rem 0;
+  margin: 0.8rem 0;
   overflow-x: auto;
   border: 1px solid var(--line);
-  border-radius: 0.5rem;
   background: var(--code);
-  padding: 0.75rem;
+  padding: 0.85rem 1rem;
 }
 
 .markdown-body pre code {
   display: block;
+  border: 0;
   background: transparent;
   padding: 0;
-  font-size: 0.75rem;
-  line-height: 1.65;
+  font-size: 0.8125rem;
+  line-height: 1.7;
 }
 
 .markdown-body img {
   max-width: 100%;
-  border-radius: 0.5rem;
+}
+
+/* Mermaid 容器自带描边，内部代码块不再重复描边。 */
+.markdown-body figure pre,
+.markdown-body [data-testid="mermaid-error"] pre {
+  margin: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
 }
 
 /* Mermaid 生成的 SVG 跟随容器宽度，超宽图在 figure 内横向滚动。 */

@@ -174,20 +174,18 @@ const SessionRow = memo(function SessionRow({ session, active, onSelect }: Sessi
       title={`${session.title}\n${session.workDir}`}
       className={
         active
-          ? 'w-full cursor-pointer rounded-md border border-line-strong bg-hover px-2 py-1.5 text-left'
-          : 'w-full cursor-pointer rounded-md border border-transparent px-2 py-1.5 text-left hover:bg-hover'
+          ? 'accent-edge w-full cursor-pointer bg-hover py-1.5 pl-2.5 pr-2 text-left'
+          : 'w-full cursor-pointer py-1.5 pl-2.5 pr-2 text-left transition hover:bg-hover'
       }
     >
       <span className="flex items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate text-xs text-fg">{session.title}</span>
-        {session.running && (
-          <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-sky-400" />
-        )}
+        <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{session.title}</span>
+        {session.running && <span className="size-1.5 shrink-0 animate-pulse bg-accent" />}
       </span>
-      <span className="mt-0.5 flex items-center gap-1 text-[10px] text-subtle">
+      <span className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-subtle">
         <span className="truncate">{formatRelative(session.updatedAtMs)}</span>
         <span>·</span>
-        <span>{session.messages} 条</span>
+        <span>{session.messages}</span>
       </span>
     </button>
   )
@@ -216,8 +214,8 @@ const ProjectSection = memo(function ProjectSection({
   onNewWorktree,
 }: ProjectSectionProps) {
   return (
-    <section data-testid="project-item" data-project={project.name} className="mt-1">
-      <div className="group flex items-center gap-0.5 rounded-md px-1.5 py-1 hover:bg-hover">
+    <section data-testid="project-item" data-project={project.name} className="mt-2">
+      <div className="group flex items-center gap-0.5 py-1 pl-1 pr-1 transition hover:bg-hover">
         <button
           type="button"
           onClick={() => onToggle(project.path)}
@@ -226,7 +224,7 @@ const ProjectSection = memo(function ProjectSection({
         >
           <ChevronIcon open={open} />
           <FolderIcon />
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-fg">
+          <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-fg">
             {project.name}
           </span>
         </button>
@@ -239,7 +237,7 @@ const ProjectSection = memo(function ProjectSection({
             const rect = event.currentTarget.getBoundingClientRect()
             onNewWorktree(project, { top: rect.top, bottom: rect.bottom, right: rect.right })
           }}
-          className="cursor-pointer rounded p-1 text-subtle opacity-0 transition hover:bg-raised hover:text-fg focus:opacity-100 group-hover:opacity-100"
+          className="cursor-pointer p-1 text-subtle opacity-0 transition hover:text-fg focus:opacity-100 group-hover:opacity-100"
         >
           <WorktreeIcon />
         </button>
@@ -249,19 +247,19 @@ const ProjectSection = memo(function ProjectSection({
           aria-label={`在 ${project.name} 中新建会话`}
           title="新建会话"
           onClick={() => void onCreate(project.path)}
-          className="cursor-pointer rounded p-1 text-subtle opacity-0 transition hover:bg-raised hover:text-fg focus:opacity-100 group-hover:opacity-100"
+          className="cursor-pointer p-1 text-subtle opacity-0 transition hover:text-fg focus:opacity-100 group-hover:opacity-100"
         >
           <PlusIcon className="size-3.5" />
         </button>
       </div>
 
       {open && (
-        <div className="ml-3.5 space-y-0.5 border-l border-line pl-1.5">
+        <div className="ml-3 space-y-0.5 border-l border-line pl-1.5">
           {sessions.length === 0 ? (
             <button
               type="button"
               onClick={() => void onCreate(project.path)}
-              className="w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-[11px] text-subtle hover:bg-hover hover:text-fg"
+              className="w-full cursor-pointer px-1.5 py-1.5 text-left text-[11px] text-subtle transition hover:text-fg"
             >
               暂无会话，点击新建
             </button>
@@ -357,13 +355,14 @@ export default function Sidebar() {
       >
         {/* 与展开态一样，为 macOS 红绿灯留出顶部安全区并作为拖动区域。 */}
         <div style={DRAG_REGION} className={`w-full ${IS_MAC ? 'h-11' : 'h-3'}`} />
+        <div className="mb-2 size-2 bg-accent" />
         <button
           type="button"
           data-testid="sidebar-toggle"
           aria-label="展开侧边栏"
           title="展开侧边栏"
           onClick={toggleSidebar}
-          className="mt-1 cursor-pointer rounded-lg p-2 text-subtle transition hover:bg-hover hover:text-fg"
+          className="mt-1 cursor-pointer p-2 text-subtle transition hover:bg-hover hover:text-fg"
         >
           <PanelIcon open={false} />
         </button>
@@ -374,7 +373,7 @@ export default function Sidebar() {
           title="新建任务"
           onClick={() => createSession(targetPath)}
           disabled={loading}
-          className="mt-1 cursor-pointer rounded-lg border border-line-strong bg-raised p-2 text-fg transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-1 cursor-pointer border border-accent bg-accent p-2 text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <PlusIcon />
         </button>
@@ -392,8 +391,8 @@ export default function Sidebar() {
                 onClick={() => setPanel(id)}
                 className={
                   active
-                    ? 'cursor-pointer rounded-lg bg-hover p-2 text-fg'
-                    : 'cursor-pointer rounded-lg p-2 text-subtle transition hover:bg-hover hover:text-fg'
+                    ? 'accent-edge cursor-pointer bg-hover p-2 text-fg'
+                    : 'cursor-pointer p-2 text-subtle transition hover:bg-hover hover:text-fg'
                 }
               >
                 <Icon />
@@ -408,7 +407,7 @@ export default function Sidebar() {
           aria-label="设置"
           title="设置"
           onClick={openSettings}
-          className="mb-3 cursor-pointer rounded-lg p-2 text-subtle transition hover:bg-hover hover:text-fg"
+          className="mb-3 cursor-pointer p-2 text-subtle transition hover:bg-hover hover:text-fg"
         >
           <GearIcon />
         </button>
@@ -424,15 +423,12 @@ export default function Sidebar() {
       {/* macOS 隐藏标题栏后红绿灯浮在左上角，顶部留出安全区并作为拖动区域。 */}
       <div
         style={DRAG_REGION}
-        className={`border-b border-line px-4 pb-4 ${IS_MAC ? 'pt-11' : 'pt-4'}`}
+        className={`border-b border-line px-4 pb-3 ${IS_MAC ? 'pt-11' : 'pt-4'}`}
       >
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="text-sm font-semibold tracking-tight text-fg">B Desktop</div>
-            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-subtle">
-              <span className={`size-1.5 rounded-full ${statusColor[status]}`} />
-              {statusLabel[status]}
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="size-2.5 shrink-0 bg-accent" />
+            <span className="text-[13px] font-semibold tracking-tight text-fg">B Desktop</span>
           </div>
           <button
             type="button"
@@ -441,10 +437,14 @@ export default function Sidebar() {
             aria-label="折叠侧边栏"
             title="折叠侧边栏"
             onClick={toggleSidebar}
-            className="-mr-1 cursor-pointer rounded p-1 text-subtle transition hover:bg-hover hover:text-fg"
+            className="-mr-1 cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg"
           >
             <PanelIcon open />
           </button>
+        </div>
+        <div className="mt-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
+          <span className={`size-1.5 shrink-0 ${statusColor[status]}`} />
+          {statusLabel[status]}
         </div>
       </div>
 
@@ -454,7 +454,7 @@ export default function Sidebar() {
           data-testid="new-task-button"
           onClick={() => createSession(targetPath)}
           disabled={loading}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-line-strong bg-raised px-3 py-2 text-sm text-fg hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full cursor-pointer items-center gap-2 border border-accent bg-accent px-3 py-2 text-[13px] font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <PlusIcon />
           新建任务
@@ -464,7 +464,7 @@ export default function Sidebar() {
           data-testid="open-project-button"
           onClick={() => void openProject()}
           disabled={loading}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full cursor-pointer items-center gap-2 border border-line px-3 py-2 text-left text-[13px] text-muted transition hover:border-line-strong hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FolderIcon />
           打开项目
@@ -474,37 +474,46 @@ export default function Sidebar() {
       <nav
         data-testid="panel-nav"
         aria-label="工作台面板"
-        className="space-y-0.5 border-t border-line px-2 py-2"
+        className="border-t border-line px-2 py-2"
       >
-        {NAV_ITEMS.map(({ id, label, Icon }) => {
-          const active = activePanel === id
-          return (
-            <button
-              key={id}
-              type="button"
-              data-testid={`nav-${id}`}
-              aria-current={active ? 'page' : undefined}
-              onClick={() => setPanel(id)}
-              className={
-                active
-                  ? 'flex w-full cursor-pointer items-center gap-2 rounded-lg bg-hover px-3 py-1.5 text-left text-[13px] text-fg'
-                  : 'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] text-muted transition hover:bg-hover hover:text-fg'
-              }
-            >
-              <Icon />
-              <span className="min-w-0 flex-1 truncate">{label}</span>
-            </button>
-          )
-        })}
+        <p className="px-2 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
+          面板
+        </p>
+        <div className="space-y-0.5">
+          {NAV_ITEMS.map(({ id, label, Icon }) => {
+            const active = activePanel === id
+            return (
+              <button
+                key={id}
+                type="button"
+                data-testid={`nav-${id}`}
+                aria-current={active ? 'page' : undefined}
+                onClick={() => setPanel(id)}
+                className={
+                  active
+                    ? 'accent-edge flex w-full cursor-pointer items-center gap-2 bg-hover py-1.5 pl-2.5 pr-2 text-left text-[13px] text-fg'
+                    : 'flex w-full cursor-pointer items-center gap-2 py-1.5 pl-2.5 pr-2 text-left text-[13px] text-muted transition hover:bg-hover hover:text-fg'
+                }
+              >
+                <Icon />
+                <span className="min-w-0 flex-1 truncate">{label}</span>
+              </button>
+            )
+          })}
+        </div>
       </nav>
 
       <nav
         data-testid="project-list"
-        className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-2"
+        className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-3"
         aria-label="项目与会话"
       >
+        <p className="px-2 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
+          项目
+        </p>
+
         {projects.length === 0 && sessions.length === 0 && (
-          <p className="px-3 py-6 text-center text-xs leading-relaxed text-subtle">
+          <p className="px-2 py-6 text-center text-[11px] leading-relaxed text-subtle">
             还没有项目
             <br />
             点击上方“打开项目”选择文件夹
@@ -529,8 +538,8 @@ export default function Sidebar() {
         })}
 
         {orphans.length > 0 && (
-          <section className="mt-3">
-            <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-subtle">
+          <section className="mt-4">
+            <div className="px-2 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
               其他会话
             </div>
             <div className="space-y-0.5">
@@ -547,12 +556,12 @@ export default function Sidebar() {
         )}
       </nav>
 
-      <div className="border-t border-line p-3">
+      <div className="border-t border-line px-2 py-2">
         <button
           type="button"
           data-testid="settings-button"
           onClick={openSettings}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition hover:bg-hover hover:text-fg"
+          className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] text-muted transition hover:bg-hover hover:text-fg"
         >
           <GearIcon />
           设置

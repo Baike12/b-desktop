@@ -190,9 +190,7 @@ function FileRow({ entry, depth, open, selected, onActivate, onToggle }: FileRow
         }
       }}
       style={{ paddingLeft: 8 + depth * 12 }}
-      className={`mx-1 flex h-7 w-[calc(100%-0.5rem)] min-w-0 cursor-pointer items-center gap-1.5 rounded-md pr-2 text-left text-xs transition ${
-        selected ? 'bg-hover text-fg' : 'text-muted hover:bg-hover hover:text-fg'
-      }`}
+      className={`mx-1 flex h-7 w-[calc(100%-0.5rem)] min-w-0 cursor-pointer items-center gap-1.5 pr-2 text-left text-[12px] transition ${ selected ? 'accent-edge bg-hover text-fg' : 'text-muted hover:bg-hover hover:text-fg' }`}
     >
       {entry.isDir ? <ChevronIcon open={open} /> : <span className="size-3 shrink-0" />}
       {entry.isDir ? <FolderIcon open={open} /> : <FileIcon name={entry.name} />}
@@ -404,7 +402,7 @@ export default function RightSidebar() {
         <button
           type="button"
           onClick={refreshAll}
-          className="mt-2 cursor-pointer rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:bg-hover hover:text-fg"
+          className="mt-2 cursor-pointer border border-line px-2 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover hover:text-fg"
         >
           重试
         </button>
@@ -441,11 +439,13 @@ export default function RightSidebar() {
 
       <header
         style={DRAG_REGION}
-        className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-3"
+        className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3"
       >
         <FolderOpenIcon />
-        <span className="shrink-0 text-xs font-medium text-fg">文件</span>
-        <span className="min-w-0 flex-1 truncate text-[10px] text-subtle" title={workDir}>
+        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
+          文件
+        </span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-subtle" title={workDir}>
           {folderName}
         </span>
         <button
@@ -456,7 +456,7 @@ export default function RightSidebar() {
           title="刷新文件"
           onClick={refreshAll}
           disabled={!sessionId}
-          className="cursor-pointer rounded p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RefreshIcon />
         </button>
@@ -467,7 +467,7 @@ export default function RightSidebar() {
           aria-label="隐藏文件栏"
           title="隐藏文件栏"
           onClick={() => closeSidebar(false)}
-          className="cursor-pointer rounded p-1 text-subtle transition hover:bg-hover hover:text-fg"
+          className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg"
         >
           <CloseIcon />
         </button>
@@ -482,7 +482,7 @@ export default function RightSidebar() {
         {body}
       </div>
 
-      <div className="shrink-0 border-t border-line px-3 py-1.5 text-[10px] text-subtle">
+      <div className="shrink-0 border-t border-line px-3 py-1.5 font-mono text-[10px] text-subtle">
         点击文件在中间区域预览
       </div>
     </aside>

@@ -45,26 +45,28 @@ export default function PermissionDialog() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="permission-title"
-        className="w-full max-w-lg overflow-hidden rounded-xl border border-line-strong bg-panel shadow-2xl"
+        className="w-full max-w-lg overflow-hidden border border-line-strong bg-panel"
       >
         <div className="border-b border-line px-4 py-3">
-          <h2 id="permission-title" className="text-sm font-medium text-fg">
+          <h2 id="permission-title" className="text-[13px] font-medium text-fg">
             工具调用需要审批
           </h2>
-          <p className="mt-1 text-[11px] text-subtle">
-            {approvals.length > 1 ? `还有 ${approvals.length - 1} 个请求在排队` : '请选择本次调用的处理方式'}
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
+            {approvals.length > 1
+              ? `还有 ${approvals.length - 1} 个请求在排队`
+              : '请选择本次调用的处理方式'}
           </p>
         </div>
 
         <div className="space-y-3 px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="rounded bg-raised px-2 py-0.5 font-mono text-xs text-fg">
+            <span className="border border-line bg-raised px-2 py-0.5 font-mono text-[11px] text-fg">
               {approval.toolName}
             </span>
             {approval.reason && <span className="text-[11px] text-subtle">{approval.reason}</span>}
           </div>
 
-          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-code p-3 font-mono text-[11px] text-muted">
+          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words border border-line bg-code p-3 font-mono text-[11px] text-muted">
             {inputText}
           </pre>
           <p className="text-[11px] leading-relaxed text-subtle">
@@ -85,11 +87,11 @@ export default function PermissionDialog() {
                 className={
                   deny
                     ? always
-                      ? 'cursor-pointer rounded-lg border border-danger-line bg-danger-soft px-3 py-1.5 text-xs font-medium text-danger-text hover:border-danger disabled:cursor-not-allowed disabled:opacity-50'
-                      : 'cursor-pointer rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white hover:bg-danger-hover disabled:cursor-not-allowed disabled:opacity-50'
+                      ? 'cursor-pointer border border-danger-line bg-danger-soft px-3 py-1.5 text-[12px] font-medium text-danger-text transition hover:border-danger disabled:cursor-not-allowed disabled:opacity-50'
+                      : 'cursor-pointer bg-danger px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-danger-hover disabled:cursor-not-allowed disabled:opacity-50'
                     : always
-                      ? 'cursor-pointer rounded-lg border border-success-line bg-success-soft px-3 py-1.5 text-xs font-medium text-success-text hover:border-success disabled:cursor-not-allowed disabled:opacity-50'
-                      : 'cursor-pointer rounded-lg bg-success px-3 py-1.5 text-xs font-medium text-white hover:bg-success-hover disabled:cursor-not-allowed disabled:opacity-50'
+                      ? 'cursor-pointer border border-success-line bg-success-soft px-3 py-1.5 text-[12px] font-medium text-success-text transition hover:border-success disabled:cursor-not-allowed disabled:opacity-50'
+                      : 'cursor-pointer bg-success px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-success-hover disabled:cursor-not-allowed disabled:opacity-50'
                 }
               >
                 {OPTION_LABEL[option.id] ?? option.label}

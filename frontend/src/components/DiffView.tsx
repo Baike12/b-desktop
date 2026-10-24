@@ -230,33 +230,33 @@ export const DiffView = memo(function DiffView({
 
   if (lines.length === 0) {
     return (
-      <div className={`rounded border border-line bg-code px-2 py-1.5 text-[11px] text-subtle ${className}`}>
+      <div className={`border border-line bg-code px-2 py-1.5 text-[11px] text-subtle ${className}`}>
         {emptyLabel}
       </div>
     )
   }
 
   return (
-    <div className={`overflow-hidden rounded border border-line bg-code ${className}`}>
-      <div className="flex items-center gap-2 border-b border-line px-2 py-1 text-[10px] text-subtle">
-        {title && <span className="min-w-0 flex-1 truncate font-mono text-muted">{title}</span>}
+    <div className={`overflow-hidden border border-line bg-code ${className}`}>
+      <div className="flex items-center gap-2 border-b border-line bg-raised px-2 py-1 font-mono text-[10px] text-subtle">
+        {title && <span className="min-w-0 flex-1 truncate text-muted">{title}</span>}
         <span className="shrink-0 text-success-text">+{stats.add}</span>
         <span className="shrink-0 text-danger-text">-{stats.del}</span>
       </div>
       <div className={`overflow-auto font-mono text-[11px] leading-5 ${maxHeightClass}`}>
         {visible.map((line) => (
           <div key={line.key} className={`flex ${LINE_CLASS[line.kind]}`}>
-            <span className="w-10 shrink-0 select-none pr-2 text-right text-[10px] opacity-60">
+            <span className="w-10 shrink-0 select-none border-r border-line pr-2 text-right text-[10px] opacity-50">
               {line.oldNo ?? ''}
             </span>
-            <span className="w-10 shrink-0 select-none pr-2 text-right text-[10px] opacity-60">
+            <span className="w-10 shrink-0 select-none border-r border-line pr-2 text-right text-[10px] opacity-50">
               {line.newNo ?? ''}
             </span>
             <span className="whitespace-pre pr-3">{line.text || ' '}</span>
           </div>
         ))}
         {lines.length > MAX_RENDER_LINES && (
-          <p className="px-2 py-1 text-[10px] text-warn-text">
+          <p className="border-t border-line px-2 py-1 font-mono text-[10px] text-warn-text">
             已截断 · 仅显示前 {MAX_RENDER_LINES} 行（共 {lines.length} 行）
           </p>
         )}

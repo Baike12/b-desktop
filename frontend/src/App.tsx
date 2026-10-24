@@ -61,13 +61,22 @@ export default function App() {
           {welcome ? (
             <main
               data-testid="welcome"
-              className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-[12vh]"
+              className="grid-canvas flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-[10vh]"
             >
-              <div className="mb-8 text-center">
-                <p className="text-xl font-medium tracking-tight text-fg">开始新的任务</p>
-                <p className="mt-2 text-xs text-subtle">
-                  描述目标，Agent 会在当前项目中读写文件并执行命令
+              <div className="mb-8 w-full max-w-[46rem]">
+                <div className="flex items-center gap-2">
+                  <span className="size-2 shrink-0 bg-accent" />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-subtle">
+                    B Desktop
+                  </span>
+                </div>
+                <h1 className="mt-4 text-[28px] font-semibold tracking-[-0.025em] text-fg">
+                  开始新的任务
+                </h1>
+                <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-muted">
+                  描述目标，Agent 会在当前项目中读写文件并执行命令。
                 </p>
+                <div className="mt-6 h-px w-full bg-line" />
               </div>
               <Composer variant="hero" />
             </main>

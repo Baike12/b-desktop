@@ -27,10 +27,10 @@ const SOURCE_LABEL: Record<string, string> = {
 }
 
 const fieldClass =
-  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none transition placeholder:text-subtle focus:border-accent disabled:opacity-60'
+  'w-full border border-line bg-surface px-3 py-2 text-[13px] text-fg outline-none transition placeholder:text-subtle focus:border-accent disabled:opacity-60'
 
 const smallButton =
-  'cursor-pointer rounded-md border border-line px-2 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg'
+  'cursor-pointer border border-line px-2 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover hover:text-fg'
 
 export default function SkillSettings() {
   const [skills, setSkills] = useState<app.SkillDTO[]>([])
@@ -145,7 +145,7 @@ export default function SkillSettings() {
     <section role="tabpanel" aria-label="技能" data-testid="settings-skills">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xs font-medium uppercase tracking-wide text-subtle">技能</h3>
+          <h3 className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">技能</h3>
           <p className="mt-1 text-[11px] text-subtle">
             新建写入 ~/.b-desktop/skills/&lt;名称&gt;/SKILL.md；项目级技能来自工作目录下的 .b-desktop/skills。
           </p>
@@ -158,7 +158,7 @@ export default function SkillSettings() {
             type="button"
             data-testid="skill-add"
             onClick={startCreate}
-            className="cursor-pointer rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-white transition hover:opacity-90"
+            className="cursor-pointer bg-accent px-2.5 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover"
           >
             新建技能
           </button>
@@ -166,13 +166,13 @@ export default function SkillSettings() {
       </div>
 
       {error && (
-        <p data-testid="skill-error" className="mt-3 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger-text">
+        <p data-testid="skill-error" className="mt-3 border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger-text">
           {error}
         </p>
       )}
 
       {form && (
-        <div data-testid="skill-form" className="mt-3 space-y-2 rounded-lg border border-line bg-raised p-3">
+        <div data-testid="skill-form" className="mt-3 space-y-2 border border-line bg-panel p-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block">
               <span className="text-[11px] text-muted">名称</span>
@@ -223,7 +223,7 @@ export default function SkillSettings() {
               data-testid="skill-save"
               disabled={saving}
               onClick={() => void save()}
-              className="cursor-pointer rounded-md bg-accent px-3 py-1 text-[11px] font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+              className="cursor-pointer bg-accent px-3 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover disabled:opacity-60"
             >
               {saving ? '保存中…' : '保存'}
             </button>
@@ -245,13 +245,13 @@ export default function SkillSettings() {
       <div className="mt-3 space-y-2">
         {loading && skills.length === 0 && <p className="text-xs text-subtle">正在扫描技能…</p>}
         {!loading && skills.length === 0 && !form && (
-          <div className="rounded-lg border border-dashed border-line px-4 py-8 text-center">
+          <div className="border border-dashed border-line px-4 py-8 text-center">
             <p className="text-sm text-muted">尚未安装技能</p>
             <p className="mt-1 text-[11px] text-subtle">新建一个技能，Agent 会在系统提示里看到它的名称与描述</p>
           </div>
         )}
         {!loading && skills.length > 0 && filtered.length === 0 && (
-          <p className="rounded-lg border border-dashed border-line px-4 py-6 text-center text-xs text-subtle">
+          <p className="border border-dashed border-line px-4 py-6 text-center text-xs text-subtle">
             没有匹配「{query.trim()}」的技能
           </p>
         )}
@@ -259,12 +259,12 @@ export default function SkillSettings() {
           <div
             key={`${skill.source}:${skill.name}`}
             data-testid={`skill-item-${skill.name}`}
-            className="flex items-start gap-3 rounded-lg border border-line bg-raised p-3"
+            className="flex items-start gap-3 border border-line bg-panel p-3"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="truncate text-sm font-medium text-fg">{skill.name}</span>
-                <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-subtle">
+                <span className="border border-line px-1.5 py-0.5 text-[10px] text-subtle">
                   {SOURCE_LABEL[skill.source] ?? skill.source}
                 </span>
               </div>

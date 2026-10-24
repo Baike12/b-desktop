@@ -185,6 +185,17 @@ cd frontend && npm run harness   # 5173，strictPort；已占用则直接复用
 
 `harness.html` + `src/dev/harness.tsx` 挂载真实的 `<App/>`，只把 `window.go.app.App.*` 与 `window.runtime.*` 换成内存假实现；断言通过 `window.__bdeskReady`、`window.__bdesk.metrics()`、`__bdesk.send()`、`__bdesk.setTheme()` 等钩子完成。浏览器交互与截图使用 browseros。详见 `frontend/HARNESS.md`。`harness.html` 不进构建产物。
 
+## 前端视觉规范
+
+界面语言是「技术文档工作台」（参考 DeepEval 文档站）：纸面底色、发丝描边、等宽元信息、单一强调色。规则写在 `frontend/src/style.css` 顶部，新增界面必须沿用：
+
+1. **消灭圆角。** `style.css` 有全局 `border-radius: 0 !important` 兜底，Tailwind 圆角尺度也已归零。不要再写 `rounded-*`。
+2. **用描边表达层级，不用阴影。** 组件不要加 `shadow-*`；层级靠 `border-line` / `border-line-strong` 和底色差。
+3. **只用语义色。** 颜色一律走 `surface / panel / raised / hover / code / line / line-strong / fg / muted / subtle / accent / danger / warn / success` 这组语义类名，不写死具体色值。
+4. **元信息用等宽。** 路径、计数、时间、状态标签、工具名统一 `font-mono` + `text-[10px]`，正文才用无衬线。
+5. **强调色只用于当前项、主按钮、链接、焦点环。** 当前项用 `accent-edge`（左侧 2px 强调色竖线），不要用填充药丸。
+6. **正文区用网格画布。** 对话区与欢迎页根节点加 `grid-canvas`，形成文档站的底纹。
+
 ## 前后端边界（Wails 约定）
 
 1. 前端只通过 `frontend/wailsjs/go/**` 调用 Go；`wailsjs/` 由 Wails 生成，不手改。

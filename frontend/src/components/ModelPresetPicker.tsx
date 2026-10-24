@@ -59,25 +59,21 @@ export default function ModelPresetPicker({
             data-testid={`model-preset-${preset.id}`}
             disabled={disabled}
             onClick={() => onSelect(preset)}
-            className={`flex cursor-pointer flex-col gap-1 rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
-              selected
-                ? 'border-accent bg-accent-soft'
-                : 'border-line hover:border-line-strong hover:bg-hover'
-            }`}
+            className={`flex cursor-pointer flex-col gap-1 border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${ selected ? 'border-accent bg-accent-soft' : 'border-line hover:border-line-strong hover:bg-hover' }`}
           >
             <span className="flex items-center gap-1.5">
               <span className="truncate text-xs font-medium text-fg">{preset.name}</span>
               {preset.local && (
-                <span className="shrink-0 rounded border border-line bg-raised px-1 text-[10px] text-muted">
+                <span className="shrink-0 border border-line bg-raised px-1 text-[10px] text-muted">
                   本地
                 </span>
               )}
               {!preset.needsKey && !preset.local && (
-                <span className="shrink-0 rounded border border-line bg-raised px-1 text-[10px] text-muted">
+                <span className="shrink-0 border border-line bg-raised px-1 text-[10px] text-muted">
                   免密钥
                 </span>
               )}
-              {selected && <span className="ml-auto shrink-0 text-[10px] text-accent-text">已选</span>}
+              {selected && <span className="ml-auto shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">已选</span>}
             </span>
             <span className="truncate font-mono text-[11px] text-muted">{preset.defaultModel}</span>
             <span className="truncate text-[10px] text-subtle" title={preset.baseUrl}>

@@ -57,15 +57,15 @@ export default function WorkspaceView({ panel }: WorkspaceViewProps) {
           data-testid="panel-back"
           style={NO_DRAG}
           onClick={() => setPanel('chat')}
-          className="flex cursor-pointer items-center gap-1 rounded-md border border-line px-2 py-1 text-xs text-muted transition hover:bg-hover hover:text-fg"
+          className="flex cursor-pointer items-center gap-1 border border-line px-2 py-1 text-xs text-muted transition hover:bg-hover hover:text-fg"
         >
           <BackIcon />
           返回对话
         </button>
 
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm font-medium text-fg">{meta.title}</h1>
-          <p className="truncate text-[11px] text-subtle">{meta.hint}</p>
+          <h1 className="truncate text-[13px] font-medium tracking-tight text-fg">{meta.title}</h1>
+          <p className="truncate font-mono text-[10px] text-subtle">{meta.hint}</p>
         </div>
 
         <button
@@ -78,8 +78,8 @@ export default function WorkspaceView({ panel }: WorkspaceViewProps) {
           onClick={toggleRightSidebar}
           className={
             rightSidebarOpen
-              ? 'shrink-0 cursor-pointer rounded-md bg-hover p-1.5 text-fg'
-              : 'shrink-0 cursor-pointer rounded-md p-1.5 text-subtle transition hover:bg-hover hover:text-fg'
+              ? 'shrink-0 cursor-pointer bg-hover p-1.5 text-fg'
+              : 'shrink-0 cursor-pointer p-1.5 text-subtle transition hover:bg-hover hover:text-fg'
           }
         >
           <FilesPanelIcon open={rightSidebarOpen} />

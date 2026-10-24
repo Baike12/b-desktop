@@ -80,7 +80,7 @@ export default function FilePreviewView() {
           <button
             type="button"
             onClick={() => void openFile(preview.path)}
-            className="mt-1 cursor-pointer rounded-md border border-line px-2.5 py-1 text-[11px] text-muted hover:bg-hover hover:text-fg"
+            className="mt-1 cursor-pointer border border-line px-2.5 py-1 text-[11px] text-muted hover:bg-hover hover:text-fg"
           >
             重试
           </button>
@@ -132,15 +132,15 @@ export default function FilePreviewView() {
           data-testid="file-preview-back"
           style={NO_DRAG}
           onClick={closePreview}
-          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md border border-line px-2 py-1 text-xs text-muted transition hover:bg-hover hover:text-fg"
+          className="flex shrink-0 cursor-pointer items-center gap-1 border border-line px-2 py-1 text-xs text-muted transition hover:bg-hover hover:text-fg"
         >
           <BackIcon />
           返回对话
         </button>
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg" title={preview.path}>
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-fg" title={preview.path}>
           {preview.path}
         </span>
-        <span className="shrink-0 text-[10px] tabular-nums text-subtle">
+        <span className="shrink-0 font-mono text-[10px] tabular-nums text-subtle">
           {formatBytes(preview.size)}
         </span>
         <button
@@ -153,8 +153,8 @@ export default function FilePreviewView() {
           onClick={toggleRightSidebar}
           className={
             rightSidebarOpen
-              ? 'shrink-0 cursor-pointer rounded-md bg-hover p-1.5 text-fg'
-              : 'shrink-0 cursor-pointer rounded-md p-1.5 text-subtle transition hover:bg-hover hover:text-fg'
+              ? 'shrink-0 cursor-pointer bg-hover p-1.5 text-fg'
+              : 'shrink-0 cursor-pointer p-1.5 text-subtle transition hover:bg-hover hover:text-fg'
           }
         >
           <FilesPanelIcon open={rightSidebarOpen} />
@@ -166,7 +166,7 @@ export default function FilePreviewView() {
           aria-label="关闭预览"
           title="关闭预览"
           onClick={closePreview}
-          className="shrink-0 cursor-pointer rounded p-1 text-subtle transition hover:bg-hover hover:text-fg"
+          className="shrink-0 cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg"
         >
           <CloseIcon />
         </button>

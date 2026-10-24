@@ -67,7 +67,7 @@ export default function PermissionModeSelect() {
         aria-expanded={open}
         aria-label={`权限模式：${label}`}
         title={disabled ? '先新建或选择一个会话' : hint}
-        className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex cursor-pointer items-center gap-1.5 px-1.5 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
       >
         <ShieldIcon />
         <span className="font-medium text-fg">{label}</span>
@@ -84,7 +84,7 @@ export default function PermissionModeSelect() {
           <div
             role="menu"
             aria-label="选择权限模式"
-            className="absolute bottom-full left-0 z-20 mb-2 w-72 overflow-hidden rounded-lg border border-line-strong bg-raised p-1 shadow-xl"
+            className="absolute bottom-full left-0 z-20 mb-2 w-72 border border-line-strong bg-panel"
           >
             {PERMISSION_MODES.map((mode) => {
               const selected = mode.id === current
@@ -95,15 +95,15 @@ export default function PermissionModeSelect() {
                   role="menuitemradio"
                   aria-checked={selected}
                   onClick={() => choose(mode.id)}
-                  className={`flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left transition ${
-                    selected
-                      ? 'bg-warn-soft text-warn-text'
-                      : 'text-fg hover:bg-hover'
-                  }`}
+                  className={`flex w-full cursor-pointer flex-col items-start gap-0.5 border-b border-line px-3 py-2 text-left transition last:border-b-0 ${ selected ? 'bg-warn-soft' : 'hover:bg-hover' }`}
                 >
-                  <span className="flex w-full items-center justify-between gap-2 text-xs font-medium">
-                    {mode.label}
-                    {selected && <span className="text-[10px] text-warn-text">当前</span>}
+                  <span className="flex w-full items-center justify-between gap-2 text-[12px] font-medium">
+                    <span className={selected ? 'text-warn-text' : 'text-fg'}>{mode.label}</span>
+                    {selected && (
+                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-warn-text">
+                        当前
+                      </span>
+                    )}
                   </span>
                   <span className="text-[11px] leading-relaxed text-subtle">{mode.hint}</span>
                 </button>

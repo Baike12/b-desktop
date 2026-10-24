@@ -41,18 +41,22 @@ export default function MessageList() {
   }, [])
 
   return (
-    <div ref={scrollerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto">
+    <div
+      ref={scrollerRef}
+      onScroll={handleScroll}
+      className="grid-canvas min-h-0 flex-1 overflow-y-auto"
+    >
       <div
         ref={contentRef}
-        className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 py-6"
+        className="mx-auto flex w-full max-w-[46rem] flex-col gap-6 px-5 py-8"
       >
         {!activeId && !loading && (
-          <div className="py-16 text-center text-sm text-subtle">
+          <div className="py-16 text-center font-mono text-[11px] tracking-wide text-subtle">
             从左侧选择会话，或新建一个会话开始。
           </div>
         )}
         {activeId && items.length === 0 && !loading && (
-          <div className="py-16 text-center text-sm text-subtle">
+          <div className="py-16 text-center font-mono text-[11px] tracking-wide text-subtle">
             发送第一条消息开始对话。
           </div>
         )}

@@ -33,10 +33,10 @@ const SOURCE_LABEL: Record<string, string> = {
 }
 
 const fieldClass =
-  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none transition placeholder:text-subtle focus:border-accent'
+  'w-full border border-line bg-surface px-3 py-2 text-[13px] text-fg outline-none transition placeholder:text-subtle focus:border-accent'
 
 const smallButton =
-  'cursor-pointer rounded-md border border-line px-2 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg'
+  'cursor-pointer border border-line px-2 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover hover:text-fg'
 
 function eventHint(event: string): string {
   return EVENTS.find((item) => item.id === event)?.hint ?? ''
@@ -148,7 +148,7 @@ export default function HookSettings() {
     <section role="tabpanel" aria-label="钩子" data-testid="settings-hooks">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xs font-medium uppercase tracking-wide text-subtle">钩子</h3>
+          <h3 className="font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">钩子</h3>
           <p className="mt-1 text-[11px] text-subtle">
             用户级 ~/.b-desktop/hooks.json；项目级 {workDir || '默认工作目录'}/.b-desktop/hooks.json。
           </p>
@@ -161,7 +161,7 @@ export default function HookSettings() {
             type="button"
             data-testid="hook-add"
             onClick={startCreate}
-            className="cursor-pointer rounded-md bg-accent px-2.5 py-1 text-[11px] font-medium text-white transition hover:opacity-90"
+            className="cursor-pointer bg-accent px-2.5 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover"
           >
             新建钩子
           </button>
@@ -169,13 +169,13 @@ export default function HookSettings() {
       </div>
 
       {error && (
-        <p data-testid="hook-error" className="mt-3 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger-text">
+        <p data-testid="hook-error" className="mt-3 border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger-text">
           {error}
         </p>
       )}
 
       {form && (
-        <div data-testid="hook-form" className="mt-3 space-y-2 rounded-lg border border-line bg-raised p-3">
+        <div data-testid="hook-form" className="mt-3 space-y-2 border border-line bg-panel p-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block">
               <span className="text-[11px] text-muted">事件</span>
@@ -243,7 +243,7 @@ export default function HookSettings() {
               data-testid="hook-save"
               disabled={saving}
               onClick={() => void save()}
-              className="cursor-pointer rounded-md bg-accent px-3 py-1 text-[11px] font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+              className="cursor-pointer bg-accent px-3 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover disabled:opacity-60"
             >
               {saving ? '保存中…' : '保存'}
             </button>
@@ -254,7 +254,7 @@ export default function HookSettings() {
       <div className="mt-3 space-y-2">
         {loading && hooks.length === 0 && <p className="text-xs text-subtle">正在读取钩子…</p>}
         {!loading && hooks.length === 0 && !form && (
-          <div className="rounded-lg border border-dashed border-line px-4 py-8 text-center">
+          <div className="border border-dashed border-line px-4 py-8 text-center">
             <p className="text-sm text-muted">尚未安装钩子</p>
             <p className="mt-1 text-[11px] text-subtle">新建钩子，以在任务生命周期事件中运行命令</p>
           </div>
@@ -262,14 +262,14 @@ export default function HookSettings() {
         {hooks.map((hook) => {
           const key = `${hook.source}:${hook.event}:${hook.matcher}:${hook.command}`
           return (
-            <div key={key} data-testid={`hook-item-${hook.event}`} className="rounded-lg border border-line bg-raised p-3">
+            <div key={key} data-testid={`hook-item-${hook.event}`} className="border border-line bg-panel p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium text-fg">{hook.event}</span>
-                <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-subtle">
+                <span className="border border-line px-1.5 py-0.5 text-[10px] text-subtle">
                   {SOURCE_LABEL[hook.source] ?? hook.source}
                 </span>
                 {hook.matcher && (
-                  <span className="rounded border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted">
+                  <span className="border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted">
                     {hook.matcher}
                   </span>
                 )}
