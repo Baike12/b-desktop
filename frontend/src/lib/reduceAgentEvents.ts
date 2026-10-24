@@ -46,6 +46,42 @@ function mutableBlockAt(item: AssistantItem, pos: number): AssistantBlock {
   return copy
 }
 
+// clearActiveBlocks 清除一条消息内所有内容块的流式标记。
+// 工具调用开始后，之前的正文与思考都不再增长。
+function clearActiveBlocks(item: AssistantItem): void {
+  for (let pos = 0; pos < item.blocks.length; pos += 1) {
+    const block = item.blocks[pos]
+    if (block.kind !== 'text' && block.kind !== 'thinking') continue
+    if (block.active !== true) continue
+    const copy = mutableBlockAt(item, pos)
+    if (copy.kind === 'text' || copy.kind === 'thinking') copy.active = false
+  }
+}
+
+// deactivateOtherContentBlocks 保证同一条消息内只有一个块处于活动状态。
+// 正文和思考可以交替出现，新块开始接收增量时旧块立即结束。
+function deactivateOtherContentBlocks(
+  item: AssistantItem,
+  blockIndex: number,
+  kind: 'text' | 'thinking',
+): void {
+  for (let pos = 0; pos < item.blocks.length; pos += 1) {
+    const block = item.blocks[pos]
+    if (block.kind !== 'text' && block.kind !== 'thinking') continue
+    if (block.active !== true) continue
+    if (block.kind === kind && block.index === blockIndex) continue
+    const copy = mutableBlockAt(item, pos)
+    if (copy.kind === 'text' || copy.kind === 'thinking') copy.active = false
+  }
+}
+
+function hasActiveContentBlock(item: AssistantItem): boolean {
+  return item.blocks.some(
+    (block) =>
+      (block.kind === 'text' || block.kind === 'thinking') && block.active === true,
+  )
+}
+
 function assistantFor(
   draft: Draft,
   messageIndex: Map<string, number>,
@@ -173,12 +209,35 @@ function markMessageStreaming(draft: Draft, messageId: string | undefined, strea
   }
 }
 
+// clearMessageActive 清除一条消息内所有块的流式标记。
+function clearMessageActive(draft: Draft, messageId: string | undefined): void {
+  if (!messageId) return
+  for (let i = 0; i < draft.items.length; i += 1) {
+    const item = draft.items[i]
+    if (item.kind !== 'assistant' || item.id !== messageId) continue
+    if (!hasActiveContentBlock(item)) return
+    const mutable = mutableAssistant(draft, i)
+    if (mutable) clearActiveBlocks(mutable)
+    return
+  }
+}
+
 function markAllStreaming(draft: Draft): void {
   for (let i = 0; i < draft.items.length; i += 1) {
     const item = draft.items[i]
     if (item.kind !== 'assistant' || !item.streaming) continue
     const mutable = mutableAssistant(draft, i)
     if (mutable) mutable.streaming = false
+  }
+}
+
+// clearAllActive 兜底清除所有消息的活动块标记，避免流中断后光标残留。
+function clearAllActive(draft: Draft): void {
+  for (let i = 0; i < draft.items.length; i += 1) {
+    const item = draft.items[i]
+    if (item.kind !== 'assistant' || !hasActiveContentBlock(item)) continue
+    const mutable = mutableAssistant(draft, i)
+    if (mutable) clearActiveBlocks(mutable)
   }
 }
 
@@ -245,7 +304,11 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         const target = assistantFor(draft, messageIndex, ev.messageId, timeMs)
         if (!target) break
         const block = ensureTextBlock(target.item, blockIndex, 'text')
-        if (block && block.kind === 'text') block.text += ev.text ?? ''
+        if (block && block.kind === 'text') {
+          block.text += ev.text ?? ''
+          block.active = true
+          deactivateOtherContentBlocks(target.item, blockIndex, 'text')
+        }
         if (target.item.streaming === false) target.item.streaming = true
         break
       }
@@ -253,7 +316,12 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         const target = assistantFor(draft, messageIndex, ev.messageId, timeMs)
         if (!target) break
         const block = ensureTextBlock(target.item, blockIndex, 'thinking')
-        if (block && block.kind === 'thinking') block.text += ev.text ?? ''
+        if (block && block.kind === 'thinking') {
+          block.text += ev.text ?? ''
+          block.active = true
+          deactivateOtherContentBlocks(target.item, blockIndex, 'thinking')
+        }
+        if (target.item.streaming === false) target.item.streaming = true
         break
       }
       case 'tool_call_start': {
@@ -270,6 +338,8 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
           if (ev.toolName) block.toolName = ev.toolName
           if (ev.toolUseId) block.toolUseId = ev.toolUseId
         }
+        // 工具开始后正文与思考都已定型，光标和自动展开在这里结束。
+        clearActiveBlocks(target.item)
         break
       }
       case 'tool_input_delta': {
@@ -392,6 +462,7 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
       }
       case 'message_stop': {
         markMessageStreaming(draft, ev.messageId, false)
+        clearMessageActive(draft, ev.messageId)
         break
       }
       case 'message_discard': {
@@ -427,6 +498,7 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         if (ev.stopReason) stopReason = ev.stopReason
         approvals = []
         markAllStreaming(draft)
+        clearAllActive(draft)
         if (ev.stopReason === 'canceled') pushSystem(draft, 'info', '本轮已停止', timeMs)
         else if (ev.stopReason === 'max_turns')
           pushSystem(draft, 'info', '达到最大模型调用次数，本轮结束', timeMs)

@@ -103,6 +103,9 @@ type ProviderConfigDTO struct {
 	APIKeyMasked    string `json:"apiKeyMasked,omitempty"`
 	ContextWindow   int    `json:"contextWindow"`
 	MaxOutputTokens int    `json:"maxOutputTokens"`
+	// ThinkingEnabled 表示是否请求扩展思考；ThinkingBudget 是思考预算（token）。
+	ThinkingEnabled bool `json:"thinkingEnabled"`
+	ThinkingBudget  int  `json:"thinkingBudget"`
 	PermissionMode  string `json:"permissionMode"`
 	WorkDir         string `json:"workDir"`
 	InitError       string `json:"initError,omitempty"`
@@ -117,6 +120,9 @@ type ProviderConfigInput struct {
 	APIKey          string `json:"apiKey,omitempty"`
 	ContextWindow   int    `json:"contextWindow,omitempty"`
 	MaxOutputTokens int    `json:"maxOutputTokens,omitempty"`
+	// ThinkingEnabled 打开扩展思考；ThinkingBudget 是思考预算（token），0 表示用默认值。
+	ThinkingEnabled bool `json:"thinkingEnabled"`
+	ThinkingBudget  int  `json:"thinkingBudget,omitempty"`
 }
 
 // toProjectDTO 转换项目列表项。
@@ -231,6 +237,8 @@ func toProviderConfigDTO(cfg Config, initErr error) ProviderConfigDTO {
 		APIKeyMasked:    maskAPIKey(cfg.APIKey),
 		ContextWindow:   cfg.ContextWindow,
 		MaxOutputTokens: cfg.MaxOutputTokens,
+		ThinkingEnabled: cfg.ThinkingEnabled,
+		ThinkingBudget:  cfg.ThinkingBudget,
 		PermissionMode:  cfg.PermissionMode,
 		WorkDir:         cfg.WorkDir,
 	}

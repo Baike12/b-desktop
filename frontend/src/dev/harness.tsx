@@ -891,23 +891,107 @@ const bindings = {
       }, 600)
     }
 
-    const chunks = MARKDOWN_REPLY.match(/[\s\S]{1,12}/g) ?? []
-    let cursor = 0
-    const pump = () => {
-      if (activeTurns.get(sessionId) !== turnId) return
-      if (cursor < chunks.length) {
+    // 交错流式场景：思考 → 文本 → 工具 → 工具之后又出现的文本。
+    // 用来验证「工具调用之间的模型输出」不会被并进工具之前那段文本。
+    const INTERLEAVED_THINKING =
+      '先确认要读哪个文件，再决定后续动作：需要看看 README 里写了什么，' +
+      '确认工具参数怎么写，最后再总结结论。'
+    const INTERLEAVED_TAIL = '读完了：文件里确认了两处待办，下面是结论。'
+    const steps: Array<() => boolean> = [
+      // 思考增量
+      () => {
+        const parts = INTERLEAVED_THINKING.match(/[\s\S]{1,8}/g) ?? []
+        const part = parts[thinkingCursor]
+        if (part === undefined) return true
+        thinkingCursor += 1
+        emitEvent({
+          type: 'thinking_delta',
+          sessionId,
+          turnId,
+          messageId,
+          blockIndex: 0,
+          text: part,
+        })
+        return false
+      },      // 工具之前的文本
+      () => {
+        const parts = '我来读一下这个文件。'.match(/[\s\S]{1,8}/g) ?? []
+        const part = parts[beforeCursor]
+        if (part === undefined) return true
+        beforeCursor += 1
         emitEvent({
           type: 'text_delta',
           sessionId,
           turnId,
           messageId,
-          blockIndex: 0,
-          text: chunks[cursor],
+          blockIndex: 1,
+          text: part,
         })
-        cursor += 1
-        setTimeout(pump, 16)
-        return
+        return false
+      },
+      // 工具调用
+      () => {
+        emitEvent({
+          type: 'tool_call_start',
+          sessionId,
+          turnId,
+          messageId,
+          blockIndex: 2,
+          toolUseId: 'toolu_interleaved',
+          toolName: 'Read',
+        })
+        emitEvent({
+          type: 'tool_call_ready',
+          sessionId,
+          turnId,
+          messageId,
+          blockIndex: 2,
+          toolUseId: 'toolu_interleaved',
+          toolName: 'Read',
+          input: { file_path: '/tmp/bdesk-harness/README.md' },
+        })
+        return true
+      },
+      // 工具之后又出现的文本：必须是独立块（blockIndex 3）。
+      () => {
+        const parts = INTERLEAVED_TAIL.match(/[\s\S]{1,8}/g) ?? []
+        const part = parts[tailCursor]
+        if (part === undefined) return true
+        tailCursor += 1
+        emitEvent({
+          type: 'text_delta',
+          sessionId,
+          turnId,
+          messageId,
+          blockIndex: 3,
+          text: part,
+        })
+        return false
+      },
+    ]
+    let thinkingCursor = 0
+    let beforeCursor = 0
+    let tailCursor = 0
+    let stepIndex = 0
+    const pumpSteps = () => {
+      if (activeTurns.get(sessionId) !== turnId) return
+      while (stepIndex < steps.length) {
+        const done = steps[stepIndex]()
+        if (!done) {
+          // 放慢节奏，便于观察流式中间态（思考中、块逐步增长）。
+          setTimeout(pumpSteps, 120)
+          return
+        }
+        stepIndex += 1
       }
+      emitEvent({
+        type: 'tool_result',
+        sessionId,
+        turnId,
+        toolUseId: 'toolu_interleaved',
+        toolName: 'Read',
+        result: { preview: '# demo\nok', isError: false, truncated: false, bytes: 9 },
+      })
       const usage = {
         inputTokens: 1200,
         outputTokens: 320,
@@ -944,7 +1028,7 @@ const bindings = {
       emitEvent({ type: 'turn_start', sessionId, turnId })
       emitEvent({ type: 'step_start', sessionId, turnId, step: 1 })
       emitEvent({ type: 'message_start', sessionId, turnId, messageId })
-      pump()
+      pumpSteps()
     }, 30)
 
     return { sessionId, turnId, running: true }

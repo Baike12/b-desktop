@@ -206,10 +206,13 @@ type openAIDecoder struct {
 	provider string
 
 	nextBlock int
-	text      int
+	// textOpen / thinkOpen 标记当前是否有正文块 / 思考块处于打开状态。
+	// 打开状态下到达的增量并入该块；块被关闭后，下一次增量会分配新索引，
+	// 从而让「工具调用之后又出现的正文」成为独立块，而不是被并回前一段。
 	textOpen  bool
-	thinking  int
+	text      int
 	thinkOpen bool
+	thinking  int
 
 	tools      map[int]*openAIToolState // key 是 provider 的 tool_calls[].index
 	messageSet bool
@@ -218,6 +221,17 @@ type openAIDecoder struct {
 	stopReason StopReason
 	sawFinish  bool
 	usage      *Usage
+}
+
+// closeContentBlocks 关闭当前打开的正文块与思考块。
+//
+// Chat Completions 把正文与工具调用放在同一条消息里，但兼容端点会在工具调用
+// 之后继续下发正文（对应 Anthropic 的多个 content block）。不关闭块的话，
+// 工具之后的正文会沿用同一个索引并被并入工具之前那段，工具调用之间的模型输出
+// 就此丢失。工具块开始时调用它。
+func (d *openAIDecoder) closeContentBlocks() {
+	d.textOpen = false
+	d.thinkOpen = false
 }
 
 // openAIChunk 是 Chat Completions 的一个流式块。
@@ -330,6 +344,9 @@ func (d *openAIDecoder) Decode(frame sseFrame) ([]StreamEvent, bool, error) {
 		for _, tc := range delta.ToolCalls {
 			st, ok := d.tools[tc.Index]
 			if !ok {
+				// 工具调用开始意味着上一段正文已经结束：关闭正文块与思考块，
+				// 工具之后到达的正文会分配新索引，成为独立内容块。
+				d.closeContentBlocks()
 				st = &openAIToolState{
 					blockIndex: d.nextBlock,
 					id:         tc.ID,

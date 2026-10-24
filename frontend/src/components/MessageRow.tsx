@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import type { AssistantBlock, ChatItem } from '../types/chat'
 import { MarkdownText } from './MarkdownText'
 import { ToolCallCard } from './ToolCallCard'
@@ -42,10 +42,25 @@ function ChevronIcon() {
 }
 
 // ThinkingBlock 不套卡片：一行低对比标题 + 左侧细线缩进的浅色正文。
+//
+// 展开策略与 Zed 的默认行为一致：流式期间展开让人实时看到模型的思考，
+// 思考结束后自动收起不占空间；用户一旦手动切换，之后不再自动干预。
 function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }) {
+  // userOverride 为 null 表示用户还没手动操作过，展开状态由流式状态决定。
+  const [userOverride, setUserOverride] = useState<boolean | null>(null)
+  const open = userOverride ?? streaming
+
   return (
-    <details className="group min-w-0">
-      <summary className="list-none flex w-full cursor-pointer select-none items-center gap-1.5 py-0.5 font-mono text-[10px] tracking-[0.12em] text-subtle transition hover:text-fg [&::-webkit-details-marker]:hidden">
+    <details open={open} className="group min-w-0">
+      <summary
+        // 阻止 details 的原生 toggle，改由 state 驱动，
+        // 这样才能区分「用户手动切换」与「流式状态变化」。
+        onClick={(event) => {
+          event.preventDefault()
+          setUserOverride(!open)
+        }}
+        className="list-none flex w-full cursor-pointer select-none items-center gap-1.5 py-0.5 font-mono text-[10px] tracking-[0.12em] text-subtle transition hover:text-fg [&::-webkit-details-marker]:hidden"
+      >
         <SparkIcon active={streaming} />
         <span className="uppercase">{streaming ? '思考中' : '思考过程'}</span>
         <span className="normal-case tracking-normal">{text.length} 字</span>
@@ -83,8 +98,6 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
     )
   }
 
-  const lastIndex = item.blocks.length - 1
-
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {item.discarded && (
@@ -93,15 +106,15 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
         </span>
       )}
 
-      {item.blocks.map((block, index) => {
+      {item.blocks.map((block) => {
         if (block.kind === 'text') {
+          // active 表示该块正在接收增量：光标只跟随当前增长的块，
+          // 而不是消息里的最后一个块（思考块之后往往还有正文）。
+          const active = block.active === true
           return (
             <div key={blockKey(block)} className="min-w-0">
-              <MarkdownText
-                text={block.text}
-                streaming={item.streaming && index === lastIndex}
-              />
-              {item.streaming && index === lastIndex && (
+              <MarkdownText text={block.text} streaming={active} />
+              {active && (
                 <span className="inline-block animate-pulse text-sm text-accent-text">▍</span>
               )}
             </div>
@@ -112,7 +125,7 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
             <ThinkingBlock
               key={blockKey(block)}
               text={block.text}
-              streaming={item.streaming && index === lastIndex}
+              streaming={block.active === true}
             />
           )
         }

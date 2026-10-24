@@ -14,8 +14,8 @@ export type ToolStatus =
 // AssistantBlock 是 assistant 消息内的一个块。index 是后端 blockIndex，
 // 在同一条消息内唯一，用来做 React key 与增量定位。
 export type AssistantBlock =
-  | { kind: 'text'; index: number; text: string }
-  | { kind: 'thinking'; index: number; text: string }
+  | { kind: 'text'; index: number; text: string; active?: boolean }
+  | { kind: 'thinking'; index: number; text: string; active?: boolean }
   | {
       kind: 'tool'
       index: number

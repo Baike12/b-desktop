@@ -136,6 +136,8 @@ interface ModelForm {
   apiKey: string
   contextWindow: string
   maxOutputTokens: string
+  thinkingEnabled: boolean
+  thinkingBudget: string
 }
 
 interface RuleFormState {
@@ -160,6 +162,9 @@ function formFromConfig(config: app.ProviderConfigDTO): ModelForm {
     apiKey: '',
     contextWindow: String(config.contextWindow || 0),
     maxOutputTokens: String(config.maxOutputTokens || 0),
+    thinkingEnabled: Boolean(config.thinkingEnabled),
+    // 预算为 0 表示后端使用默认值，输入框留空并由 placeholder 提示。
+    thinkingBudget: config.thinkingBudget ? String(config.thinkingBudget) : '',
   }
 }
 
@@ -196,6 +201,9 @@ function ThemePreview({ option }: { option: ThemeOption }) {
 
 const fieldClass =
   'w-full border border-line bg-surface px-3 py-2 text-[13px] text-fg outline-none transition placeholder:text-subtle focus:border-accent disabled:cursor-not-allowed disabled:opacity-60'
+
+// MIN_THINKING_BUDGET 是扩展思考预算的协议下限，与后端 llm.MinThinkingBudget 一致。
+const MIN_THINKING_BUDGET = 1024
 
 // NavIcon 是设置侧边栏的分类图标，统一 16px 描边风格。
 function NavIcon({ id }: { id: TabId }) {
@@ -288,6 +296,8 @@ export default function SettingsDialog() {
     apiKey: '',
     contextWindow: '',
     maxOutputTokens: '',
+    thinkingEnabled: false,
+    thinkingBudget: '',
   })
   const [loadingConfig, setLoadingConfig] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -393,13 +403,16 @@ export default function SettingsDialog() {
 
   const contextWindow = Number(form.contextWindow)
   const maxOutputTokens = Number(form.maxOutputTokens)
+  const thinkingBudget = Number(form.thinkingBudget)
   const invalid =
     form.provider === '' ||
     form.model.trim() === '' ||
     !Number.isFinite(contextWindow) ||
     contextWindow <= 0 ||
     !Number.isFinite(maxOutputTokens) ||
-    maxOutputTokens <= 0
+    maxOutputTokens <= 0 ||
+    (form.thinkingEnabled &&
+      (!Number.isFinite(thinkingBudget) || thinkingBudget < MIN_THINKING_BUDGET))
 
   const update = (patch: Partial<ModelForm>) => {
     // 手动改供应商或地址就不再属于所选预设。
@@ -434,6 +447,8 @@ export default function SettingsDialog() {
         apiKey: form.apiKey.trim() || undefined,
         contextWindow,
         maxOutputTokens,
+        thinkingEnabled: form.thinkingEnabled,
+        thinkingBudget: form.thinkingEnabled ? thinkingBudget : undefined,
       })
       const next = await GetProviderConfig()
       setConfig(next)
@@ -794,6 +809,38 @@ export default function SettingsDialog() {
               <p className="mt-2 text-[11px] text-subtle">
                 上下文长度用于压缩阈值与用量显示；单次最大输出是每轮请求的 max_tokens。
               </p>
+
+              <div className="mt-4 border-t border-line pt-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    data-testid="settings-thinking-enabled"
+                    type="checkbox"
+                    checked={form.thinkingEnabled}
+                    disabled={loadingConfig || saving}
+                    onChange={(event) => update({ thinkingEnabled: event.target.checked })}
+                    className="size-3.5 accent-[var(--accent)]"
+                  />
+                  <span className="text-[11px] text-muted">启用扩展思考</span>
+                </label>
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-[11px] text-muted">思考预算（token）</span>
+                  <input
+                    data-testid="settings-thinking-budget"
+                    type="number"
+                    min={MIN_THINKING_BUDGET}
+                    step={1024}
+                    value={form.thinkingBudget}
+                    disabled={loadingConfig || saving || !form.thinkingEnabled}
+                    onChange={(event) => update({ thinkingBudget: event.target.value })}
+                    placeholder="8192"
+                    className={fieldClass}
+                  />
+                </label>
+                <p className="mt-2 text-[11px] text-subtle">
+                  扩展思考让模型先推理再回答，思考过程会在回复中实时显示。预算须不小于{' '}
+                  {MIN_THINKING_BUDGET}，且小于单次最大输出。
+                </p>
+              </div>
 
               {saveError && (
                 <p

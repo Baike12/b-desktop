@@ -54,6 +54,11 @@ type Config struct {
 	Store       session.Store
 	Now         func() time.Time
 	NewID       func(prefix string) string
+	// ThinkingEnabled 打开扩展思考。请求用的预算由 llm.NormalizeThinking
+	// 按 max_tokens 归一化：预算非法或无法满足协议约束时本次请求不启用。
+	ThinkingEnabled bool
+	// ThinkingBudget 是扩展思考预算（token）；0 表示用 llm.DefaultThinkingBudget。
+	ThinkingBudget int
 	// Extensions 是可选的扩展集合：额外工具、钩子、上下文提供者、指标与子 Agent。
 	// Extensions.Tools 会在 NewEngine 中注册进 Tools，重名视为配置错误。
 	Extensions Extensions

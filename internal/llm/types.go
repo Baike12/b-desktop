@@ -98,6 +98,34 @@ type Thinking struct {
 	BudgetTokens int  `json:"budgetTokens,omitempty"`
 }
 
+// MinThinkingBudget 是扩展思考预算的协议下限：Anthropic 拒绝小于 1024 的 budget_tokens。
+const MinThinkingBudget = 1024
+
+// DefaultThinkingBudget 是未显式配置时使用的扩展思考预算（token）。
+// 选 8192 是为了在常见的 32k 上下文模型上留出足够的正文输出空间。
+const DefaultThinkingBudget = 8192
+
+// NormalizeThinking 按协议约束归一化思考预算，返回 nil 表示本次请求不启用扩展思考。
+// maxTokens 是本次请求的 max_tokens；Anthropic 要求 budget_tokens 严格小于它。
+// 预算非法或无法满足约束时返回 nil，调用方据此不发送 thinking 字段，
+// 而不是让整个请求失败。
+func NormalizeThinking(enabled bool, budget int, maxTokens int) *Thinking {
+	if !enabled {
+		return nil
+	}
+	if budget <= 0 {
+		budget = DefaultThinkingBudget
+	}
+	if budget < MinThinkingBudget {
+		budget = MinThinkingBudget
+	}
+	// budget_tokens 必须严格小于 max_tokens；不满足时放弃扩展思考。
+	if maxTokens > 0 && budget >= maxTokens {
+		return nil
+	}
+	return &Thinking{Enabled: true, BudgetTokens: budget}
+}
+
 // Request 是一次模型调用。
 // Messages 必须满足「每个 assistant 的 tool_use 都有对应的 tool_result」。
 type Request struct {

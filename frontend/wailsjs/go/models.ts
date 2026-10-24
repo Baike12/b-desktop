@@ -578,6 +578,8 @@ export namespace app {
 	    apiKeyMasked?: string;
 	    contextWindow: number;
 	    maxOutputTokens: number;
+	    thinkingEnabled: boolean;
+	    thinkingBudget: number;
 	    permissionMode: string;
 	    workDir: string;
 	    initError?: string;
@@ -595,6 +597,8 @@ export namespace app {
 	        this.apiKeyMasked = source["apiKeyMasked"];
 	        this.contextWindow = source["contextWindow"];
 	        this.maxOutputTokens = source["maxOutputTokens"];
+	        this.thinkingEnabled = source["thinkingEnabled"];
+	        this.thinkingBudget = source["thinkingBudget"];
 	        this.permissionMode = source["permissionMode"];
 	        this.workDir = source["workDir"];
 	        this.initError = source["initError"];
@@ -607,6 +611,8 @@ export namespace app {
 	    apiKey?: string;
 	    contextWindow?: number;
 	    maxOutputTokens?: number;
+	    thinkingEnabled: boolean;
+	    thinkingBudget?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProviderConfigInput(source);
@@ -620,6 +626,8 @@ export namespace app {
 	        this.apiKey = source["apiKey"];
 	        this.contextWindow = source["contextWindow"];
 	        this.maxOutputTokens = source["maxOutputTokens"];
+	        this.thinkingEnabled = source["thinkingEnabled"];
+	        this.thinkingBudget = source["thinkingBudget"];
 	    }
 	}
 	export class RequestTraceDTO {

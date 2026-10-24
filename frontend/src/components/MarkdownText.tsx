@@ -1,10 +1,11 @@
-import { Children, isValidElement, memo, useDeferredValue, type ComponentProps } from 'react'
+import { Children, isValidElement, memo, useDeferredValue, useMemo, type ComponentProps } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
 import { MermaidBlock } from './MermaidBlock'
 import { MarkdownStreamingContext } from './markdownStreaming'
+import { splitStablePrefix } from './streamingMarkdown'
 
 // 插件数组保持模块级常量，避免每次渲染重建 markdown 处理管线。
 const REMARK_PLUGINS: NonNullable<ComponentProps<typeof ReactMarkdown>['remarkPlugins']> = [
@@ -45,23 +46,34 @@ interface MarkdownTextProps {
   streaming?: boolean
 }
 
+// MarkdownBody 渲染一段 Markdown。分段渲染让已稳定的前缀不再随增量重解析。
+const MarkdownBody = memo(function MarkdownBody({ text }: { text: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={REMARK_PLUGINS}
+      rehypePlugins={REHYPE_PLUGINS}
+      components={COMPONENTS}
+    >
+      {text}
+    </ReactMarkdown>
+  )
+})
+
 // MarkdownText 渲染助手输出的 GFM 内容（表格、删除线、任务列表）。
-// 流式阶段用 useDeferredValue 让高频增量合并成较少的重解析。
+//
+// 流式阶段用 useDeferredValue 让高频增量合并成较少的重解析；并把文本切成
+// 「已稳定前缀 + 增长后缀」两段：前缀定型后不再解析，只有后缀跟随增量更新。
 export const MarkdownText = memo(function MarkdownText({
   text,
   streaming = false,
 }: MarkdownTextProps) {
   const deferred = useDeferredValue(text)
+  const split = useMemo(() => splitStablePrefix(deferred), [deferred])
   return (
     <div data-testid="markdown" className="markdown-body">
       <MarkdownStreamingContext.Provider value={streaming}>
-        <ReactMarkdown
-          remarkPlugins={REMARK_PLUGINS}
-          rehypePlugins={REHYPE_PLUGINS}
-          components={COMPONENTS}
-        >
-          {deferred}
-        </ReactMarkdown>
+        {split.stable !== '' && <MarkdownBody text={split.stable} />}
+        {split.unstable !== '' && <MarkdownBody text={split.unstable} />}
       </MarkdownStreamingContext.Provider>
     </div>
   )

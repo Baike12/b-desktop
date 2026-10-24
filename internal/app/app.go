@@ -120,6 +120,9 @@ type Config struct {
 	WorkDir            string // 新会话的默认工作目录
 	ContextWindow      int    // 上下文窗口（token）
 	MaxOutputTokens    int    // 单次请求最大输出（token）
+	// ThinkingEnabled 打开扩展思考；ThinkingBudget 是思考预算（token），0 取默认值。
+	ThinkingEnabled bool
+	ThinkingBudget  int
 	MaxTurns           int    // 单轮最大模型调用次数，0 取默认 100
 	MaxToolConcurrency int    // 工具并发上限，0 取默认 10
 	// ConfigPath 是配置文件路径，供设置页保存后回写；空表示不落盘（测试注入）。
@@ -141,6 +144,8 @@ type fileConfig struct {
 	WorkDir            string `json:"workDir"`
 	ContextWindow      int    `json:"contextWindow"`
 	MaxOutputTokens    int    `json:"maxOutputTokens"`
+	ThinkingEnabled    bool   `json:"thinkingEnabled"`
+	ThinkingBudget     int    `json:"thinkingBudget"`
 	MaxTurns           int    `json:"maxTurns"`
 	MaxToolConcurrency int    `json:"maxToolConcurrency"`
 }
@@ -194,6 +199,8 @@ func loadConfigFile(path string) (Config, error) {
 		WorkDir:            raw.WorkDir,
 		ContextWindow:      raw.ContextWindow,
 		MaxOutputTokens:    raw.MaxOutputTokens,
+		ThinkingEnabled:    raw.ThinkingEnabled,
+		ThinkingBudget:     raw.ThinkingBudget,
 		MaxTurns:           raw.MaxTurns,
 		MaxToolConcurrency: raw.MaxToolConcurrency,
 	}, nil
@@ -215,6 +222,8 @@ func saveConfigFile(path string, cfg Config) error {
 		WorkDir:            cfg.WorkDir,
 		ContextWindow:      cfg.ContextWindow,
 		MaxOutputTokens:    cfg.MaxOutputTokens,
+		ThinkingEnabled:    cfg.ThinkingEnabled,
+		ThinkingBudget:     cfg.ThinkingBudget,
 		MaxTurns:           cfg.MaxTurns,
 		MaxToolConcurrency: cfg.MaxToolConcurrency,
 	}
@@ -311,8 +320,19 @@ func LoadConfig(getenv Getenv) (Config, error) {
 	}
 	readInt("ANC_CONTEXT_WINDOW", &cfg.ContextWindow)
 	readInt("ANC_MAX_OUTPUT_TOKENS", &cfg.MaxOutputTokens)
+	readInt("ANC_THINKING_BUDGET", &cfg.ThinkingBudget)
 	readInt("ANC_MAX_TURNS", &cfg.MaxTurns)
 	readInt("ANC_MAX_TOOL_CONCURRENCY", &cfg.MaxToolConcurrency)
+
+	// ANC_THINKING_ENABLED 单独用布尔开关：值为 "0"/"false"/"off" 关闭，其余非空值打开。
+	if v := strings.TrimSpace(getenv("ANC_THINKING_ENABLED")); v != "" {
+		switch strings.ToLower(v) {
+		case "0", "false", "off", "no":
+			cfg.ThinkingEnabled = false
+		default:
+			cfg.ThinkingEnabled = true
+		}
+	}
 
 	normalized, err := cfg.normalized()
 	if err != nil {
@@ -378,6 +398,17 @@ func (c Config) normalized() (Config, error) {
 	}
 	if c.MaxOutputTokens == 0 {
 		c.MaxOutputTokens = defaultMaxOutputTokens
+	}
+	if c.ThinkingBudget < 0 {
+		errs = append(errs, fmt.Errorf("%w: thinking budget must be >= 0", ErrInvalidProviderConfig))
+	}
+	if c.ThinkingBudget == 0 {
+		c.ThinkingBudget = llm.DefaultThinkingBudget
+	}
+	// Anthropic 要求 budget_tokens 严格小于 max_tokens；无法满足时不启用扩展思考，
+	// 而不是让每次请求都失败。
+	if c.ThinkingEnabled && c.ThinkingBudget >= c.MaxOutputTokens {
+		c.ThinkingEnabled = false
 	}
 	if c.MaxTurns < 0 {
 		errs = append(errs, fmt.Errorf("%w: max turns must be >= 0", ErrInvalidProviderConfig))
@@ -1251,6 +1282,8 @@ func (a *App) buildEngine(rt *sessionRuntime, cfg Config) (*agent.Engine, error)
 		Model:              cfg.Model,
 		MaxTurns:           cfg.MaxTurns,
 		MaxToolConcurrency: cfg.MaxToolConcurrency,
+		ThinkingEnabled:    cfg.ThinkingEnabled,
+		ThinkingBudget:     cfg.ThinkingBudget,
 		Tools:              components.Tools,
 		Permissions:        components.Permissions,
 		Approvals:          rt.approvals,
@@ -1370,6 +1403,21 @@ func (in ProviderConfigInput) apply(current Config) (Config, error) {
 		next.MaxOutputTokens = defaultMaxOutputTokens
 	} else {
 		next.MaxOutputTokens = in.MaxOutputTokens
+	}
+
+	if in.ThinkingBudget < 0 {
+		return current, fmt.Errorf("%w: thinking budget must be >= 0", ErrInvalidProviderConfig)
+	}
+	next.ThinkingEnabled = in.ThinkingEnabled
+	if in.ThinkingBudget == 0 {
+		next.ThinkingBudget = llm.DefaultThinkingBudget
+	} else {
+		next.ThinkingBudget = in.ThinkingBudget
+	}
+	// budget_tokens 必须严格小于 max_tokens；无法满足时关闭扩展思考并保留预算值，
+	// 用户调大 max_tokens 后重新打开即可。
+	if next.ThinkingEnabled && next.ThinkingBudget >= next.MaxOutputTokens {
+		next.ThinkingEnabled = false
 	}
 	return next, nil
 }

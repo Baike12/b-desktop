@@ -487,12 +487,16 @@ func (t *turn) callModel(system string, specs []llm.ToolSpec) (llm.Message, call
 		return llm.Message{}, outcome, nil
 	}
 
+	maxTokens := e.cfg.Compactor.Budget().MaxOutputTokens
 	req := llm.Request{
 		Model:     e.cfg.Model,
 		System:    system,
 		Messages:  e.historySnapshot(),
 		Tools:     specs,
-		MaxTokens: e.cfg.Compactor.Budget().MaxOutputTokens,
+		MaxTokens: maxTokens,
+		// 扩展思考按协议约束归一化：预算非法或无法满足约束时不启用，
+		// 而不是让整个请求失败。
+		Thinking:  llm.NormalizeThinking(e.cfg.ThinkingEnabled, e.cfg.ThinkingBudget, maxTokens),
 		RequestID: e.cfg.NewID("req"),
 	}
 
