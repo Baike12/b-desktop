@@ -61,9 +61,12 @@
 }
 
 .mascot-hand {
+  position: absolute;
+  inset: 0;
   transform-origin: 19.6% 57.06%;
   animation: mascot-wave 1.6s ease-in-out infinite;
   will-change: transform;
+  pointer-events: none;
 }
 
 .mascot-lid {
