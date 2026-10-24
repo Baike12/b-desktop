@@ -58,40 +58,83 @@ function toolDiff(block: ToolBlock): ToolDiff | null {
   return null
 }
 
-const STATUS_META: Record<ToolStatus, { label: string; className: string; dot: string }> = {
-  pending: {
-    label: '参数流式',
-    className: 'border-line bg-raised text-muted',
-    dot: 'bg-subtle',
-  },
-  running: {
-    label: '执行中',
-    className: 'border-accent/40 bg-accent-soft text-accent-text',
-    dot: 'bg-accent',
-  },
-  waiting: {
-    label: '待审批',
-    className: 'border-warn-line bg-warn-soft text-warn-text',
-    dot: 'bg-warn-text',
-  },
-  success: {
-    label: '完成',
-    className: 'border-success-line bg-success-soft text-success-text',
-    dot: 'bg-success',
-  },
-  error: {
-    label: '失败',
-    className: 'border-danger-line bg-danger-soft text-danger-text',
-    dot: 'bg-danger',
-  },
-  denied: {
-    label: '已拒绝',
-    className: 'border-danger-line bg-danger-soft text-danger-text',
-    dot: 'bg-danger',
-  },
+const STATUS_META: Record<ToolStatus, { label: string; text: string; dot: string }> = {
+  pending: { label: '准备中', text: 'text-subtle', dot: 'bg-subtle' },
+  running: { label: '执行中', text: 'text-accent-text', dot: 'bg-accent' },
+  waiting: { label: '待审批', text: 'text-warn-text', dot: 'bg-warn-text' },
+  success: { label: '完成', text: 'text-subtle', dot: 'bg-success' },
+  error: { label: '失败', text: 'text-danger-text', dot: 'bg-danger' },
+  denied: { label: '已拒绝', text: 'text-danger-text', dot: 'bg-danger' },
 }
 
-// ToolCallCard 展示一次工具调用：工具名、状态、参数摘要，展开后看完整参数与结果预览。
+// ToolIcon 按工具名给出类别图标，让摘要行在不加卡片的情况下仍可快速扫读。
+function ToolIcon({ name }: { name: string }) {
+  const normalized = name.toLowerCase()
+  const className = 'size-3.5 shrink-0 text-subtle'
+  const common = {
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.6,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    className,
+    'aria-hidden': true,
+  }
+  if (/(bash|shell|terminal|powershell)/.test(normalized)) {
+    return (
+      <svg {...common}>
+        <path d="m4 7 5 5-5 5M11 17h9" />
+      </svg>
+    )
+  }
+  if (/(read|write|edit|notebook)/.test(normalized)) {
+    return (
+      <svg {...common}>
+        <path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8Z" />
+        <path d="M14 3v5h5M8 13h8M8 17h5" />
+      </svg>
+    )
+  }
+  if (/(grep|glob|search)/.test(normalized)) {
+    return (
+      <svg {...common}>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </svg>
+    )
+  }
+  if (/(webfetch|websearch|fetch|http)/.test(normalized)) {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3c2.6 2.5 4 5.7 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.7-4-9s1.4-6.5 4-9Z" />
+      </svg>
+    )
+  }
+  if (/(agent|task|team)/.test(normalized)) {
+    return (
+      <svg {...common}>
+        <rect x="5" y="8" width="14" height="11" />
+        <path d="M12 8V4M9 13h.01M15 13h.01M9 16h6" />
+      </svg>
+    )
+  }
+  if (/todo/.test(normalized)) {
+    return (
+      <svg {...common}>
+        <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />
+      </svg>
+    )
+  }
+  return (
+    <svg {...common}>
+      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.1-2.1Z" />
+    </svg>
+  )
+}
+
+// ToolCallCard 展示一次工具调用：单行摘要，不加卡片；展开后才缩进显示参数与结果。
 export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolBlock }) {
   const [open, setOpen] = useState(false)
   const meta = STATUS_META[block.status]
@@ -107,36 +150,46 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
   const diff = toolDiff(block)
 
   return (
-    <div className="border border-line bg-panel">
+    <div className="group/tool min-w-0">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition hover:bg-hover"
+        className="flex w-full min-w-0 cursor-pointer items-center gap-2 py-0.5 text-left"
         aria-expanded={open}
       >
-        <span className={`size-1.5 shrink-0 ${meta.dot}`} />
+        <ToolIcon name={block.toolName} />
         <span className="shrink-0 font-mono text-[12px] text-fg">{block.toolName}</span>
         <span
-          className={`shrink-0 border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] ${meta.className}`}
+          className={`flex shrink-0 items-center gap-1 font-mono text-[10px] tracking-[0.1em] ${meta.text}`}
         >
+          <span className={`size-1.5 ${meta.dot} ${block.status === 'running' ? 'animate-pulse' : ''}`} />
           {meta.label}
         </span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-subtle">
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-subtle group-hover/tool:text-muted">
           {summary}
         </span>
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
-          {open ? '收起' : '详情'}
-        </span>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`size-3 shrink-0 text-subtle transition-transform ${open ? 'rotate-90' : ''}`}
+          aria-hidden="true"
+        >
+          <path d="m9 18 6-6-6-6" />
+        </svg>
       </button>
 
       {block.status === 'running' && block.progress && (
-        <p className="border-t border-line px-3 py-1.5 font-mono text-[11px] text-accent-text">
+        <p className="mt-0.5 pl-[22px] font-mono text-[11px] text-accent-text">
           {truncate(block.progress, 200)}
         </p>
       )}
 
       {open && (
-        <div className="space-y-3 border-t border-line px-3 py-2.5">
+        <div className="mt-2 ml-[6px] space-y-3 border-l border-line pl-3">
           {diff && (
             <div>
               <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">

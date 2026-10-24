@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -66,5 +67,35 @@ func TestSessionFileRequiresWorkDir(t *testing.T) {
 	app, _ := newTestApp(t, newFakeProvider())
 	if _, err := app.ListSessionFiles("s_missing", "", ""); !errors.Is(err, ErrWorkDirUnavailable) {
 		t.Fatalf("error = %v, want ErrWorkDirUnavailable", err)
+	}
+}
+
+func TestReadSessionImage(t *testing.T) {
+	cfg := testConfig(t)
+	data := []byte("\x89PNG\r\n\x1a\nfake")
+	if err := os.MkdirAll(filepath.Join(cfg.WorkDir, "assets"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.WorkDir, "assets", "logo.png"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	app, _ := newTestApp(t, newFakeProvider())
+	info, err := app.CreateSession(CreateSessionInput{Title: "图片", WorkDir: cfg.WorkDir})
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	image, err := app.ReadSessionImage(info.ID, info.WorkDir, "assets/logo.png")
+	if err != nil {
+		t.Fatalf("ReadSessionImage: %v", err)
+	}
+	if image.MediaType != "image/png" || image.Path != "assets/logo.png" || image.Size != int64(len(data)) {
+		t.Fatalf("image = %+v", image)
+	}
+	if image.DataBase64 != base64.StdEncoding.EncodeToString(data) {
+		t.Fatalf("base64 = %q", image.DataBase64)
+	}
+	if _, err := app.ReadSessionImage(info.ID, info.WorkDir, "README.md"); !errors.Is(err, workspace.ErrNotImage) {
+		t.Fatalf("non-image error = %v, want ErrNotImage", err)
 	}
 }

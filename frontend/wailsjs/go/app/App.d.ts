@@ -78,6 +78,8 @@ export function OpenProject():Promise<app.ProjectDTO>;
 
 export function ReadSessionFile(arg1:string,arg2:string,arg3:string):Promise<app.FileContentDTO>;
 
+export function ReadSessionImage(arg1:string,arg2:string,arg3:string):Promise<app.FileImageDTO>;
+
 export function ReloadHooks(arg1:string):Promise<Array<app.HookDTO>>;
 
 export function ReloadMcp():Promise<void>;

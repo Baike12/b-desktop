@@ -3,7 +3,7 @@
 不启动 Wails，也不操作真实鼠标键盘。Vite 直接提供 `harness.html`，页面挂载**真实的 `<App/>`**（组件、store、reducer 全是生产代码），只把两层 Wails 接口替换成内存假实现：
 
 - `window.go.app.App.*`：`ListSessions` / `ListProjects` / `OpenProject` / `AddProject` / `LoadSession` / `CreateSession` / `SendMessage` / `CancelTurn` / `ApproveTool` / `SetPermissionMode` / `GetProviderConfig`
-- 右侧文件面板：`ListSessionFiles` / `ReadSessionFile` / `SearchSessionFiles` / `CreateSessionFile` / `RenameSessionFile` / `MoveSessionFile` / `DeleteSessionFile` / `WriteSessionFile` / `ListSessionChanges` / `GetSessionFileDiff` / `StageSessionFiles` / `UnstageSessionFiles` / `DiscardSessionFile`
+- 右侧文件面板：`ListSessionFiles` / `ReadSessionFile` / `ReadSessionImage` / `SearchSessionFiles` / `CreateSessionFile` / `RenameSessionFile` / `MoveSessionFile` / `DeleteSessionFile` / `WriteSessionFile` / `ListSessionChanges` / `GetSessionFileDiff` / `StageSessionFiles` / `UnstageSessionFiles` / `DiscardSessionFile`
 - `window.runtime.*`：`EventsOnMultiple` / `EventsOff` / `WindowSet*Theme` / `Environment`
 
 假后端带三个项目（`bdesk-harness` 有会话、`bdesk-empty` 空分组、`bdesk-demo` 由 `OpenProject` 动态加入）、一份固定的 markdown 会话和一份空会话；`SendMessage` 会按 16ms 一帧推送 `text_delta`，走真实的事件归并链路。
@@ -42,7 +42,7 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 
 `metrics()` 覆盖：`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
 
-右侧文件面板另有：`fileRows`、`filePaths`、`filePreview`、`filePreviewPath`、`filePreviewLines`、`previewPaneWidth`、`previewTabs`、`previewTokens`、`changesPanel`、`changeRows`、`reviewDiff`、`diffTokens`。
+右侧文件面板另有：`fileRows`、`filePaths`、`filePreview`、`filePreviewImage`、`filePreviewPath`、`filePreviewLines`、`previewPaneWidth`、`previewTabs`、`previewTokens`、`changesPanel`、`changeRows`、`reviewDiff`、`diffTokens`。
 
 ## 已验证的基线
 
@@ -51,11 +51,11 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 - 输入框位置：新会话 `welcome === true` 且 `heroComposer === true`，卡片中心与内容区中心偏差小于 10px；`send()` 后 `welcome === false`，输入框贴底。
 - 模型与上下文：模型名只在输入框内（`headerText` 不含模型），`modelContext` 形如 `deepseek-flash32.4k/128k`，`contextTokens` 来自会话最后一次调用；`enterHintPresent === false`。
 - 设置页：打开后回填 `settingsModelValue` / `settingsContextValue`；修改并保存后 `model`、`contextWindow`、`modelContext` 同步更新。
-- 侧边栏：`toggleSidebar()` 后宽度 71px，仍保留展开、新建任务、设置按钮；刷新后折叠状态保持。
+- 侧边栏：`toggleSidebar()` 后宽度 71px，仍保留展开、新建任务、设置按钮；刷新后折叠状态保持。拖动 `sidebar-resize` 或双击后宽度变化并写入 `b-desktop:sidebar-width`。
 - 主题：`setTheme('dark')` 后 `document.documentElement.dataset.theme === 'dark'`；设置页文本包含三档外观。
 - 流式：`send()` 中 `running === true`，结束后 `running === false` 且累计用量与 `contextTokens` 更新。
 - 项目：初始 `projectNames === ['bdesk-harness', 'bdesk-empty']`、`projectSessionCounts === [2, 0]`，会话按 workDir 归组，未命中项目的会话出现在“其他会话”（`orphanRows === true`）；`openProject()` 后新增 `bdesk-demo` 并自动建会话；`newSession('/tmp/bdesk-empty')` 后该组会话数变为 1。
-- 右侧面板：预览在左、文件树在右，`previewPaneWidth` 大于 0 且对话区仍可见；点文件后 `filePreviewPath` 为该路径、`previewTabs` 加一。
+- 右侧面板：预览在左、文件树在右，`previewPaneWidth` 大于 0 且对话区仍可见；点文件后 `filePreviewPath` 为该路径、`previewTabs` 加一；打开 `assets/logo.png` 时 `filePreviewImage === true`。
 - 语法高亮：`main.go` / `src/main.rs` / `src/widget.c` / `src/App.tsx` 打开后 `previewTokens` 均大于 0（关键字、字符串、标题、注释分别着色）。
 - 变更审阅：`openChanges()` 后 `changesPanel === true`、`changeRows === 2`；展开某个文件后 `reviewDiff === true` 且 `diffTokens` 大于 0。
 - 文件操作：新建文件后树里出现新条目并自动打开；重命名、移动、删除都会刷新树并给出提示；删除需要二次确认。

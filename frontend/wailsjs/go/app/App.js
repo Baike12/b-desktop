@@ -154,6 +154,10 @@ export function ReadSessionFile(arg1, arg2, arg3) {
   return window['go']['app']['App']['ReadSessionFile'](arg1, arg2, arg3);
 }
 
+export function ReadSessionImage(arg1, arg2, arg3) {
+  return window['go']['app']['App']['ReadSessionImage'](arg1, arg2, arg3);
+}
+
 export function ReloadHooks(arg1) {
   return window['go']['app']['App']['ReloadHooks'](arg1);
 }

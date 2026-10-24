@@ -3,8 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { formatBytes } from '../lib/format'
 import { detectLanguage } from '../lib/highlight'
 import { DRAG_REGION, NO_DRAG } from '../lib/platform'
+import { trackResizeShadow } from '../lib/resize'
 import {
+  MIN_CHAT_WIDTH,
   PREVIEW_PANE_MIN_WIDTH,
+  SIDEBAR_COLLAPSED_WIDTH,
   useSettingsStore,
 } from '../stores/settings'
 import { CHANGES_TAB, usePreviewStore } from '../stores/preview'
@@ -12,9 +15,6 @@ import { useWorkbenchStore } from '../stores/workbench'
 import ChangesPanel from './ChangesPanel'
 import CodeEditor from './CodeEditor'
 import CodeView from './CodeView'
-
-// MIN_CHAT_WIDTH 是中间对话区必须保留的宽度；预览面板不能把它挤没。
-const MIN_CHAT_WIDTH = 360
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean)
@@ -119,6 +119,7 @@ export default function PreviewPane() {
   const persistWidth = useSettingsStore((state) => state.persistPreviewPaneWidth)
   const rightSidebarWidth = useSettingsStore((state) => state.rightSidebarWidth)
   const sidebarCollapsed = useSettingsStore((state) => state.sidebarCollapsed)
+  const sidebarWidth = useSettingsStore((state) => state.sidebarWidth)
 
   // editing 是正在编辑的文件路径；null 表示处于只读预览态。
   const [editing, setEditing] = useState<string | null>(null)
@@ -156,28 +157,35 @@ export default function PreviewPane() {
   }, [])
 
   const maxWidth = useMemo(() => {
-    const leftRail = sidebarCollapsed ? 72 : 256
+    const leftRail = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
     return Math.max(
       PREVIEW_PANE_MIN_WIDTH,
       viewportWidth - leftRail - rightSidebarWidth - MIN_CHAT_WIDTH,
     )
-  }, [rightSidebarWidth, sidebarCollapsed, viewportWidth])
+  }, [rightSidebarWidth, sidebarCollapsed, sidebarWidth, viewportWidth])
 
   const effectiveWidth = Math.min(width, maxWidth)
 
   const startResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       event.preventDefault()
+      const handle = event.currentTarget
       const startX = event.clientX
       const startWidth = effectiveWidth
       const previousSelect = document.body.style.userSelect
       document.body.style.userSelect = 'none'
+      document.body.classList.add('is-resizing')
+      handle.dataset.resizing = 'true'
+      trackResizeShadow(handle, event.clientY)
       const onMove = (moveEvent: PointerEvent) => {
+        trackResizeShadow(handle, moveEvent.clientY)
         const next = startWidth + (startX - moveEvent.clientX)
         setWidth(Math.min(maxWidth, Math.max(PREVIEW_PANE_MIN_WIDTH, next)))
       }
       const onUp = () => {
         document.body.style.userSelect = previousSelect
+        document.body.classList.remove('is-resizing')
+        delete handle.dataset.resizing
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
         persistWidth()
@@ -189,8 +197,9 @@ export default function PreviewPane() {
   )
 
   const file = active && active !== CHANGES_TAB ? files[active] : undefined
+  const isImage = Boolean(file?.image)
   const language = useMemo(
-    () => (file ? detectLanguage(file.path) : null),
+    () => (file && !file.image ? detectLanguage(file.path) : null),
     [file],
   )
 
@@ -235,7 +244,7 @@ export default function PreviewPane() {
     <section
       data-testid="preview-pane"
       style={{ width: effectiveWidth }}
-      className="relative flex min-w-0 shrink-0 flex-col border-r border-line bg-surface"
+      className="relative flex min-w-0 shrink-0 flex-col border-l border-r border-line bg-surface"
     >
       <div
         role="separator"
@@ -243,12 +252,14 @@ export default function PreviewPane() {
         aria-label="调整预览宽度"
         data-testid="preview-pane-resize"
         onPointerDown={startResize}
+        onPointerEnter={(event) => trackResizeShadow(event.currentTarget, event.clientY)}
+        onPointerMove={(event) => trackResizeShadow(event.currentTarget, event.clientY)}
         onDoubleClick={() => {
           setWidth(Math.min(maxWidth, Math.round(viewportWidth * 0.32)))
           persistWidth()
         }}
         title="拖动调整宽度，双击恢复默认"
-        className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize transition-colors hover:bg-accent/30"
+        className="resize-handle absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize"
       />
 
       <header
@@ -323,7 +334,7 @@ export default function PreviewPane() {
               data-testid="preview-edit"
               style={NO_DRAG}
               onClick={startEdit}
-              disabled={file.binary}
+              disabled={file.binary || isImage}
               title="编辑这个文件"
               className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -372,10 +383,30 @@ export default function PreviewPane() {
             <p className="text-xs text-danger-text">无法预览这个文件</p>
             <p className="max-w-xl break-words text-[11px] text-subtle">{file.error}</p>
           </div>
+        ) : file.image ? (
+          <>
+            <div className="flex shrink-0 items-center gap-2 border-b border-line bg-panel px-3 py-1">
+              <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted" title={file.path}>
+                {file.path}
+              </span>
+              <span className="shrink-0 text-[10px] tabular-nums text-subtle">
+                {formatBytes(file.size)}
+              </span>
+            </div>
+            <div className="image-canvas flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+              <img
+                data-testid="file-preview-image"
+                src={`data:${file.image.mediaType};base64,${file.image.base64}`}
+                alt={file.path}
+                draggable={false}
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+          </>
         ) : file.binary ? (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-6 text-center">
             <p className="text-xs text-fg">二进制文件</p>
-            <p className="text-[11px] text-subtle">{formatBytes(file.size)} · 预览只支持文本内容</p>
+            <p className="text-[11px] text-subtle">{formatBytes(file.size)} · 预览仅支持文本与图片</p>
           </div>
         ) : editing === file.path ? (
           <CodeEditor

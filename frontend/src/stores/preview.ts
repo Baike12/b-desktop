@@ -4,6 +4,7 @@ import {
   GetSessionFileDiff,
   ListSessionChanges,
   ReadSessionFile,
+  ReadSessionImage,
   StageSessionFiles,
   UnstageSessionFiles,
   WriteSessionFile,
@@ -14,6 +15,26 @@ import { errorMessage, useWorkbenchStore } from './workbench'
 // CHANGES_TAB 是右侧面板里「变更审阅」这个特殊 tab 的 id。
 // 文件 tab 用工作目录相对路径作 id，两者不会冲突。
 export const CHANGES_TAB = '__changes__'
+
+// IMAGE_MEDIA_TYPES 与后端 workspace.imageMediaTypes 保持一致；SVG 继续走文本预览。
+const IMAGE_MEDIA_TYPES: Record<string, string> = {
+  apng: 'image/apng',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  gif: 'image/gif',
+  ico: 'image/x-icon',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+
+// imageMediaType 返回图片路径对应的 MIME；不是受支持的图片时返回 null。
+export function imageMediaType(path: string): string | null {
+  const match = /\.([a-z0-9]+)$/i.exec(path)
+  if (!match) return null
+  return IMAGE_MEDIA_TYPES[match[1].toLowerCase()] ?? null
+}
 
 // PreviewFile 是一个已打开文件的预览状态。
 export interface PreviewFile {
@@ -26,6 +47,8 @@ export interface PreviewFile {
   error: string | null
   // draft 是编辑中的内容；null 表示没有未保存的修改。
   draft: string | null
+  // image 非空时用 data URL 渲染图片，content 保持为空。
+  image: { mediaType: string; base64: string } | null
 }
 
 // ChangesState 是工作区的 git 变更快照。
@@ -90,6 +113,7 @@ function emptyFile(path: string): PreviewFile {
     truncated: false,
     error: null,
     draft: null,
+    image: null,
   }
 }
 
@@ -189,6 +213,34 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     await Promise.all(
       paths.map(async (path) => {
         try {
+          const mediaType = imageMediaType(path)
+          if (mediaType) {
+            const image = await ReadSessionImage(sessionId, workDir, path)
+            set((state) => {
+              if (seq !== reloadSeq) return state
+              if (!state.tabs.includes(path)) return state
+              return {
+                files: {
+                  ...state.files,
+                  [path]: {
+                    path: image.path || path,
+                    loading: false,
+                    content: '',
+                    size: image.size ?? 0,
+                    binary: false,
+                    truncated: false,
+                    error: null,
+                    draft: null,
+                    image: {
+                      mediaType: image.mediaType || mediaType,
+                      base64: image.dataBase64 ?? '',
+                    },
+                  },
+                },
+              }
+            })
+            return
+          }
           const file = await ReadSessionFile(sessionId, workDir, path)
           set((state) => {
             if (seq !== reloadSeq) return state
@@ -209,6 +261,7 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
                   truncated: Boolean(file.truncated),
                   error: null,
                   draft: null,
+                  image: null,
                 },
               },
             }
@@ -359,6 +412,24 @@ export async function readPreviewFile(
   path: string,
 ): Promise<PreviewFile> {
   try {
+    const mediaType = imageMediaType(path)
+    if (mediaType) {
+      const image = await ReadSessionImage(sessionId, workDir, path)
+      return {
+        path: image.path || path,
+        loading: false,
+        content: '',
+        size: image.size ?? 0,
+        binary: false,
+        truncated: false,
+        error: null,
+        draft: null,
+        image: {
+          mediaType: image.mediaType || mediaType,
+          base64: image.dataBase64 ?? '',
+        },
+      }
+    }
     const file = await ReadSessionFile(sessionId, workDir, path)
     return {
       path: file.path || path,
@@ -369,6 +440,7 @@ export async function readPreviewFile(
       truncated: Boolean(file.truncated),
       error: null,
       draft: null,
+      image: null,
     }
   } catch (err) {
     return { ...emptyFile(path), loading: false, error: errorMessage(err) }

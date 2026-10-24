@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import Composer from './components/Composer'
 import FileTree from './components/FileTree'
 import Header from './components/Header'
+import MascotAvatar from './components/MascotAvatar'
 import MascotStage from './components/MascotStage'
 import MessageList from './components/MessageList'
 import PermissionDialog from './components/PermissionDialog'
@@ -49,24 +50,24 @@ export default function App() {
   useSessionTitleEvents()
 
   return (
-    <div data-testid="app" className="flex h-screen overflow-hidden bg-surface text-fg">
+    <div data-testid="app" className="flex h-screen overflow-hidden bg-raised text-fg">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="floating-pane relative my-1.5 mr-1.5 flex min-w-0 flex-1 overflow-hidden bg-surface">
         <div
           data-testid="chat-view"
-          className={activePanel === 'chat' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
+          className={activePanel === 'chat' ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'hidden'}
         >
           <Header />
           {welcome ? (
             <main
               data-testid="welcome"
-              className="grid-canvas flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-[10vh]"
+              className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-[10vh]"
             >
               <div className="mb-8 w-full max-w-[46rem]">
                 <div className="flex items-start justify-between gap-6">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="size-2 shrink-0 bg-accent" />
+                      <MascotAvatar className="size-5" />
                       <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-subtle">
                         B Desktop
                       </span>
@@ -80,7 +81,6 @@ export default function App() {
                   </div>
                   <MascotStage className="mt-0.5 size-28 shrink-0 sm:size-32" />
                 </div>
-                <div className="mt-6 h-px w-full bg-line" />
               </div>
               <Composer variant="hero" />
             </main>
@@ -92,13 +92,13 @@ export default function App() {
           )}
         </div>
         {activePanel !== 'chat' && <WorkspaceView panel={activePanel} />}
+        {rightSidebarOpen && (
+          <>
+            <PreviewPane />
+            <FileTree />
+          </>
+        )}
       </div>
-      {rightSidebarOpen && (
-        <>
-          <PreviewPane />
-          <FileTree />
-        </>
-      )}
       <PermissionDialog />
       <SettingsDialog />
     </div>

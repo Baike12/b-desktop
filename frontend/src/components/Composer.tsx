@@ -78,7 +78,6 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
   const hero = variant === 'hero'
   const canSend = status === 'ready' && !running && !loading && text.trim() !== ''
   const hasStatus = compacting || retry !== null || notice !== null
-
   const submit = () => {
     if (!canSend) return
     const value = text.trim()
@@ -93,12 +92,6 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
     >
       <div className={hero ? 'w-full' : 'mx-auto w-full max-w-[46rem]'}>
         <div className="border border-line bg-surface transition-colors focus-within:border-accent">
-          <div className="flex items-center gap-2 border-b border-line px-3 py-1.5">
-            <span className="size-1.5 shrink-0 bg-accent" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
-              {hero ? '新任务' : '输入'}
-            </span>
-          </div>
           <textarea
             value={text}
             onChange={(event) => setText(event.target.value)}

@@ -728,6 +728,18 @@ const bindings = {
     }
   },
 
+  ReadSessionImage: async (_sessionId: string, _workDir: string, path: string) => {
+    if (!path.endsWith('.png')) throw new Error(`not an image: ${path}`)
+    // 1x1 红色 PNG，供图片预览断言使用。
+    return {
+      path,
+      size: 68,
+      mediaType: 'image/png',
+      dataBase64:
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    }
+  },
+
   // 文件写操作：改的是内存里的假目录树与假文件内容。
   CreateSessionFile: async (_sessionId: string, _workDir: string, path: string, isDir: boolean) => {
     const segments = path.split('/')
@@ -1298,6 +1310,7 @@ const api = {
         (element) => element.getAttribute('data-path') ?? '',
       ),
       filePreview: document.querySelector('[data-testid="preview-pane"]') !== null,
+      filePreviewImage: document.querySelector('[data-testid="file-preview-image"]') !== null,
       filePreviewPath: usePreviewStore.getState().active,
       filePreviewLines:
         (document.querySelector('[data-testid="file-preview-content"]')?.textContent ?? '').split(

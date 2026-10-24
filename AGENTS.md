@@ -192,12 +192,12 @@ cd frontend && npm run harness   # 5173，strictPort；已占用则直接复用
 
 界面语言是「技术文档工作台」（参考 DeepEval 文档站）：纸面底色、发丝描边、等宽元信息、单一强调色。规则写在 `frontend/src/style.css` 顶部，新增界面必须沿用：
 
-1. **消灭圆角。** `style.css` 有全局 `border-radius: 0 !important` 兜底，Tailwind 圆角尺度也已归零。不要再写 `rounded-*`。
-2. **用描边表达层级，不用阴影。** 组件不要加 `shadow-*`；层级靠 `border-line` / `border-line-strong` 和底色差。
+1. **消灭圆角。** `style.css` 有全局 `border-radius: 0 !important` 兜底，Tailwind 圆角尺度也已归零。不要再写 `rounded-*`；唯一例外是 `.floating-pane`（对话区悬浮面板）的 10px 圆角。
+2. **用描边表达层级，不用阴影。** 组件不要加 `shadow-*`；层级靠 `border-line` / `border-line-strong` 和底色差。唯一例外是 `.floating-pane` 的极淡左侧投影，不要复制到其他组件。
 3. **只用语义色。** 颜色一律走 `surface / panel / raised / hover / code / line / line-strong / fg / muted / subtle / accent / danger / warn / success` 这组语义类名，不写死具体色值。
 4. **元信息用等宽。** 路径、计数、时间、状态标签、工具名统一 `font-mono` + `text-[10px]`，正文才用无衬线。
 5. **强调色只用于当前项、主按钮、链接、焦点环。** 当前项用 `accent-edge`（左侧 2px 强调色竖线），不要用填充药丸。
-6. **正文区用网格画布。** 对话区与欢迎页根节点加 `grid-canvas`，形成文档站的底纹。
+6. **正文区留白。** 对话区与欢迎页使用纯底色留白，不加网格底纹；层级仍由描边和底色差表达。
 
 ## 前后端边界（Wails 约定）
 

@@ -1,24 +1,28 @@
-import { memo, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactElement,
+} from 'react'
 import type { app } from '../../wailsjs/go/models'
 import { formatRelative } from '../lib/format'
 import { DRAG_REGION, IS_MAC, NO_DRAG } from '../lib/platform'
 import { groupSessionsByProject } from '../lib/projects'
-import { useAppStore } from '../stores/app'
-import { useSettingsStore } from '../stores/settings'
+import { trackResizeShadow } from '../lib/resize'
+import {
+  MIN_CHAT_WIDTH,
+  SIDEBAR_COLLAPSED_WIDTH,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  useSettingsStore,
+} from '../stores/settings'
 import { useWorkbenchStore, type PanelId } from '../stores/workbench'
+import MascotAvatar from './MascotAvatar'
 import WorktreeMenu, { type WorktreeMenuAnchor } from './WorktreeMenu'
-
-const statusLabel = {
-  idle: '正在连接后端…',
-  ready: '后端已连接',
-  error: '后端未连接',
-} as const
-
-const statusColor = {
-  idle: 'bg-amber-500',
-  ready: 'bg-emerald-500',
-  error: 'bg-rose-500',
-} as const
 
 function GearIcon() {
   return (
@@ -290,9 +294,11 @@ export default function Sidebar() {
   const selectSession = useWorkbenchStore((state) => state.selectSession)
   const activePanel = useWorkbenchStore((state) => state.activePanel)
   const setPanel = useWorkbenchStore((state) => state.setPanel)
-  const status = useAppStore((state) => state.status)
   const openSettings = useSettingsStore((state) => state.openSettings)
   const sidebarCollapsed = useSettingsStore((state) => state.sidebarCollapsed)
+  const sidebarWidth = useSettingsStore((state) => state.sidebarWidth)
+  const setSidebarWidth = useSettingsStore((state) => state.setSidebarWidth)
+  const persistSidebarWidth = useSettingsStore((state) => state.persistSidebarWidth)
   const toggleSidebar = useSettingsStore((state) => state.toggleSidebar)
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
@@ -332,6 +338,45 @@ export default function Sidebar() {
   }, [])
   const closeWorktreeMenu = useCallback(() => setWorktreeMenu(null), [])
 
+  // 左栏宽度拖动：右侧面板打开时同步收窄上限，保证对话区至少留 MIN_CHAT_WIDTH。
+  const startResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      const handle = event.currentTarget
+      const startX = event.clientX
+      const startWidth = useSettingsStore.getState().sidebarWidth
+      const settings = useSettingsStore.getState()
+      const rightWidth = settings.rightSidebarOpen
+        ? settings.previewPaneWidth + settings.rightSidebarWidth
+        : 0
+      const maximum = Math.min(
+        SIDEBAR_MAX_WIDTH,
+        Math.max(SIDEBAR_MIN_WIDTH, window.innerWidth - rightWidth - MIN_CHAT_WIDTH),
+      )
+      const previousSelect = document.body.style.userSelect
+      document.body.style.userSelect = 'none'
+      document.body.classList.add('is-resizing')
+      handle.dataset.resizing = 'true'
+      trackResizeShadow(handle, event.clientY)
+      const onMove = (moveEvent: PointerEvent) => {
+        trackResizeShadow(handle, moveEvent.clientY)
+        const next = startWidth + (moveEvent.clientX - startX)
+        setSidebarWidth(Math.min(maximum, Math.max(SIDEBAR_MIN_WIDTH, next)))
+      }
+      const onUp = () => {
+        document.body.style.userSelect = previousSelect
+        document.body.classList.remove('is-resizing')
+        delete handle.dataset.resizing
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+        persistSidebarWidth()
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    },
+    [persistSidebarWidth, setSidebarWidth],
+  )
+
   // 折叠侧边栏时项目行消失，锚点失效，菜单一并关闭。
   useEffect(() => {
     if (sidebarCollapsed) setWorktreeMenu(null)
@@ -351,11 +396,12 @@ export default function Sidebar() {
       <aside
         data-testid="sidebar"
         data-collapsed="true"
-        className="flex w-[72px] shrink-0 flex-col items-center border-r border-line bg-panel"
+        style={{ width: SIDEBAR_COLLAPSED_WIDTH }}
+        className="flex shrink-0 flex-col items-center bg-raised"
       >
         {/* 与展开态一样，为 macOS 红绿灯留出顶部安全区并作为拖动区域。 */}
         <div style={DRAG_REGION} className={`w-full ${IS_MAC ? 'h-11' : 'h-3'}`} />
-        <div className="mb-2 size-2 bg-accent" />
+        <MascotAvatar className="mb-2 size-7" />
         <button
           type="button"
           data-testid="sidebar-toggle"
@@ -373,7 +419,7 @@ export default function Sidebar() {
           title="新建任务"
           onClick={() => createSession(targetPath)}
           disabled={loading}
-          className="mt-1 cursor-pointer border border-accent bg-accent p-2 text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-1 cursor-pointer border border-cta bg-cta p-2 text-on-cta transition hover:bg-cta-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <PlusIcon />
         </button>
@@ -418,8 +464,28 @@ export default function Sidebar() {
   return (
     <aside
       data-testid="sidebar"
-      className="flex w-64 shrink-0 flex-col border-r border-line bg-panel"
+      style={{ width: sidebarWidth }}
+      className="relative flex shrink-0 flex-col bg-raised"
     >
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="调整侧边栏宽度"
+        aria-valuemin={SIDEBAR_MIN_WIDTH}
+        aria-valuemax={SIDEBAR_MAX_WIDTH}
+        aria-valuenow={sidebarWidth}
+        data-testid="sidebar-resize"
+        onPointerDown={startResize}
+        onPointerEnter={(event) => trackResizeShadow(event.currentTarget, event.clientY)}
+        onPointerMove={(event) => trackResizeShadow(event.currentTarget, event.clientY)}
+        onDoubleClick={() => {
+          setSidebarWidth(SIDEBAR_DEFAULT_WIDTH)
+          persistSidebarWidth()
+        }}
+        title="拖动调整宽度，双击恢复默认"
+        className="resize-handle absolute inset-y-0 -right-1 z-20 w-2 cursor-col-resize"
+      />
+
       {/* macOS 隐藏标题栏后红绿灯浮在左上角，顶部留出安全区并作为拖动区域。 */}
       <div
         style={DRAG_REGION}
@@ -427,7 +493,7 @@ export default function Sidebar() {
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 bg-accent" />
+            <MascotAvatar className="size-7" />
             <span className="text-[13px] font-semibold tracking-tight text-fg">B Desktop</span>
           </div>
           <button
@@ -442,32 +508,18 @@ export default function Sidebar() {
             <PanelIcon open />
           </button>
         </div>
-        <div className="mt-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
-          <span className={`size-1.5 shrink-0 ${statusColor[status]}`} />
-          {statusLabel[status]}
-        </div>
       </div>
 
-      <div className="space-y-1.5 px-3 py-3">
+      <div className="px-3 py-3">
         <button
           type="button"
           data-testid="new-task-button"
           onClick={() => createSession(targetPath)}
           disabled={loading}
-          className="flex w-full cursor-pointer items-center gap-2 border border-accent bg-accent px-3 py-2 text-[13px] font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full cursor-pointer items-center gap-2 border border-cta bg-cta px-3 py-2 text-[13px] font-medium text-on-cta transition hover:bg-cta-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <PlusIcon />
           新建任务
-        </button>
-        <button
-          type="button"
-          data-testid="open-project-button"
-          onClick={() => void openProject()}
-          disabled={loading}
-          className="flex w-full cursor-pointer items-center gap-2 border border-line px-3 py-2 text-left text-[13px] text-muted transition hover:border-line-strong hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <FolderIcon />
-          打开项目
         </button>
       </div>
 
@@ -508,15 +560,26 @@ export default function Sidebar() {
         className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 pt-3"
         aria-label="项目与会话"
       >
-        <p className="px-2 pb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
-          项目
-        </p>
+        <div className="flex items-center justify-between gap-1 pl-2 pr-1 pb-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">项目</p>
+          <button
+            type="button"
+            data-testid="open-project-button"
+            aria-label="打开项目"
+            title="打开项目"
+            onClick={() => void openProject()}
+            disabled={loading}
+            className="cursor-pointer p-0.5 text-subtle transition hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <PlusIcon className="size-3.5" />
+          </button>
+        </div>
 
         {projects.length === 0 && sessions.length === 0 && (
           <p className="px-2 py-6 text-center text-[11px] leading-relaxed text-subtle">
             还没有项目
             <br />
-            点击上方“打开项目”选择文件夹
+            点击「项目」右侧的 + 选择文件夹
           </p>
         )}
 

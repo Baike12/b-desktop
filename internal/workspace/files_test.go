@@ -196,3 +196,53 @@ func TestReadFileSanitizesInvalidUTF8(t *testing.T) {
 		t.Fatalf("content = %q", content.Content)
 	}
 }
+
+func TestReadImageReturnsBytesAndMediaType(t *testing.T) {
+	root := t.TempDir()
+	data := []byte("\x89PNG\r\n\x1a\nfake")
+	writeTestFile(t, filepath.Join(root, "assets", "Logo.PNG"), string(data))
+
+	image, err := ReadImage(context.Background(), root, "assets/Logo.PNG")
+	if err != nil {
+		t.Fatalf("ReadImage: %v", err)
+	}
+	if image.MediaType != "image/png" {
+		t.Fatalf("media type = %q, want image/png", image.MediaType)
+	}
+	if image.Path != "assets/Logo.PNG" {
+		t.Fatalf("path = %q", image.Path)
+	}
+	if string(image.Data) != string(data) {
+		t.Fatalf("data = %q, want %q", image.Data, data)
+	}
+	if image.Size != int64(len(data)) {
+		t.Fatalf("size = %d, want %d", image.Size, len(data))
+	}
+}
+
+func TestReadImageRejectsUnsupportedAndEscapes(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "notes.txt"), "text")
+	if err := os.MkdirAll(filepath.Join(root, "dir.png"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ReadImage(context.Background(), root, "notes.txt"); !errors.Is(err, ErrNotImage) {
+		t.Fatalf("unsupported error = %v, want ErrNotImage", err)
+	}
+	if _, err := ReadImage(context.Background(), root, "dir.png"); !errors.Is(err, ErrNotFile) {
+		t.Fatalf("directory error = %v, want ErrNotFile", err)
+	}
+	if _, err := ReadImage(context.Background(), root, "../x.png"); !errors.Is(err, ErrInvalidPath) && !errors.Is(err, ErrOutsideRoot) {
+		t.Fatalf("traversal error = %v", err)
+	}
+}
+
+func TestReadImageTooLarge(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "huge.png"), strings.Repeat("a", MaxImagePreviewBytes+1))
+
+	if _, err := ReadImage(context.Background(), root, "huge.png"); !errors.Is(err, ErrImageTooLarge) {
+		t.Fatalf("error = %v, want ErrImageTooLarge", err)
+	}
+}

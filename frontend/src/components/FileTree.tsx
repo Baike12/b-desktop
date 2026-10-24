@@ -21,12 +21,15 @@ import type { app } from '../../wailsjs/go/models'
 import { errorMessage, useWorkbenchStore } from '../stores/workbench'
 import { usePreviewStore } from '../stores/preview'
 import {
+  MIN_CHAT_WIDTH,
   RIGHT_SIDEBAR_DEFAULT_WIDTH,
   RIGHT_SIDEBAR_MAX_WIDTH,
   RIGHT_SIDEBAR_MIN_WIDTH,
+  SIDEBAR_COLLAPSED_WIDTH,
   useSettingsStore,
 } from '../stores/settings'
 import { DRAG_REGION, NO_DRAG } from '../lib/platform'
+import { trackResizeShadow } from '../lib/resize'
 import ContextMenu, { type MenuItem } from './ContextMenu'
 
 // DirState 是一个目录的加载状态。entries 为 null 表示尚未加载。
@@ -449,6 +452,7 @@ export default function FileTree() {
   const persistWidth = useSettingsStore((state) => state.persistRightSidebarWidth)
   const closeSidebar = useSettingsStore((state) => state.setRightSidebarOpen)
   const leftSidebarCollapsed = useSettingsStore((state) => state.sidebarCollapsed)
+  const leftSidebarWidth = useSettingsStore((state) => state.sidebarWidth)
 
   const [dirs, setDirs] = useState<Record<string, DirState>>({})
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
@@ -785,22 +789,29 @@ export default function FileTree() {
 
   const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault()
+    const handle = event.currentTarget
     const startX = event.clientX
     const startWidth = width
-    // 给中间对话区至少留 360px；左侧栏折叠时只占 72px。
-    const leftRail = leftSidebarCollapsed ? 72 : 256
+    // 给中间对话区至少留 MIN_CHAT_WIDTH；左侧栏按当前展开宽度计算。
+    const leftRail = leftSidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : leftSidebarWidth
     const maximum = Math.min(
       RIGHT_SIDEBAR_MAX_WIDTH,
-      Math.max(RIGHT_SIDEBAR_MIN_WIDTH, window.innerWidth - leftRail - 360),
+      Math.max(RIGHT_SIDEBAR_MIN_WIDTH, window.innerWidth - leftRail - MIN_CHAT_WIDTH),
     )
     const previousSelect = document.body.style.userSelect
     document.body.style.userSelect = 'none'
+    document.body.classList.add('is-resizing')
+    handle.dataset.resizing = 'true'
+    trackResizeShadow(handle, event.clientY)
     const onMove = (moveEvent: PointerEvent) => {
+      trackResizeShadow(handle, moveEvent.clientY)
       const next = startWidth + (startX - moveEvent.clientX)
       setWidth(Math.min(maximum, Math.max(RIGHT_SIDEBAR_MIN_WIDTH, next)))
     }
     const onUp = () => {
       document.body.style.userSelect = previousSelect
+      document.body.classList.remove('is-resizing')
+      delete handle.dataset.resizing
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       persistWidth()
@@ -952,7 +963,7 @@ export default function FileTree() {
       style={{
         width,
         maxWidth: `max(${RIGHT_SIDEBAR_MIN_WIDTH}px, calc(100vw - ${
-          (leftSidebarCollapsed ? 72 : 256) + 360
+          (leftSidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : leftSidebarWidth) + MIN_CHAT_WIDTH
         }px))`,
       }}
       className="relative flex shrink-0 flex-col border-l border-line bg-panel"
@@ -963,12 +974,14 @@ export default function FileTree() {
         aria-label="调整文件栏宽度"
         data-testid="right-sidebar-resize"
         onPointerDown={startResize}
+        onPointerEnter={(event) => trackResizeShadow(event.currentTarget, event.clientY)}
+        onPointerMove={(event) => trackResizeShadow(event.currentTarget, event.clientY)}
         onDoubleClick={() => {
           setWidth(RIGHT_SIDEBAR_DEFAULT_WIDTH)
           persistWidth()
         }}
         title="拖动调整宽度，双击恢复默认"
-        className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize transition-colors hover:bg-accent/30"
+        className="resize-handle absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize"
       />
 
       <header

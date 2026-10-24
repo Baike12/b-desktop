@@ -243,6 +243,24 @@ export namespace app {
 	        this.size = source["size"];
 	    }
 	}
+	export class FileImageDTO {
+	    path: string;
+	    size: number;
+	    mediaType: string;
+	    dataBase64: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileImageDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.size = source["size"];
+	        this.mediaType = source["mediaType"];
+	        this.dataBase64 = source["dataBase64"];
+	    }
+	}
 	export class FileListDTO {
 	    entries: FileEntryDTO[];
 	    truncated: boolean;

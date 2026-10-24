@@ -44,7 +44,7 @@ export default function MessageList() {
     <div
       ref={scrollerRef}
       onScroll={handleScroll}
-      className="grid-canvas min-h-0 flex-1 overflow-y-auto"
+      className="min-h-0 flex-1 overflow-y-auto"
     >
       <div
         ref={contentRef}

@@ -5,9 +5,9 @@
  *
  * 规则：
  * 1. 全局消灭圆角 —— 形状只由直角、发丝描边与色块构成。
- * 2. 用发丝级边框与分隔线代替阴影，界面没有浮起层。
+ * 2. 用发丝级边框与分隔线代替阴影；唯一例外是承载对话的悬浮面板，用极淡阴影浮在侧栏之上。
  * 3. 元信息（路径、计数、时间、状态）一律等宽小字，正文用无衬线。
- * 4. 单一强调色（电光蓝）只用于当前项、主按钮、链接与焦点环。
+ * 4. 单一强调色（奶油黄）只用于当前项、主按钮、链接与焦点环。
  */
 
 /* 字体与圆角尺度：圆角尺度整体归零。 */
@@ -145,6 +145,9 @@
   --color-accent-text: var(--accent-text);
   --color-accent-soft: var(--accent-soft);
   --color-on-accent: var(--on-accent);
+  --color-cta: var(--cta);
+  --color-cta-hover: var(--cta-hover);
+  --color-on-cta: var(--on-cta);
   --color-danger: var(--danger);
   --color-danger-hover: var(--danger-hover);
   --color-danger-text: var(--danger-text);
@@ -174,26 +177,30 @@
   --fg: #f3f3f5;
   --muted: #9d9daa;
   --subtle: #6b6b78;
-  --accent: #6b83ff;
-  --accent-hover: #8296ff;
-  --accent-text: #9dadff;
-  --accent-soft: rgba(107, 131, 255, 0.14);
-  --on-accent: #0b0b0e;
+  --accent: #e9c96e;
+  --accent-hover: #f2d98c;
+  --accent-text: #f0d58a;
+  --accent-soft: rgba(233, 201, 110, 0.15);
+  --on-accent: #241c06;
+  --cta: #c0a052;
+  --cta-hover: #cfae5d;
+  --on-cta: #1c1504;
   --danger: #e0405a;
   --danger-hover: #f0556d;
   --danger-text: #ff8a9d;
   --danger-soft: rgba(224, 64, 90, 0.13);
   --danger-line: #5a2431;
-  --warn-text: #e0b054;
-  --warn-soft: rgba(224, 176, 84, 0.13);
-  --warn-line: #55401f;
+  --warn-text: #f0a45c;
+  --warn-soft: rgba(240, 164, 92, 0.13);
+  --warn-line: #5a3a22;
   --success: #16a06a;
   --success-hover: #1cba7b;
   --success-text: #4cd39a;
   --success-soft: rgba(22, 160, 106, 0.13);
   --success-line: #1c4a37;
   --overlay: rgba(4, 4, 6, 0.72);
-  --grid-line: rgba(255, 255, 255, 0.032);
+  --resize-shadow: rgba(0, 0, 0, 0.7);
+  --pane-shadow: rgba(0, 0, 0, 0.65);
   --hl-comment: #6b6b78;
   --hl-keyword: #c08cf5;
   --hl-string: #64d99b;
@@ -218,26 +225,30 @@
   --fg: #101014;
   --muted: #52525c;
   --subtle: #8a8a95;
-  --accent: #3b5bff;
-  --accent-hover: #2b47e0;
-  --accent-text: #2f47cc;
-  --accent-soft: #edf0ff;
-  --on-accent: #ffffff;
+  --accent: #e8c25a;
+  --accent-hover: #dcb23f;
+  --accent-text: #7f5a09;
+  --accent-soft: #f8ecc4;
+  --on-accent: #2e2406;
+  --cta: #f0d88f;
+  --cta-hover: #e8cc75;
+  --on-cta: #3a2c06;
   --danger: #c81e3a;
   --danger-hover: #a5162e;
   --danger-text: #b3122f;
   --danger-soft: #fdeef0;
   --danger-line: #f2c3cb;
-  --warn-text: #8f5c07;
-  --warn-soft: #fdf4e2;
-  --warn-line: #edd8a6;
+  --warn-text: #a45a00;
+  --warn-soft: #fdf0df;
+  --warn-line: #eed0b0;
   --success: #0a7d55;
   --success-hover: #086946;
   --success-text: #0a7d55;
   --success-soft: #e8f7f0;
   --success-line: #b3e2cc;
   --overlay: rgba(16, 16, 20, 0.42);
-  --grid-line: rgba(16, 16, 20, 0.032);
+  --resize-shadow: rgba(16, 16, 20, 0.2);
+  --pane-shadow: rgba(16, 16, 20, 0.22);
   --hl-comment: #8a8a95;
   --hl-keyword: #7c3aed;
   --hl-string: #0a7d55;
@@ -282,6 +293,12 @@ body {
   border-radius: 0 !important;
 }
 
+/* 唯一例外：对话内容整体浮在侧栏之上，用圆角与柔和阴影表达层级。 */
+.floating-pane {
+  border-radius: 10px !important;
+  box-shadow: -10px 0 26px -18px var(--pane-shadow);
+}
+
 /* 焦点环是直角描边，不用默认的圆角光晕。 */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -315,14 +332,48 @@ body {
 }
 
 @layer components {
-  /* 网格画布：文档站内容区的底纹，替代纯色背景。 */
-  .grid-canvas {
-    background-color: var(--surface);
+  /* 图片预览的棋盘格底纹：透明区域用浅色格子区分。 */
+  .image-canvas {
+    background-color: var(--code);
     background-image:
-      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-    background-size: 32px 32px;
-    background-position: -1px -1px;
+      linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%),
+      linear-gradient(45deg, var(--line) 25%, transparent 25%, transparent 75%, var(--line) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
+  }
+
+  /* 分栏拖拽手柄：阴影只在指针附近显形，上下渐隐，不铺满整条分界线。 */
+  .resize-handle::before {
+    content: "";
+    position: absolute;
+    top: var(--resize-y, 50%);
+    left: 50%;
+    width: 22px;
+    height: 240px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--resize-shadow) 35%,
+      var(--resize-shadow) 65%,
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 32%, #000 68%, transparent);
+    mask-image: linear-gradient(180deg, transparent, #000 32%, #000 68%, transparent);
+    opacity: 0;
+    transition: opacity 140ms ease;
+    pointer-events: none;
+  }
+
+  .resize-handle:hover::before,
+  .resize-handle[data-resizing="true"]::before {
+    opacity: 1;
+  }
+
+  /* 拖动期间保持列宽光标，即使指针离开手柄。 */
+  body.is-resizing,
+  body.is-resizing * {
+    cursor: col-resize !important;
   }
 
   /* 当前项标记：左侧 2px 强调色竖线，不占布局宽度。 */

@@ -21,6 +21,8 @@ const (
 	MaxDirEntries = 1000
 	// MaxPreviewBytes 是单文件预览读取上限，超出部分截断。
 	MaxPreviewBytes = 512 << 10
+	// MaxImagePreviewBytes 是图片预览的读取上限，避免把超大文件塞进 base64。
+	MaxImagePreviewBytes = 16 << 20
 	// binarySniffBytes 是判断二进制文件时检查 NUL 字节的前缀长度。
 	binarySniffBytes = 8 << 10
 )
@@ -47,7 +49,24 @@ var (
 	ErrNotDirectory = errors.New("workspace: not a directory")
 	// ErrNotFile 表示目标不是普通文件。
 	ErrNotFile = errors.New("workspace: not a regular file")
+	// ErrNotImage 表示文件扩展名不在支持的图片类型里。
+	ErrNotImage = errors.New("workspace: not a supported image")
+	// ErrImageTooLarge 表示图片超过预览读取上限。
+	ErrImageTooLarge = errors.New("workspace: image too large")
 )
+
+// imageMediaTypes 把图片扩展名映射到 MIME 类型。SVG 属于文本，继续走代码预览。
+var imageMediaTypes = map[string]string{
+	".apng": "image/apng",
+	".avif": "image/avif",
+	".bmp":  "image/bmp",
+	".gif":  "image/gif",
+	".ico":  "image/x-icon",
+	".jpeg": "image/jpeg",
+	".jpg":  "image/jpeg",
+	".png":  "image/png",
+	".webp": "image/webp",
+}
 
 // FileEntry 是文件树的一个节点，Path 是相对工作目录的斜杠路径。
 type FileEntry struct {
@@ -71,6 +90,14 @@ type FileContent struct {
 	Content   string
 	Binary    bool
 	Truncated bool
+}
+
+// FileImage 是一次图片预览的读取结果；Data 是原始字节，由上层决定编码方式。
+type FileImage struct {
+	Path      string
+	Size      int64
+	MediaType string
+	Data      []byte
 }
 
 // ListDir 列出 root/rel 的直接子项：目录在前、名称不区分大小写排序，
@@ -154,33 +181,9 @@ func ReadFile(ctx context.Context, root, rel string) (FileContent, error) {
 	if err := ctx.Err(); err != nil {
 		return FileContent{}, fmt.Errorf("workspace: read file: %w", err)
 	}
-	if strings.TrimSpace(rel) == "" || rel == "." {
-		return FileContent{}, fmt.Errorf("%w: empty path", ErrInvalidPath)
-	}
-	rootReal, err := resolveRoot(root)
+	real, info, err := resolveRegularFile(root, rel)
 	if err != nil {
 		return FileContent{}, err
-	}
-	full, err := resolveWithin(rootReal, rel)
-	if err != nil {
-		return FileContent{}, err
-	}
-	real, err := filepath.EvalSymlinks(full)
-	if err != nil {
-		return FileContent{}, fmt.Errorf("workspace: resolve %s: %w", rel, err)
-	}
-	if !withinRoot(rootReal, real) {
-		return FileContent{}, fmt.Errorf("%w: %s", ErrOutsideRoot, rel)
-	}
-	info, err := os.Stat(real)
-	if err != nil {
-		return FileContent{}, fmt.Errorf("workspace: stat %s: %w", rel, err)
-	}
-	if info.IsDir() {
-		return FileContent{}, fmt.Errorf("%w: %s", ErrNotFile, rel)
-	}
-	if !info.Mode().IsRegular() {
-		return FileContent{}, fmt.Errorf("%w: %s", ErrNotFile, rel)
 	}
 
 	f, err := os.Open(real)
@@ -215,6 +218,76 @@ func ReadFile(ctx context.Context, root, rel string) (FileContent, error) {
 	}
 	out.Content = strings.ToValidUTF8(string(data), "\uFFFD")
 	return out, nil
+}
+
+// ReadImage 读取 root/rel 的图片原始字节，供前端拼 data URL 预览。
+// 只接受 imageMediaTypes 里的扩展名；超过 MaxImagePreviewBytes 时返回 ErrImageTooLarge。
+func ReadImage(ctx context.Context, root, rel string) (FileImage, error) {
+	if err := ctx.Err(); err != nil {
+		return FileImage{}, fmt.Errorf("workspace: read image: %w", err)
+	}
+	mediaType, ok := imageMediaTypes[strings.ToLower(filepath.Ext(rel))]
+	if !ok {
+		return FileImage{}, fmt.Errorf("%w: %s", ErrNotImage, rel)
+	}
+	real, info, err := resolveRegularFile(root, rel)
+	if err != nil {
+		return FileImage{}, err
+	}
+	if info.Size() > MaxImagePreviewBytes {
+		return FileImage{}, fmt.Errorf("%w: %s (%d bytes)", ErrImageTooLarge, rel, info.Size())
+	}
+
+	f, err := os.Open(real)
+	if err != nil {
+		return FileImage{}, fmt.Errorf("workspace: open %s: %w", rel, err)
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(io.LimitReader(f, MaxImagePreviewBytes+1))
+	if err != nil {
+		return FileImage{}, fmt.Errorf("workspace: read %s: %w", rel, err)
+	}
+	if len(data) > MaxImagePreviewBytes {
+		return FileImage{}, fmt.Errorf("%w: %s", ErrImageTooLarge, rel)
+	}
+	return FileImage{
+		Path:      path.Clean(filepath.ToSlash(rel)),
+		Size:      info.Size(),
+		MediaType: mediaType,
+		Data:      data,
+	}, nil
+}
+
+// resolveRegularFile 把 root/rel 解析成工作目录内的普通文件真实路径。
+// 绝对路径、目录、路径穿越和指向工作目录外的符号链接都会返回错误。
+func resolveRegularFile(root, rel string) (string, fs.FileInfo, error) {
+	if strings.TrimSpace(rel) == "" || rel == "." {
+		return "", nil, fmt.Errorf("%w: empty path", ErrInvalidPath)
+	}
+	rootReal, err := resolveRoot(root)
+	if err != nil {
+		return "", nil, err
+	}
+	full, err := resolveWithin(rootReal, rel)
+	if err != nil {
+		return "", nil, err
+	}
+	real, err := filepath.EvalSymlinks(full)
+	if err != nil {
+		return "", nil, fmt.Errorf("workspace: resolve %s: %w", rel, err)
+	}
+	if !withinRoot(rootReal, real) {
+		return "", nil, fmt.Errorf("%w: %s", ErrOutsideRoot, rel)
+	}
+	info, err := os.Stat(real)
+	if err != nil {
+		return "", nil, fmt.Errorf("workspace: stat %s: %w", rel, err)
+	}
+	if info.IsDir() || !info.Mode().IsRegular() {
+		return "", nil, fmt.Errorf("%w: %s", ErrNotFile, rel)
+	}
+	return real, info, nil
 }
 
 // resolveRoot 返回工作目录的真实绝对路径；目录不存在或不是目录时返回错误。

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -35,6 +36,14 @@ type FileContentDTO struct {
 	Content   string `json:"content"`
 	Binary    bool   `json:"binary"`
 	Truncated bool   `json:"truncated"`
+}
+
+// FileImageDTO 是图片预览的读取结果，前端用 MediaType 与 DataBase64 拼 data URL。
+type FileImageDTO struct {
+	Path       string `json:"path"`
+	Size       int64  `json:"size"`
+	MediaType  string `json:"mediaType"`
+	DataBase64 string `json:"dataBase64"`
 }
 
 // ListSessionFiles 列出会话工作目录下 rel 的直接子项。rel 为空表示根目录。
@@ -77,6 +86,25 @@ func (a *App) ReadSessionFile(sessionID, workDir, rel string) (FileContentDTO, e
 		Content:   content.Content,
 		Binary:    content.Binary,
 		Truncated: content.Truncated,
+	}, nil
+}
+
+// ReadSessionImage 读取会话工作目录下 rel 的图片，返回 MIME 类型与 base64 内容。
+// 只支持 png/jpeg/gif/webp/bmp/ico/avif/apng；SVG 继续走文本预览。
+func (a *App) ReadSessionImage(sessionID, workDir, rel string) (FileImageDTO, error) {
+	root, err := a.sessionFileRoot(sessionID, workDir)
+	if err != nil {
+		return FileImageDTO{}, err
+	}
+	image, err := workspace.ReadImage(a.lifeCtx(), root, rel)
+	if err != nil {
+		return FileImageDTO{}, fmt.Errorf("app: read session image: %w", err)
+	}
+	return FileImageDTO{
+		Path:       image.Path,
+		Size:       image.Size,
+		MediaType:  image.MediaType,
+		DataBase64: base64.StdEncoding.EncodeToString(image.Data),
 	}, nil
 }
 
