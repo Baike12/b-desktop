@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import Composer from './components/Composer'
 import FileTree from './components/FileTree'
 import Header from './components/Header'
+import MascotStage from './components/MascotStage'
 import MessageList from './components/MessageList'
 import PermissionDialog from './components/PermissionDialog'
 import PreviewPane from './components/PreviewPane'
@@ -62,18 +63,23 @@ export default function App() {
               className="grid-canvas flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-[10vh]"
             >
               <div className="mb-8 w-full max-w-[46rem]">
-                <div className="flex items-center gap-2">
-                  <span className="size-2 shrink-0 bg-accent" />
-                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-subtle">
-                    B Desktop
-                  </span>
+                <div className="flex items-start justify-between gap-6">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="size-2 shrink-0 bg-accent" />
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-subtle">
+                        B Desktop
+                      </span>
+                    </div>
+                    <h1 className="mt-4 text-[28px] font-semibold tracking-[-0.025em] text-fg">
+                      开始新的任务
+                    </h1>
+                    <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-muted">
+                      描述目标，Agent 会在当前项目中读写文件并执行命令。
+                    </p>
+                  </div>
+                  <MascotStage className="mt-0.5 size-28 shrink-0 sm:size-32" />
                 </div>
-                <h1 className="mt-4 text-[28px] font-semibold tracking-[-0.025em] text-fg">
-                  开始新的任务
-                </h1>
-                <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-muted">
-                  描述目标，Agent 会在当前项目中读写文件并执行命令。
-                </p>
                 <div className="mt-6 h-px w-full bg-line" />
               </div>
               <Composer variant="hero" />
