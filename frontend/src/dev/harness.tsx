@@ -4,6 +4,7 @@ import App from '../App'
 import '../style.css'
 import { applyTheme, readStoredTheme, type ThemeMode } from '../lib/theme'
 import { useSettingsStore } from '../stores/settings'
+import { usePreviewStore } from '../stores/preview'
 import { useWorkbenchStore } from '../stores/workbench'
 import type { AgentEvent, PermissionMode } from '../types/agent'
 
@@ -575,10 +576,14 @@ const fakeFileEntries: Record<string, FakeFileEntry[]> = {
     { name: 'src', path: 'src', isDir: true, isSymlink: false, size: 0 },
     { name: 'README.md', path: 'README.md', isDir: false, isSymlink: false, size: 42 },
     { name: 'package.json', path: 'package.json', isDir: false, isSymlink: false, size: 36 },
+    { name: 'main.go', path: 'main.go', isDir: false, isSymlink: false, size: 128 },
   ],
   src: [
     { name: 'components', path: 'src/components', isDir: true, isSymlink: false, size: 0 },
     { name: 'App.tsx', path: 'src/App.tsx', isDir: false, isSymlink: false, size: 64 },
+    { name: 'main.rs', path: 'src/main.rs', isDir: false, isSymlink: false, size: 96 },
+    { name: 'widget.c', path: 'src/widget.c', isDir: false, isSymlink: false, size: 80 },
+    { name: 'crlf.txt', path: 'src/crlf.txt', isDir: false, isSymlink: false, size: 32 },
   ],
   'src/components': [
     {
@@ -599,7 +604,37 @@ const fakeFileContents: Record<string, string> = {
   'package.json': '{\n  "name": "bdesk-harness"\n}\n',
   'src/App.tsx': 'export default function App() {\n  return <div>demo</div>\n}\n',
   'src/components/RightSidebar.tsx': 'export default function RightSidebar() {\n  return null\n}\n',
+  'main.go':
+    'package main\n\nimport "fmt"\n\n// Run 启动服务。\nfunc Run(port int) error {\n\tfmt.Println("listening", port)\n\treturn nil\n}\n',
+  'src/main.rs':
+    'fn main() {\n    let port: u16 = 8080;\n    println!("listening {port}");\n}\n',
+  'src/widget.c':
+    '#include <stdio.h>\n\nint add(int a, int b) {\n    return a + b;\n}\n',
+  // CRLF 文件：验证预览不会把行距渲染成两倍。
+  'src/crlf.txt': 'line one\r\nline two\r\nline three\r\n',
 }
+
+// fakeChanges 是变更审阅面板的假数据。
+const fakeChanges = [
+  {
+    path: 'src/App.tsx',
+    oldPath: '',
+    status: 'modified',
+    staged: false,
+    additions: 3,
+    deletions: 1,
+    binary: false,
+  },
+  {
+    path: 'main.go',
+    oldPath: '',
+    status: 'untracked',
+    staged: false,
+    additions: 8,
+    deletions: 0,
+    binary: false,
+  },
+]
 
 let seq = 0
 let turnSeq = 0
@@ -692,6 +727,93 @@ const bindings = {
       truncated: false,
     }
   },
+
+  // 文件写操作：改的是内存里的假目录树与假文件内容。
+  CreateSessionFile: async (_sessionId: string, _workDir: string, path: string, isDir: boolean) => {
+    const segments = path.split('/')
+    const name = segments.pop() ?? path
+    const parent = segments.join('/')
+    const list = fakeFileEntries[parent] ?? (fakeFileEntries[parent] = [])
+    if (!list.some((item) => item.path === path)) {
+      list.push({ name, path, isDir, isSymlink: false, size: 0 })
+    }
+    if (!isDir) fakeFileContents[path] = ''
+  },
+
+  RenameSessionFile: async (_sessionId: string, _workDir: string, from: string, to: string) => {
+    const oldParent = from.split('/').slice(0, -1).join('/')
+    const newParent = to.split('/').slice(0, -1).join('/')
+    const oldList = fakeFileEntries[oldParent]
+    const entry = oldList?.find((item) => item.path === from)
+    if (oldList && entry) {
+      // 条目要换到新父目录的列表里，否则树刷新后还是旧位置。
+      oldList.splice(oldList.indexOf(entry), 1)
+      entry.path = to
+      entry.name = to.split('/').pop() ?? to
+      const newList = fakeFileEntries[newParent] ?? (fakeFileEntries[newParent] = [])
+      if (!newList.some((item) => item.path === to)) newList.push(entry)
+    }
+    if (fakeFileContents[from] !== undefined) {
+      fakeFileContents[to] = fakeFileContents[from]
+      delete fakeFileContents[from]
+    }
+  },
+
+  MoveSessionFile: async (_sessionId: string, _workDir: string, from: string, toDir: string) => {
+    const name = from.split('/').pop() ?? from
+    const to = toDir === '' ? name : `${toDir}/${name}`
+    await bindings.RenameSessionFile('', '', from, to)
+    return to
+  },
+
+  DeleteSessionFile: async (_sessionId: string, _workDir: string, path: string) => {
+    const parent = path.split('/').slice(0, -1).join('/')
+    const list = fakeFileEntries[parent]
+    if (list) {
+      const index = list.findIndex((item) => item.path === path)
+      if (index >= 0) list.splice(index, 1)
+    }
+    delete fakeFileContents[path]
+  },
+
+  WriteSessionFile: async (_sessionId: string, _workDir: string, path: string, content: string) => {
+    fakeFileContents[path] = content
+  },
+
+  SearchSessionFiles: async (_sessionId: string, _workDir: string, query: string) => {
+    const needle = query.trim().toLowerCase()
+    if (needle === '') return []
+    return Object.keys(fakeFileContents).filter((path) => path.toLowerCase().includes(needle))
+  },
+
+  ListSessionChanges: async () => ({
+    root: '/tmp/bdesk-harness',
+    branch: 'main',
+    isRepo: true,
+    changes: clone(fakeChanges),
+  }),
+
+  GetSessionFileDiff: async (_sessionId: string, _workDir: string, path: string, staged: boolean) => {
+    const content = fakeFileContents[path] ?? ''
+    const lines = content.split('\n')
+    const body = lines
+      .map((line) => `+${line}`)
+      .join('\n')
+    return {
+      path,
+      oldPath: '',
+      status: 'modified',
+      diff: `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1,0 +1,${lines.length} @@\n${body}\n`,
+      additions: lines.length,
+      deletions: 0,
+      binary: false,
+      staged,
+    }
+  },
+
+  StageSessionFiles: async () => undefined,
+  UnstageSessionFiles: async () => undefined,
+  DiscardSessionFile: async () => undefined,
 
   CreateSession: async (input: { title?: string; workDir?: string }) => {
     const id = `s_harness_${views.size + 1}`
@@ -1110,8 +1232,9 @@ const api = {
   closeSettings: () => useSettingsStore.getState().closeSettings(),
   toggleSidebar: () => useSettingsStore.getState().toggleSidebar(),
   toggleRightSidebar: () => useSettingsStore.getState().toggleRightSidebar(),
-  openFile: (path: string) => useWorkbenchStore.getState().openFile(path),
-  closePreview: () => useWorkbenchStore.getState().closePreview(),
+  openFile: (path: string) => usePreviewStore.getState().openFile(path),
+  closePreview: () => usePreviewStore.setState({ active: null }),
+  openChanges: () => usePreviewStore.getState().openChanges(),
   setTheme: (mode: ThemeMode) => useSettingsStore.getState().setTheme(mode),
   setPermissionMode: (mode: PermissionMode) => useWorkbenchStore.getState().setPermissionMode(mode),
 
@@ -1174,12 +1297,23 @@ const api = {
       filePaths: [...document.querySelectorAll('[data-testid="file-row"]')].map(
         (element) => element.getAttribute('data-path') ?? '',
       ),
-      filePreview: document.querySelector('[data-testid="file-preview"]') !== null,
-      filePreviewPath: useWorkbenchStore.getState().preview?.path ?? null,
+      filePreview: document.querySelector('[data-testid="preview-pane"]') !== null,
+      filePreviewPath: usePreviewStore.getState().active,
       filePreviewLines:
         (document.querySelector('[data-testid="file-preview-content"]')?.textContent ?? '').split(
           '\n',
         ).length,
+      previewPaneWidth:
+        (document.querySelector('[data-testid="preview-pane"]') as HTMLElement | null)
+          ?.offsetWidth ?? 0,
+      previewTabs: document.querySelectorAll('[data-testid="preview-tab"]').length,
+      previewTokens: document.querySelectorAll(
+        '[data-testid="file-preview-content"] .hljs-keyword, [data-testid="file-preview-content"] .hljs-string, [data-testid="file-preview-content"] .hljs-title, [data-testid="file-preview-content"] .hljs-comment',
+      ).length,
+      changesPanel: document.querySelector('[data-testid="changes-panel"]') !== null,
+      changeRows: document.querySelectorAll('[data-testid="change-row"]').length,
+      reviewDiff: document.querySelector('[data-testid="review-diff"]') !== null,
+      diffTokens: document.querySelectorAll('[data-testid="review-diff"] .hljs-keyword').length,
       mermaidBlocks: document.querySelectorAll('[data-testid="mermaid"]').length,
       mermaidSvgs: document.querySelectorAll('[data-testid="mermaid"] .mermaid-svg > svg').length,
       mermaidErrors: document.querySelectorAll('[data-testid="mermaid-error"]').length,

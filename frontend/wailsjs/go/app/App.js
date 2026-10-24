@@ -30,6 +30,10 @@ export function CreateSession(arg1) {
   return window['go']['app']['App']['CreateSession'](arg1);
 }
 
+export function CreateSessionFile(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['CreateSessionFile'](arg1, arg2, arg3, arg4);
+}
+
 export function CreateSkill(arg1) {
   return window['go']['app']['App']['CreateSkill'](arg1);
 }
@@ -42,12 +46,24 @@ export function DeleteMCPServer(arg1) {
   return window['go']['app']['App']['DeleteMCPServer'](arg1);
 }
 
+export function DeleteSessionFile(arg1, arg2, arg3) {
+  return window['go']['app']['App']['DeleteSessionFile'](arg1, arg2, arg3);
+}
+
 export function DeleteSkill(arg1) {
   return window['go']['app']['App']['DeleteSkill'](arg1);
 }
 
+export function DiscardSessionFile(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['DiscardSessionFile'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function GetProviderConfig() {
   return window['go']['app']['App']['GetProviderConfig']();
+}
+
+export function GetSessionFileDiff(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['GetSessionFileDiff'](arg1, arg2, arg3, arg4);
 }
 
 export function GetSkillDetail(arg1) {
@@ -98,6 +114,10 @@ export function ListRequestTraces(arg1) {
   return window['go']['app']['App']['ListRequestTraces'](arg1);
 }
 
+export function ListSessionChanges(arg1, arg2) {
+  return window['go']['app']['App']['ListSessionChanges'](arg1, arg2);
+}
+
 export function ListSessionFiles(arg1, arg2, arg3) {
   return window['go']['app']['App']['ListSessionFiles'](arg1, arg2, arg3);
 }
@@ -120,6 +140,10 @@ export function ListSubagentTypes() {
 
 export function LoadSession(arg1) {
   return window['go']['app']['App']['LoadSession'](arg1);
+}
+
+export function MoveSessionFile(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['MoveSessionFile'](arg1, arg2, arg3, arg4);
 }
 
 export function OpenProject() {
@@ -150,12 +174,20 @@ export function RemoveProjectWorktree(arg1, arg2) {
   return window['go']['app']['App']['RemoveProjectWorktree'](arg1, arg2);
 }
 
+export function RenameSessionFile(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['RenameSessionFile'](arg1, arg2, arg3, arg4);
+}
+
 export function SaveHook(arg1, arg2) {
   return window['go']['app']['App']['SaveHook'](arg1, arg2);
 }
 
 export function SaveMCPServer(arg1) {
   return window['go']['app']['App']['SaveMCPServer'](arg1);
+}
+
+export function SearchSessionFiles(arg1, arg2, arg3) {
+  return window['go']['app']['App']['SearchSessionFiles'](arg1, arg2, arg3);
 }
 
 export function SearchSessions(arg1, arg2) {
@@ -174,6 +206,18 @@ export function SetProviderConfig(arg1) {
   return window['go']['app']['App']['SetProviderConfig'](arg1);
 }
 
+export function StageSessionFiles(arg1, arg2, arg3) {
+  return window['go']['app']['App']['StageSessionFiles'](arg1, arg2, arg3);
+}
+
+export function UnstageSessionFiles(arg1, arg2, arg3) {
+  return window['go']['app']['App']['UnstageSessionFiles'](arg1, arg2, arg3);
+}
+
 export function UpdateSkill(arg1) {
   return window['go']['app']['App']['UpdateSkill'](arg1);
+}
+
+export function WriteSessionFile(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['WriteSessionFile'](arg1, arg2, arg3, arg4);
 }

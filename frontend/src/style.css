@@ -74,6 +74,7 @@
   --hl-variable: #e2e8f0;
   --hl-builtin: #22d3ee;
   --hl-meta: #94a3b8;
+  --hl-operator: #94a3b8;
   --scrollbar: #334155;
 }
 
@@ -116,6 +117,7 @@
   --hl-variable: #334155;
   --hl-builtin: #0e7490;
   --hl-meta: #64748b;
+  --hl-operator: #475569;
   --scrollbar: #cbd5e1;
 }
 
@@ -351,12 +353,51 @@ body {
 }
 
 .hljs-built_in,
-.hljs-class .hljs-title {
+.hljs-class .hljs-title,
+.hljs-title.class_ {
   color: var(--hl-builtin);
 }
 
 .hljs-meta {
   color: var(--hl-meta);
+}
+
+/* 运算符与标点：比正文略淡，不抢关键字与字符串的注意力。 */
+.hljs-operator,
+.hljs-punctuation {
+  color: var(--hl-operator);
+}
+
+/* 标签名、选择器与属性：按关键字与标题着色。 */
+.hljs-name,
+.hljs-tag {
+  color: var(--hl-keyword);
+}
+
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--hl-title);
+}
+
+.hljs-property {
+  color: var(--hl-variable);
+}
+
+.hljs-regexp {
+  color: var(--hl-string);
+}
+
+.hljs-char.escape,
+.hljs-doctag {
+  color: var(--hl-meta);
+}
+
+.hljs-variable.language_ {
+  color: var(--hl-keyword);
+}
+
+.hljs-variable.constant_ {
+  color: var(--hl-number);
 }
 
 .hljs-deletion {
