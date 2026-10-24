@@ -305,6 +305,11 @@ body {
   outline-offset: -2px;
 }
 
+/* 输入卡片的外层描边已经表示焦点，内层输入框不再叠加第二圈。 */
+.composer-input:focus-visible {
+  outline: none;
+}
+
 /* 方形滚动条：滑块与轨道都是直角。 */
 * {
   scrollbar-width: auto;

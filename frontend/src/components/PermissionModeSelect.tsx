@@ -58,7 +58,7 @@ export default function PermissionModeSelect() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         type="button"
         disabled={disabled}
@@ -67,7 +67,7 @@ export default function PermissionModeSelect() {
         aria-expanded={open}
         aria-label={`权限模式：${label}`}
         title={disabled ? '先新建或选择一个会话' : hint}
-        className="flex cursor-pointer items-center gap-1.5 px-1.5 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap px-1.5 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
       >
         <ShieldIcon />
         <span className="font-medium text-fg">{label}</span>

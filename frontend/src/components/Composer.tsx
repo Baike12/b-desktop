@@ -19,7 +19,7 @@ function ModelContextMeter() {
     <span
       data-testid="model-context"
       title={title}
-      className="hidden min-w-0 cursor-default items-center gap-1.5 font-mono text-[10px] sm:flex"
+      className="@max-[280px]:hidden flex min-w-0 cursor-default items-center gap-1.5 font-mono text-[10px]"
     >
       <span className="max-w-36 truncate text-muted">{model || '未配置模型'}</span>
       <span
@@ -51,7 +51,7 @@ function UsageMeter() {
     <span
       data-testid="usage"
       title={title}
-      className="hidden shrink-0 cursor-default font-mono tabular-nums text-[10px] text-subtle sm:inline"
+      className="@max-[560px]:hidden inline shrink-0 cursor-default font-mono tabular-nums text-[10px] text-subtle"
     >
       ↑{formatTokens(current.inputTokens)} ↓{formatTokens(current.outputTokens)}
     </span>
@@ -104,9 +104,9 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
             rows={3}
             disabled={status !== 'ready'}
             placeholder={status === 'ready' ? '输入消息' : '后端未连接'}
-            className="w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-fg outline-none placeholder:text-subtle disabled:cursor-not-allowed"
+            className="composer-input w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-fg outline-none placeholder:text-subtle disabled:cursor-not-allowed"
           />
-          <div className="flex items-center justify-between gap-3 border-t border-line px-2.5 py-1.5">
+          <div className="@container flex items-center justify-between gap-3 border-t border-line px-2.5 py-1.5">
             <div className="flex min-w-0 items-center gap-2">
               <PermissionModeSelect />
               {compacting && (
@@ -121,19 +121,19 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
                 <span className="truncate font-mono text-[10px] text-accent-text">{notice}</span>
               )}
               {!running && !hasStatus && stopReason && stopReason !== 'completed' && (
-                <span className="shrink-0 font-mono text-[10px] text-subtle">
+                <span className="@max-[420px]:hidden shrink-0 font-mono text-[10px] text-subtle">
                   上轮 {stopReason}
                 </span>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-2.5">
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5">
               <ModelContextMeter />
               <UsageMeter />
               {running && (
                 <button
                   type="button"
                   onClick={() => void cancel()}
-                  className="cursor-pointer border border-danger-line bg-danger-soft px-3 py-1 text-[11px] text-danger-text transition hover:border-danger"
+                  className="shrink-0 cursor-pointer border border-danger-line bg-danger-soft px-3 py-1 text-[11px] text-danger-text transition hover:border-danger"
                 >
                   停止本轮
                 </button>
@@ -142,7 +142,7 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
                 type="button"
                 onClick={submit}
                 disabled={!canSend}
-                className="cursor-pointer bg-accent px-4 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-hover disabled:text-subtle"
+                className="shrink-0 cursor-pointer bg-accent px-4 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-hover disabled:text-subtle"
               >
                 发送
               </button>
