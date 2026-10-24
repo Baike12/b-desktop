@@ -9,10 +9,16 @@ import {
 const SIDEBAR_STORAGE_KEY = 'b-desktop:sidebar-collapsed'
 const RIGHT_SIDEBAR_STORAGE_KEY = 'b-desktop:right-sidebar-open'
 const RIGHT_SIDEBAR_WIDTH_STORAGE_KEY = 'b-desktop:right-sidebar-width'
+const PREVIEW_PANE_WIDTH_STORAGE_KEY = 'b-desktop:preview-pane-width'
 
 export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 300
 export const RIGHT_SIDEBAR_MIN_WIDTH = 240
 export const RIGHT_SIDEBAR_MAX_WIDTH = 560
+
+// 预览面板的宽度约束。默认值按窗口宽度的比例给出，避免小屏上把对话区挤没。
+export const PREVIEW_PANE_MIN_WIDTH = 320
+export const PREVIEW_PANE_MAX_WIDTH = 1600
+export const PREVIEW_PANE_DEFAULT_RATIO = 0.32
 
 // readStoredSidebar 返回上次的折叠状态；读取失败时保持展开。
 function readStoredSidebar(): boolean {
@@ -45,8 +51,32 @@ function readStoredRightWidth(): number {
   return RIGHT_SIDEBAR_DEFAULT_WIDTH
 }
 
+// defaultPreviewWidth 按窗口宽度给出预览面板的默认宽度。
+function defaultPreviewWidth(): number {
+  const viewport = typeof window === 'undefined' ? 1280 : window.innerWidth
+  const ratio = Math.round(viewport * PREVIEW_PANE_DEFAULT_RATIO)
+  return Math.min(PREVIEW_PANE_MAX_WIDTH, Math.max(PREVIEW_PANE_MIN_WIDTH, ratio))
+}
+
+// readStoredPreviewWidth 返回上次的预览面板宽度；没有记录时按窗口比例给默认值。
+function readStoredPreviewWidth(): number {
+  try {
+    const raw = Number(window.localStorage.getItem(PREVIEW_PANE_WIDTH_STORAGE_KEY))
+    if (Number.isFinite(raw) && raw >= PREVIEW_PANE_MIN_WIDTH && raw <= PREVIEW_PANE_MAX_WIDTH) {
+      return raw
+    }
+  } catch {
+    // 读取失败时使用默认宽度。
+  }
+  return defaultPreviewWidth()
+}
+
 function clampRightWidth(width: number): number {
   return Math.min(RIGHT_SIDEBAR_MAX_WIDTH, Math.max(RIGHT_SIDEBAR_MIN_WIDTH, Math.round(width)))
+}
+
+function clampPreviewWidth(width: number): number {
+  return Math.min(PREVIEW_PANE_MAX_WIDTH, Math.max(PREVIEW_PANE_MIN_WIDTH, Math.round(width)))
 }
 
 interface SettingsState {
@@ -55,12 +85,15 @@ interface SettingsState {
   sidebarCollapsed: boolean
   rightSidebarOpen: boolean
   rightSidebarWidth: number
+  previewPaneWidth: number
   setTheme: (mode: ThemeMode) => void
   toggleSidebar: () => void
   toggleRightSidebar: () => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
   persistRightSidebarWidth: () => void
+  setPreviewPaneWidth: (width: number) => void
+  persistPreviewPaneWidth: () => void
   openSettings: () => void
   closeSettings: () => void
 }
@@ -72,6 +105,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   sidebarCollapsed: readStoredSidebar(),
   rightSidebarOpen: readStoredRightSidebar(),
   rightSidebarWidth: readStoredRightWidth(),
+  previewPaneWidth: readStoredPreviewWidth(),
   setTheme: (theme) => {
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme)
@@ -106,6 +140,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       window.localStorage.setItem(
         RIGHT_SIDEBAR_WIDTH_STORAGE_KEY,
         String(get().rightSidebarWidth),
+      )
+    } catch {
+      // 同上：持久化失败不影响本次宽度。
+    }
+  },
+  setPreviewPaneWidth: (width: number) => set({ previewPaneWidth: clampPreviewWidth(width) }),
+  persistPreviewPaneWidth: () => {
+    try {
+      window.localStorage.setItem(
+        PREVIEW_PANE_WIDTH_STORAGE_KEY,
+        String(get().previewPaneWidth),
       )
     } catch {
       // 同上：持久化失败不影响本次宽度。

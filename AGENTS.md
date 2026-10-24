@@ -17,7 +17,9 @@
 9. Computer Use、桌面宠物、多主题
 10. H5 远程访问、IM 接入（Telegram / 飞书 / 微信 / 钉钉 / WhatsApp）
 
-当前已实现 Agent 运行时、扩展体系（MCP / Skills / Hooks / SubAgent）、工作台与会话持久化；本地 Server、H5、IM 适配等能力按文末顺序继续补齐。
+当前已实现 Agent 运行时、扩展体系（MCP / Skills / Hooks / SubAgent）、工作台与会话持久化、右侧工作区面板（文件预览 + 语法高亮 + 文件操作 + git 变更审阅）；本地 Server、H5、IM 适配等能力按文末顺序继续补齐。
+
+右侧工作区面板的架构与约定见 `docs/workspace-panel.md`。
 
 ## Agent 运行时（项目核心）
 
@@ -148,6 +150,7 @@ internal/task/           前台/后台任务与取消（规划）
 internal/hook/           Hook 事件执行（规划）
 internal/session/        transcript 与恢复（规划）
 internal/project/        已打开项目列表（projects.json）
+internal/workspace/      工作区文件浏览、写操作与 git 变更视图
 internal/server/         本地 HTTP / WebSocket / H5（规划）
 internal/im/             IM 适配（规划）
 frontend/src/            React 源码（components / stores / lib 按需新增）

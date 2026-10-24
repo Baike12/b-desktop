@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
 import Composer from './components/Composer'
-import FilePreviewView from './components/FilePreviewView'
+import FileTree from './components/FileTree'
 import Header from './components/Header'
 import MessageList from './components/MessageList'
 import PermissionDialog from './components/PermissionDialog'
-import RightSidebar from './components/RightSidebar'
+import PreviewPane from './components/PreviewPane'
 import SettingsDialog from './components/SettingsDialog'
 import Sidebar from './components/Sidebar'
 import WorkspaceView from './components/WorkspaceView'
@@ -14,12 +14,15 @@ import { applyTheme } from './lib/theme'
 import { useSettingsStore } from './stores/settings'
 import { useWorkbenchStore } from './stores/workbench'
 
+// App 是三栏工作台：左侧项目与任务列表，中间对话，右侧「文件预览 + 文件树」。
+//
+// 右侧区域里预览在左、文件树在右，两栏宽度都可以拖动调整；
+// 中间对话区始终保持挂载，切换视图后回来时消息、滚动位置与输入草稿都不丢。
 export default function App() {
   const init = useWorkbenchStore((state) => state.init)
   const items = useWorkbenchStore((state) => state.items)
   const loading = useWorkbenchStore((state) => state.loading)
   const activePanel = useWorkbenchStore((state) => state.activePanel)
-  const preview = useWorkbenchStore((state) => state.preview)
   const theme = useSettingsStore((state) => state.theme)
   const rightSidebarOpen = useSettingsStore((state) => state.rightSidebarOpen)
 
@@ -48,14 +51,9 @@ export default function App() {
     <div data-testid="app" className="flex h-screen overflow-hidden bg-surface text-fg">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* 对话区保持挂载，切换视图后回来时消息、滚动位置与输入草稿都不丢。 */}
         <div
           data-testid="chat-view"
-          className={
-            activePanel === 'chat' && !preview
-              ? 'flex min-h-0 flex-1 flex-col'
-              : 'hidden'
-          }
+          className={activePanel === 'chat' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
         >
           <Header />
           {welcome ? (
@@ -87,10 +85,14 @@ export default function App() {
             </>
           )}
         </div>
-        {activePanel !== 'chat' && !preview && <WorkspaceView panel={activePanel} />}
-        {preview && <FilePreviewView />}
+        {activePanel !== 'chat' && <WorkspaceView panel={activePanel} />}
       </div>
-      {rightSidebarOpen && <RightSidebar />}
+      {rightSidebarOpen && (
+        <>
+          <PreviewPane />
+          <FileTree />
+        </>
+      )}
       <PermissionDialog />
       <SettingsDialog />
     </div>

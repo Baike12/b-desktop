@@ -8,7 +8,6 @@ import {
   ListSessions,
   LoadSession,
   OpenProject,
-  ReadSessionFile,
   SendMessage,
   SetPermissionMode,
 } from '../../wailsjs/go/app/App'
@@ -60,17 +59,6 @@ function withSystemError(items: ChatItem[], text: string): ChatItem[] {
 // Worktree 不做独立视图：它挂在侧边栏项目行上，创建后直接进入会话。
 export type PanelId = 'chat' | 'search'
 
-// FilePreviewState 是右侧文件树点击文件后的只读预览。
-export interface FilePreviewState {
-  path: string
-  loading: boolean
-  content: string
-  size: number
-  binary: boolean
-  truncated: boolean
-  error: string | null
-}
-
 export interface WorkbenchState {
   // 当前主视图；切换视图不会重置会话状态。
   activePanel: PanelId
@@ -101,8 +89,6 @@ export interface WorkbenchState {
   loading: boolean
   bootstrapped: boolean
   bootstrapping: boolean
-  // 中间区域的只读文件预览；null 表示显示对话。
-  preview: FilePreviewState | null
   // 文件树刷新信号：每轮结束后自增，右侧栏据此重载已展开目录。
   filesRevision: number
 
@@ -117,8 +103,7 @@ export interface WorkbenchState {
   approve: (requestId: string, option: string) => Promise<void>
   setPermissionMode: (mode: PermissionMode) => Promise<void>
   applyProviderConfig: (config: app.ProviderConfigDTO) => void
-  openFile: (path: string) => Promise<void>
-  closePreview: () => void
+  bumpFilesRevision: () => void
   applySessionTitle: (sessionId: string, title: string) => void
   ingest: (events: AgentEvent[]) => void
 }
@@ -148,7 +133,6 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   loading: false,
   bootstrapped: false,
   bootstrapping: false,
-  preview: null,
   filesRevision: 0,
 
   init: async () => {
@@ -183,8 +167,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
   setPanel: (panel) => {
     // 只切换视图，不动 items / running / approvals 等会话状态。
-    // 离开对话视图时关闭文件预览，避免预览遮挡工作台页面。
-    if (get().activePanel !== panel) set({ activePanel: panel, preview: null })
+    if (get().activePanel !== panel) set({ activePanel: panel })
   },
 
   refreshSessions: async () => {
@@ -226,7 +209,6 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         stopReason: null,
         loading: false,
         error: null,
-        preview: null,
       })
     } catch (err) {
       set({ loading: false, error: errorMessage(err) })
@@ -372,49 +354,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     }))
   },
 
-  // openFile 打开右侧文件树点击的文件：切回对话视图并显示只读预览。
-  // 快速连点不同文件时，只接受最后一次请求的结果。
-  openFile: async (path) => {
-    const sessionId = get().activeId
-    if (!sessionId || !path) return
-    const workDir = get().workDir
-    set({
-      activePanel: 'chat',
-      preview: {
-        path,
-        loading: true,
-        content: '',
-        size: 0,
-        binary: false,
-        truncated: false,
-        error: null,
-      },
-    })
-    try {
-      const file = await ReadSessionFile(sessionId, workDir, path)
-      if (get().preview?.path !== path) return
-      set({
-        preview: {
-          path: file.path || path,
-          loading: false,
-          content: file.content ?? '',
-          size: file.size ?? 0,
-          binary: Boolean(file.binary),
-          truncated: Boolean(file.truncated),
-          error: null,
-        },
-      })
-    } catch (err) {
-      if (get().preview?.path !== path) return
-      set((state) =>
-        state.preview
-          ? { preview: { ...state.preview, loading: false, error: errorMessage(err) } }
-          : {},
-      )
-    }
-  },
-
-  closePreview: () => set({ preview: null }),
+  // bumpFilesRevision 通知右侧文件树与预览面板：磁盘上的文件发生了变化。
+  // 文件树据此重载已展开目录，预览面板据此重新读取已打开的文件。
+  bumpFilesRevision: () => set((state) => ({ filesRevision: state.filesRevision + 1 })),
 
   ingest: (events) => {
     const activeId = get().activeId

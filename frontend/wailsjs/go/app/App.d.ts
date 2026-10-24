@@ -16,15 +16,23 @@ export function CreateProjectWorktree(arg1:string,arg2:string,arg3:string):Promi
 
 export function CreateSession(arg1:app.CreateSessionInput):Promise<app.SessionInfoDTO>;
 
+export function CreateSessionFile(arg1:string,arg2:string,arg3:string,arg4:boolean):Promise<void>;
+
 export function CreateSkill(arg1:app.SkillInput):Promise<app.SkillDetailDTO>;
 
 export function DeleteHook(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<Array<app.HookDTO>>;
 
 export function DeleteMCPServer(arg1:string):Promise<void>;
 
+export function DeleteSessionFile(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function DeleteSkill(arg1:string):Promise<void>;
 
+export function DiscardSessionFile(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<void>;
+
 export function GetProviderConfig():Promise<app.ProviderConfigDTO>;
+
+export function GetSessionFileDiff(arg1:string,arg2:string,arg3:string,arg4:boolean):Promise<app.FileDiffDTO>;
 
 export function GetSkillDetail(arg1:string):Promise<app.SkillDetailDTO>;
 
@@ -50,6 +58,8 @@ export function ListProjects():Promise<Array<app.ProjectDTO>>;
 
 export function ListRequestTraces(arg1:number):Promise<Array<app.RequestTraceDTO>>;
 
+export function ListSessionChanges(arg1:string,arg2:string):Promise<app.ChangeSetDTO>;
+
 export function ListSessionFiles(arg1:string,arg2:string,arg3:string):Promise<app.FileListDTO>;
 
 export function ListSessions():Promise<Array<app.SessionInfoDTO>>;
@@ -61,6 +71,8 @@ export function ListSubagentTasks():Promise<Array<app.SubagentTaskDTO>>;
 export function ListSubagentTypes():Promise<Array<app.SubagentTypeDTO>>;
 
 export function LoadSession(arg1:string):Promise<app.SessionViewDTO>;
+
+export function MoveSessionFile(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function OpenProject():Promise<app.ProjectDTO>;
 
@@ -76,9 +88,13 @@ export function RemovePermissionRule(arg1:string,arg2:string):Promise<void>;
 
 export function RemoveProjectWorktree(arg1:string,arg2:string):Promise<void>;
 
+export function RenameSessionFile(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
 export function SaveHook(arg1:string,arg2:app.HookInput):Promise<Array<app.HookDTO>>;
 
 export function SaveMCPServer(arg1:app.MCPServerInput):Promise<void>;
+
+export function SearchSessionFiles(arg1:string,arg2:string,arg3:string):Promise<Array<string>>;
 
 export function SearchSessions(arg1:string,arg2:number):Promise<Array<app.SessionSearchResultDTO>>;
 
@@ -88,4 +104,10 @@ export function SetPermissionMode(arg1:string,arg2:string):Promise<void>;
 
 export function SetProviderConfig(arg1:app.ProviderConfigInput):Promise<void>;
 
+export function StageSessionFiles(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
+
+export function UnstageSessionFiles(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
+
 export function UpdateSkill(arg1:app.SkillInput):Promise<app.SkillDetailDTO>;
+
+export function WriteSessionFile(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;

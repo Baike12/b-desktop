@@ -24,6 +24,66 @@ export namespace app {
 	        this.isError = source["isError"];
 	    }
 	}
+	export class FileChangeDTO {
+	    path: string;
+	    oldPath: string;
+	    status: string;
+	    staged: boolean;
+	    additions: number;
+	    deletions: number;
+	    binary: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileChangeDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.oldPath = source["oldPath"];
+	        this.status = source["status"];
+	        this.staged = source["staged"];
+	        this.additions = source["additions"];
+	        this.deletions = source["deletions"];
+	        this.binary = source["binary"];
+	    }
+	}
+	export class ChangeSetDTO {
+	    root: string;
+	    branch: string;
+	    isRepo: boolean;
+	    changes: FileChangeDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ChangeSetDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.branch = source["branch"];
+	        this.isRepo = source["isRepo"];
+	        this.changes = this.convertValues(source["changes"], FileChangeDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class CreateSessionInput {
 	    sessionId?: string;
 	    title?: string;
@@ -116,6 +176,7 @@ export namespace app {
 		    return a;
 		}
 	}
+	
 	export class FileContentDTO {
 	    path: string;
 	    size: number;
@@ -134,6 +195,32 @@ export namespace app {
 	        this.content = source["content"];
 	        this.binary = source["binary"];
 	        this.truncated = source["truncated"];
+	    }
+	}
+	export class FileDiffDTO {
+	    path: string;
+	    oldPath: string;
+	    status: string;
+	    diff: string;
+	    additions: number;
+	    deletions: number;
+	    binary: boolean;
+	    staged: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileDiffDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.oldPath = source["oldPath"];
+	        this.status = source["status"];
+	        this.diff = source["diff"];
+	        this.additions = source["additions"];
+	        this.deletions = source["deletions"];
+	        this.binary = source["binary"];
+	        this.staged = source["staged"];
 	    }
 	}
 	export class FileEntryDTO {
