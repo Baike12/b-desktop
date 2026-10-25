@@ -2,6 +2,7 @@ import { memo, useState } from 'react'
 import { useWorkbenchStore } from '../stores/workbench'
 import type { AssistantBlock, ChatItem } from '../types/chat'
 import { MarkdownText } from './MarkdownText'
+import MascotPose from './MascotPose'
 import { ToolCallCard } from './ToolCallCard'
 
 function blockKey(block: AssistantBlock): string {
@@ -67,7 +68,12 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }
         }}
         className="flex w-full cursor-pointer select-none list-none items-center gap-1.5 px-3 py-2 font-mono text-[10px] tracking-[0.12em] text-subtle transition hover:bg-hover hover:text-fg [&::-webkit-details-marker]:hidden"
       >
-        <SparkIcon active={streaming} />
+        <span
+          data-testid={streaming ? 'thinking-mascot' : undefined}
+          className="-my-1.5 flex size-7 shrink-0 items-center justify-center"
+        >
+          {streaming ? <MascotPose pose="thinking" className="h-7" /> : <SparkIcon active={false} />}
+        </span>
         <span className="uppercase">{streaming ? '思考中' : '思考过程'}</span>
         <span className="normal-case tracking-normal">{text.length} 字</span>
         <ChevronIcon />

@@ -1473,6 +1473,17 @@ const api = {
       inlineCode: markdown?.querySelectorAll('code:not(pre code)').length ?? 0,
       links: markdown?.querySelectorAll('a[target="_blank"]').length ?? 0,
       toolCards: document.querySelectorAll('button[aria-expanded]').length,
+      toolMascots: document.querySelectorAll('[data-testid="tool-mascot"]').length,
+      toolMascotPoses: [
+        ...document.querySelectorAll('[data-testid="tool-mascot"] [data-mascot-pose]'),
+      ].map((element) => element.getAttribute('data-mascot-pose')),
+      thinkingMascot: document.querySelector('[data-testid="thinking-mascot"]') !== null,
+      askMascot: document.querySelector('[data-testid="ask-mascot"]') !== null,
+      sidebarMascot: document.querySelector('[data-testid="sidebar-mascot"]') !== null,
+      sidebarMascotPose:
+        document
+          .querySelector('[data-testid="sidebar-mascot"] [data-mascot-pose]')
+          ?.getAttribute('data-mascot-pose') ?? null,
       items: useWorkbenchStore.getState().items.length,
       running: useWorkbenchStore.getState().running,
       permissionMode: useWorkbenchStore.getState().permissionMode,

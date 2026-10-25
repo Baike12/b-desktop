@@ -22,6 +22,7 @@ import {
 } from '../stores/settings'
 import { useWorkbenchStore, type PanelId } from '../stores/workbench'
 import MascotAvatar from './MascotAvatar'
+import MascotPose from './MascotPose'
 import WorktreeMenu, { type WorktreeMenuAnchor } from './WorktreeMenu'
 
 function GearIcon() {
@@ -289,6 +290,7 @@ export default function Sidebar() {
   const activeId = useWorkbenchStore((state) => state.activeId)
   const workDir = useWorkbenchStore((state) => state.workDir)
   const loading = useWorkbenchStore((state) => state.loading)
+  const running = useWorkbenchStore((state) => state.running)
   const newSession = useWorkbenchStore((state) => state.newSession)
   const openProject = useWorkbenchStore((state) => state.openProject)
   const selectSession = useWorkbenchStore((state) => state.selectSession)
@@ -447,6 +449,15 @@ export default function Sidebar() {
           })}
         </nav>
         <div className="flex-1" />
+        {running && (
+          <div
+            data-testid="sidebar-mascot"
+            className="mb-2 flex justify-center"
+            title="噜噜干活中"
+          >
+            <MascotPose pose="working" className="h-11" />
+          </div>
+        )}
         <button
           type="button"
           data-testid="settings-button"
@@ -618,6 +629,22 @@ export default function Sidebar() {
           </section>
         )}
       </nav>
+
+      {running && (
+        <div
+          data-testid="sidebar-mascot"
+          className="mx-2 mb-1 flex items-center gap-2.5 rounded-lg border border-line/80 bg-surface px-2.5 py-2 shadow-card"
+        >
+          <MascotPose pose="working" className="h-11" />
+          <div className="min-w-0">
+            <p className="truncate text-[12px] font-medium text-fg">噜噜干活中</p>
+            <p className="mt-0.5 flex items-center gap-1 font-mono text-[10px] tracking-[0.1em] text-subtle">
+              <span className="size-1.5 animate-pulse rounded-full bg-accent" />
+              正在执行任务
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="px-2 py-2">
         <button

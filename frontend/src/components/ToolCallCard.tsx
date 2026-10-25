@@ -2,6 +2,7 @@ import { memo, useState } from 'react'
 import { stringifyJSON, summarizeInput, truncate } from '../lib/format'
 import type { AssistantBlock, ToolStatus } from '../types/chat'
 import { DiffView } from './DiffView'
+import MascotPose, { mascotPoseForTool } from './MascotPose'
 
 type ToolBlock = Extract<AssistantBlock, { kind: 'tool' }>
 
@@ -13,6 +14,8 @@ interface ToolDiff {
 }
 
 const EDIT_TOOLS = new Set(['edit', 'write', 'multiedit', 'notebookedit'])
+
+const ACTIVE_STATUSES = new Set<ToolStatus>(['pending', 'running', 'waiting'])
 
 function readString(record: Record<string, unknown>, keys: readonly string[]): string | undefined {
   for (const key of keys) {
@@ -148,6 +151,7 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
   const inputDetail = block.input !== undefined ? stringifyJSON(block.input) : block.inputText
   const resultPreview = block.result?.preview ?? ''
   const diff = toolDiff(block)
+  const active = ACTIVE_STATUSES.has(block.status)
 
   return (
     <div className="group/tool -mx-2 min-w-0 rounded-xl px-2 py-1 transition hover:bg-raised/60">
@@ -157,7 +161,16 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
         className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg py-1 text-left"
         aria-expanded={open}
       >
-        <ToolIcon name={block.toolName} />
+        <span
+          data-testid={active ? 'tool-mascot' : undefined}
+          className="flex size-8 shrink-0 items-center justify-center"
+        >
+          {active ? (
+            <MascotPose pose={mascotPoseForTool(block.toolName)} className="h-8" />
+          ) : (
+            <ToolIcon name={block.toolName} />
+          )}
+        </span>
         <span className="shrink-0 font-mono text-[12px] text-fg">{block.toolName}</span>
         <span
           className={`flex shrink-0 items-center gap-1 font-mono text-[10px] tracking-[0.1em] ${meta.text}`}

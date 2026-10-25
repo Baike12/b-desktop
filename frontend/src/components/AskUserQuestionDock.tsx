@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useWorkbenchStore } from '../stores/workbench'
 import { AskUserQuestionForm } from './AskUserQuestionForm'
 import type { AskQuestion, AskQuestionInput } from './AskUserQuestionForm'
+import MascotPose from './MascotPose'
 
 // AskUserQuestionDock 把 AskUserQuestion 的审批卡片停靠在输入框正上方
 // （与 Composer 同宽对齐），代替全屏居中弹窗。其余工具的审批仍走
@@ -32,11 +33,16 @@ export default function AskUserQuestionDock() {
         aria-label="噜噜需要你的决定"
         className="mx-auto w-full max-w-[46rem] overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-pop"
       >
-        <div className="border-b border-line/70 px-4 py-2.5">
-          <h2 className="text-[12px] font-medium text-fg">噜噜需要你的决定</h2>
-          <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
-            请回答以下问题
-          </p>
+        <div className="flex items-center justify-between gap-3 border-b border-line/70 px-4 py-2.5">
+          <div className="min-w-0">
+            <h2 className="text-[12px] font-medium text-fg">噜噜需要你的决定</h2>
+            <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
+              请回答以下问题
+            </p>
+          </div>
+          <span data-testid="ask-mascot" className="flex shrink-0">
+            <MascotPose pose="question" className="h-12" />
+          </span>
         </div>
         <AskUserQuestionForm
           key={ask.requestId}
