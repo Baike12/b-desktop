@@ -59,17 +59,17 @@ export default function ModelPresetPicker({
             data-testid={`model-preset-${preset.id}`}
             disabled={disabled}
             onClick={() => onSelect(preset)}
-            className={`flex cursor-pointer flex-col gap-1 border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${ selected ? 'border-accent bg-accent-soft' : 'border-line hover:border-line-strong hover:bg-hover' }`}
+            className={`flex cursor-pointer flex-col gap-1 rounded-xl border px-3.5 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${ selected ? 'border-accent bg-accent-soft shadow-card' : 'border-line hover:border-line-strong hover:bg-hover' }`}
           >
             <span className="flex items-center gap-1.5">
               <span className="truncate text-xs font-medium text-fg">{preset.name}</span>
               {preset.local && (
-                <span className="shrink-0 border border-line bg-raised px-1 text-[10px] text-muted">
+                <span className="shrink-0 rounded-full border border-line bg-raised px-1.5 text-[10px] text-muted">
                   本地
                 </span>
               )}
               {!preset.needsKey && !preset.local && (
-                <span className="shrink-0 border border-line bg-raised px-1 text-[10px] text-muted">
+                <span className="shrink-0 rounded-full border border-line bg-raised px-1.5 text-[10px] text-muted">
                   免密钥
                 </span>
               )}

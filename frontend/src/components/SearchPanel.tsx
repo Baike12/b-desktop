@@ -49,7 +49,7 @@ function highlight(text: string, needle: string): ReactNode[] {
   const lower = trimmed.toLowerCase()
   return text.split(pattern).map((part, index) =>
     part.toLowerCase() === lower ? (
-      <mark key={index} className="bg-accent-soft px-0.5 text-accent-text">
+      <mark key={index} className="rounded-sm bg-accent-soft px-0.5 text-accent-text">
         {part}
       </mark>
     ) : (
@@ -137,12 +137,12 @@ export default function SearchPanel({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索会话内容、工具名…"
             aria-label="搜索会话"
-            className="min-w-0 flex-1 border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none placeholder:text-subtle focus:border-accent"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs text-fg outline-none transition placeholder:text-subtle focus:border-accent"
           />
           <button
             type="submit"
             disabled={loading}
-            className="shrink-0 cursor-pointer border border-line px-2.5 py-1.5 text-xs text-fg hover:bg-hover disabled:cursor-not-allowed disabled:text-subtle"
+            className="shrink-0 cursor-pointer rounded-lg border border-line px-3 py-1.5 text-xs text-fg transition hover:bg-hover disabled:cursor-not-allowed disabled:text-subtle"
           >
             {loading ? '搜索中…' : '搜索'}
           </button>
@@ -156,7 +156,7 @@ export default function SearchPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {error && (
-          <p className="border border-danger-line bg-danger-soft px-2 py-1.5 text-[11px] text-danger-text">
+          <p className="rounded-lg border border-danger-line bg-danger-soft px-2.5 py-1.5 text-[11px] text-danger-text">
             {error}
           </p>
         )}
@@ -173,7 +173,7 @@ export default function SearchPanel({
             return (
               <section
                 key={result.sessionId}
-                className="overflow-hidden border border-line bg-raised"
+                className="overflow-hidden rounded-xl border border-line bg-raised shadow-card"
               >
                 <button
                   type="button"
@@ -183,7 +183,7 @@ export default function SearchPanel({
                   <span className="min-w-0 flex-1 truncate text-xs font-medium text-fg">
                     {result.title || result.sessionId}
                   </span>
-                  <span className="shrink-0 border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] text-accent-text">
+                  <span className="shrink-0 rounded-full border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] text-accent-text">
                     {result.matchCount}
                   </span>
                   <time
@@ -208,7 +208,7 @@ export default function SearchPanel({
                         className="px-2.5 py-1.5 hover:bg-hover"
                       >
                         <div className="mb-0.5 flex items-center gap-1.5 text-[10px] text-subtle">
-                          <span className="border border-line bg-raised px-1 font-mono text-[10px] text-muted">
+                          <span className="rounded-sm border border-line bg-raised px-1 font-mono text-[10px] text-muted">
                             {ROLE_LABEL[hit.role] ?? hit.role}
                           </span>
                           {hit.toolName && (

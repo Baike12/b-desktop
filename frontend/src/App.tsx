@@ -51,9 +51,12 @@ export default function App() {
   useSessionTitleEvents()
 
   return (
-    <div data-testid="app" className="flex h-screen overflow-hidden bg-raised text-fg">
+    <div
+      data-testid="app"
+      className="app-backdrop flex h-screen gap-2 overflow-hidden p-2 pl-0 text-fg"
+    >
       <Sidebar />
-      <div className="floating-pane relative my-1.5 mr-1.5 flex min-w-0 flex-1 overflow-hidden bg-surface">
+      <div className="floating-pane relative flex min-w-0 flex-1 overflow-hidden border border-line bg-surface">
         <div
           data-testid="chat-view"
           className={activePanel === 'chat' ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'hidden'}
@@ -62,7 +65,7 @@ export default function App() {
           {welcome ? (
             <main
               data-testid="welcome"
-              className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-[10vh]"
+              className="@container flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-[10vh]"
             >
               <div className="mb-8 w-full max-w-[46rem]">
                 <div className="flex items-start justify-between gap-6">
@@ -73,14 +76,14 @@ export default function App() {
                         B Desktop
                       </span>
                     </div>
-                    <h1 className="mt-4 text-[28px] font-semibold tracking-[-0.025em] text-fg">
+                    <h1 className="mt-4 text-[28px] font-semibold tracking-[-0.025em] text-fg @max-[560px]:text-[24px]">
                       开始新的任务
                     </h1>
                     <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-muted">
                       描述目标，Agent 会在当前项目中读写文件并执行命令。
                     </p>
                   </div>
-                  <MascotStage className="mt-0.5 size-28 shrink-0 sm:size-32" />
+                  <MascotStage className="mt-0.5 size-28 shrink-0 sm:size-32 @max-[560px]:hidden" />
                 </div>
               </div>
               <AskUserQuestionDock />

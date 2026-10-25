@@ -13,7 +13,7 @@ export default function Header() {
   const toggleRightSidebar = useSettingsStore((state) => state.toggleRightSidebar)
 
   return (
-    <header className="relative flex h-9 shrink-0 items-center gap-2 border-b border-line bg-surface px-4">
+    <header className="relative flex h-10 shrink-0 items-center gap-2 border-b border-line/70 bg-surface px-4">
       <div style={DRAG_REGION} className="flex min-w-0 flex-1 items-center gap-2">
         <h1
           className="min-w-0 flex-1 truncate text-[13px] font-medium tracking-tight text-fg"
@@ -23,7 +23,7 @@ export default function Header() {
         </h1>
         {running && (
           <span className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] tracking-[0.14em] text-accent-text">
-            <span className="size-1.5 animate-pulse bg-accent" />
+            <span className="size-1.5 animate-pulse rounded-full bg-accent" />
             运行中{step > 0 ? ` · ${step}` : ''}
           </span>
         )}
@@ -37,8 +37,8 @@ export default function Header() {
           onClick={toggleRightSidebar}
           className={
             rightSidebarOpen
-              ? 'shrink-0 cursor-pointer bg-hover p-1 text-fg'
-              : 'shrink-0 cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg'
+              ? 'shrink-0 cursor-pointer rounded-md bg-hover p-1 text-fg'
+              : 'shrink-0 cursor-pointer rounded-md p-1 text-subtle transition hover:bg-hover hover:text-fg'
           }
         >
           <FilesPanelIcon open={rightSidebarOpen} />
@@ -48,7 +48,7 @@ export default function Header() {
       {error && (
         <p
           role="alert"
-          className="absolute inset-x-0 top-full z-20 border-b border-danger-line bg-danger-soft px-4 py-1.5 text-[11px] text-danger-text"
+          className="absolute inset-x-3 top-full z-20 mt-1 rounded-lg border border-danger-line bg-danger-soft px-3 py-1.5 text-[11px] text-danger-text shadow-card"
         >
           {error}
         </p>

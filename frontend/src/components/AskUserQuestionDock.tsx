@@ -30,9 +30,9 @@ export default function AskUserQuestionDock() {
       <div
         role="dialog"
         aria-label="噜噜需要你的决定"
-        className="mx-auto w-full max-w-[46rem] border border-line-strong bg-panel"
+        className="mx-auto w-full max-w-[46rem] overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-pop"
       >
-        <div className="border-b border-line px-4 py-2">
+        <div className="border-b border-line/70 px-4 py-2.5">
           <h2 className="text-[12px] font-medium text-fg">噜噜需要你的决定</h2>
           <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
             请回答以下问题

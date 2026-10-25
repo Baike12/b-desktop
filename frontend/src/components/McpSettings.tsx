@@ -27,10 +27,10 @@ const STATE_STYLE: Record<string, { label: string; dot: string }> = {
 }
 
 const fieldClass =
-  'w-full border border-line bg-surface px-3 py-2 text-[13px] text-fg outline-none transition placeholder:text-subtle focus:border-accent'
+  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-[13px] text-fg outline-none transition placeholder:text-subtle focus:border-accent'
 
 const smallButton =
-  'cursor-pointer border border-line px-2 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover hover:text-fg'
+  'cursor-pointer rounded-md border border-line px-2 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover hover:text-fg'
 
 // parseEnv 解析每行 KEY=VALUE；非法行收集到 invalid。
 function parseEnv(text: string): { env: Record<string, string>; invalid: string } {
@@ -174,7 +174,7 @@ export default function McpSettings() {
             type="button"
             data-testid="mcp-add"
             onClick={startCreate}
-            className="cursor-pointer bg-accent px-2.5 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover"
+            className="cursor-pointer rounded-full bg-accent px-3 py-1 text-[11px] font-medium text-on-accent shadow-card transition hover:bg-accent-hover active:translate-y-px"
           >
             新增服务器
           </button>
@@ -182,13 +182,13 @@ export default function McpSettings() {
       </div>
 
       {error && (
-        <p data-testid="mcp-error" className="mt-3 border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger-text">
+        <p data-testid="mcp-error" className="mt-3 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-xs text-danger-text">
           {error}
         </p>
       )}
 
       {form && (
-        <div data-testid="mcp-form" className="mt-3 space-y-2 border border-line bg-panel p-3">
+        <div data-testid="mcp-form" className="mt-3 space-y-2 rounded-xl border border-line/80 bg-panel p-3.5">
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block">
               <span className="text-[11px] text-muted">服务器名</span>
@@ -250,7 +250,7 @@ export default function McpSettings() {
               data-testid="mcp-save"
               disabled={saving}
               onClick={() => void save()}
-              className="cursor-pointer bg-accent px-3 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover disabled:opacity-60"
+              className="cursor-pointer rounded-full bg-accent px-3.5 py-1 text-[11px] font-medium text-on-accent shadow-card transition hover:bg-accent-hover active:translate-y-px disabled:opacity-60 disabled:shadow-none"
             >
               {saving ? '保存中…' : '保存并重连'}
             </button>
@@ -261,7 +261,7 @@ export default function McpSettings() {
       <div className="mt-3 space-y-2">
         {loading && servers.length === 0 && <p className="text-xs text-subtle">正在读取配置…</p>}
         {!loading && servers.length === 0 && !form && (
-          <div className="border border-dashed border-line px-4 py-8 text-center">
+          <div className="rounded-xl border border-dashed border-line-strong/70 px-4 py-8 text-center">
             <p className="text-sm text-muted">尚未配置 MCP 服务器</p>
             <p className="mt-1 text-[11px] text-subtle">新增后点「重连」即可加载远端工具</p>
           </div>
@@ -272,10 +272,10 @@ export default function McpSettings() {
             <div
               key={server.name}
               data-testid={`mcp-server-${server.name}`}
-              className="border border-line bg-panel p-3"
+              className="rounded-xl border border-line bg-panel p-3"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`size-2 shrink-0 ${state.dot}`} aria-hidden="true" />
+                <span className={`size-2 shrink-0 rounded-full ${state.dot}`} aria-hidden="true" />
                 <span className="text-sm font-medium text-fg">{server.name}</span>
                 <span className="text-[11px] text-subtle">{state.label}</span>
                 <span className="text-[11px] text-subtle">{server.toolCount} 个工具</span>

@@ -190,14 +190,14 @@ cd frontend && npm run harness   # 5173，strictPort；已占用则直接复用
 
 ## 前端视觉规范
 
-界面语言是「技术文档工作台」（参考 DeepEval 文档站）：纸面底色、发丝描边、等宽元信息、单一强调色。规则写在 `frontend/src/style.css` 顶部，新增界面必须沿用：
+界面语言是「暖调工作台」：纸面底色、圆角分层、发丝描边、等宽元信息、单一强调色。规则写在 `frontend/src/style.css` 顶部，新增界面必须沿用：
 
-1. **消灭圆角。** `style.css` 有全局 `border-radius: 0 !important` 兜底，Tailwind 圆角尺度也已归零。不要再写 `rounded-*`；唯一例外是 `.floating-pane`（对话区悬浮面板）的 10px 圆角。
-2. **用描边表达层级，不用阴影。** 组件不要加 `shadow-*`；层级靠 `border-line` / `border-line-strong` 和底色差。唯一例外是 `.floating-pane` 的极淡左侧投影，不要复制到其他组件。
-3. **只用语义色。** 颜色一律走 `surface / panel / raised / hover / code / line / line-strong / fg / muted / subtle / accent / danger / warn / success` 这组语义类名，不写死具体色值。
+1. **圆角按层级递进。** 容器 16px（`rounded-xl`）、卡片 12px（`rounded-lg`）、控件 8px（`rounded-md`）、标签 4px（`rounded-xs`）；只有按钮与状态药丸用 `rounded-full`。圆角尺度定义在 `style.css` 的 `@theme`，不要写任意 px 圆角。
+2. **阴影只给浮层。** 工作区整体浮层用 `shadow-pane`、弹窗/菜单用 `shadow-pop`、内部小卡片用 `shadow-card`；聊天区与右侧预览、文件树始终属于同一个浮层，只用发丝分隔线分栏，内容区（消息、Markdown、表格、行内元素）不加阴影。
+3. **只用语义色。** 颜色一律走 `rail / surface / panel / raised / hover / code / line / line-strong / fg / muted / subtle / accent / danger / warn / success` 这组语义类名，不写死具体色值。
 4. **元信息用等宽。** 路径、计数、时间、状态标签、工具名统一 `font-mono` + `text-[10px]`，正文才用无衬线。
-5. **强调色只用于当前项、主按钮、链接、焦点环。** 当前项用 `accent-edge`（左侧 2px 强调色竖线），不要用填充药丸。
-6. **正文区留白。** 对话区与欢迎页使用纯底色留白，不加网格底纹；层级仍由描边和底色差表达。
+5. **强调色只用于当前项、主按钮、链接、焦点环。** 当前项是「抬起的小卡片」（`bg-surface` + `shadow-card` + 细描边），不要再用左侧竖线；主按钮用 `rounded-full` + 强调色填充。
+6. **正文区留白。** 对话区与欢迎页使用纯底色留白，不加网格底纹；层级仍由圆角、描边和底色差表达。
 
 ## 前后端边界（Wails 约定）
 

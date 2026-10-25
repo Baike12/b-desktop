@@ -67,13 +67,13 @@ function RefreshIcon({ spinning = false }: { spinning?: boolean }) {
 
 function ErrorNote({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="mb-3 flex items-start gap-2 border border-danger-line bg-danger-soft px-3 py-2 text-[11px] leading-relaxed text-danger-text">
+    <div className="mb-3 flex items-start gap-2 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-[11px] leading-relaxed text-danger-text">
       <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{message}</span>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="shrink-0 cursor-pointer border border-danger-line px-1.5 py-0.5 transition hover:bg-hover"
+          className="shrink-0 cursor-pointer rounded-md border border-danger-line px-1.5 py-0.5 transition hover:bg-hover"
         >
           重试
         </button>
@@ -106,11 +106,11 @@ function SubagentTaskRow({ task, cancelling, cancelError, onCancel }: SubagentTa
   const status = TASK_STATUS[task.status] ?? TASK_STATUS_UNKNOWN
   const startedAt = parseTime(task.startedAt)
   return (
-    <li className="border border-line bg-surface px-3 py-2">
+    <li className="rounded-xl border border-line bg-surface px-3 py-2 shadow-card">
       <div className="flex items-start gap-2">
         <span
           aria-hidden="true"
-          className={`mt-1.5 size-1.5 shrink-0 ${status.dot} ${ task.status === 'running' ? 'animate-pulse' : '' }`}
+          className={`mt-1.5 size-1.5 shrink-0 rounded-full ${status.dot} ${ task.status === 'running' ? 'animate-pulse' : '' }`}
         />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -118,14 +118,14 @@ function SubagentTaskRow({ task, cancelling, cancelError, onCancel }: SubagentTa
               {task.description || '(无描述)'}
             </span>
             <span
-              className={`shrink-0 border px-1.5 py-0.5 text-[10px] ${status.chip}`}
+              className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] ${status.chip}`}
             >
               {status.label}
             </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-subtle">
             {task.agentType && <span className="font-mono">{task.agentType}</span>}
-            {task.background && <span className="border border-line bg-raised px-1 font-mono">后台</span>}
+            {task.background && <span className="rounded-full border border-line bg-raised px-1.5 font-mono">后台</span>}
             <span>{task.turns} 轮</span>
             <span className="tabular-nums">
               {formatTokens(task.inputTokens + task.outputTokens)} tokens
@@ -148,7 +148,7 @@ function SubagentTaskRow({ task, cancelling, cancelError, onCancel }: SubagentTa
             type="button"
             disabled={cancelling}
             onClick={() => onCancel(task.id)}
-            className="shrink-0 cursor-pointer border border-line bg-raised px-2 py-1 text-[10px] text-muted transition hover:border-danger-line hover:bg-danger-soft hover:text-danger-text disabled:cursor-not-allowed disabled:opacity-50"
+            className="shrink-0 cursor-pointer rounded-md border border-line bg-raised px-2 py-1 text-[10px] text-muted transition hover:border-danger-line hover:bg-danger-soft hover:text-danger-text disabled:cursor-not-allowed disabled:opacity-50"
           >
             {cancelling ? '取消中…' : '取消'}
           </button>
@@ -233,7 +233,7 @@ export default function SubagentSettings() {
           type="button"
           disabled={busy}
           onClick={() => void load()}
-          className="flex shrink-0 cursor-pointer items-center gap-1 border border-line bg-raised px-2 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-full border border-line bg-raised px-2.5 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshIcon spinning={busy} />
           {busy ? '刷新中…' : '刷新'}
@@ -260,7 +260,7 @@ export default function SubagentSettings() {
                   {types.map((type) => (
                     <li
                       key={type.name}
-                      className="border border-line bg-surface px-3 py-2"
+                      className="rounded-xl border border-line bg-surface px-3 py-2"
                     >
                       <p className="font-mono text-xs font-medium text-fg">{type.name}</p>
                       <p className="mt-0.5 text-[11px] leading-relaxed text-muted">

@@ -134,7 +134,7 @@ function ToolIcon({ name }: { name: string }) {
   )
 }
 
-// ToolCallCard 展示一次工具调用：单行摘要，不加卡片；展开后才缩进显示参数与结果。
+// ToolCallCard 展示一次工具调用：单行摘要，悬停时抬起为软卡片；展开后显示参数与结果。
 export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolBlock }) {
   const [open, setOpen] = useState(false)
   const meta = STATUS_META[block.status]
@@ -150,11 +150,11 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
   const diff = toolDiff(block)
 
   return (
-    <div className="group/tool min-w-0">
+    <div className="group/tool -mx-2 min-w-0 rounded-xl px-2 py-1 transition hover:bg-raised/60">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full min-w-0 cursor-pointer items-center gap-2 py-0.5 text-left"
+        className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg py-1 text-left"
         aria-expanded={open}
       >
         <ToolIcon name={block.toolName} />
@@ -162,7 +162,9 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
         <span
           className={`flex shrink-0 items-center gap-1 font-mono text-[10px] tracking-[0.1em] ${meta.text}`}
         >
-          <span className={`size-1.5 ${meta.dot} ${block.status === 'running' ? 'animate-pulse' : ''}`} />
+          <span
+            className={`size-1.5 rounded-full ${meta.dot} ${block.status === 'running' ? 'animate-pulse' : ''}`}
+          />
           {meta.label}
         </span>
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-subtle group-hover/tool:text-muted">
@@ -183,13 +185,13 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
       </button>
 
       {block.status === 'running' && block.progress && (
-        <p className="mt-0.5 pl-[22px] font-mono text-[11px] text-accent-text">
+        <p className="mt-0.5 pl-6 font-mono text-[11px] text-accent-text">
           {truncate(block.progress, 200)}
         </p>
       )}
 
       {open && (
-        <div className="mt-2 ml-[6px] space-y-3 border-l border-line pl-3">
+        <div className="mb-1 ml-1 mt-1.5 space-y-3 rounded-xl border border-line/80 bg-panel px-3 py-2.5">
           {diff && (
             <div>
               <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
@@ -213,7 +215,7 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
               <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
                 参数
               </p>
-              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words border border-line bg-code p-2 font-mono text-[11px] text-muted">
+              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-code p-2 font-mono text-[11px] text-muted">
                 {truncate(inputDetail, 4000)}
               </pre>
             </div>
@@ -231,8 +233,8 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
               <pre
                 className={
                   block.result.isError
-                    ? 'max-h-56 overflow-auto whitespace-pre-wrap break-words border border-danger-line bg-danger-soft p-2 font-mono text-[11px] text-danger-text'
-                    : 'max-h-56 overflow-auto whitespace-pre-wrap break-words border border-line bg-code p-2 font-mono text-[11px] text-muted'
+                    ? 'max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-danger-line bg-danger-soft p-2 font-mono text-[11px] text-danger-text'
+                    : 'max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-code p-2 font-mono text-[11px] text-muted'
                 }
               >
                 {truncate(resultPreview, 4000) || '（空结果）'}

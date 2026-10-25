@@ -1,30 +1,38 @@
 @import "tailwindcss";
 
 /*
- * 设计语言：技术文档工作台（参考 DeepEval 文档站）。
+ * 设计语言：暖调工作台（圆角分层）。
  *
  * 规则：
- * 1. 全局消灭圆角 —— 形状只由直角、发丝描边与色块构成。
- * 2. 用发丝级边框与分隔线代替阴影；唯一例外是承载对话的悬浮面板，用极淡阴影浮在侧栏之上。
+ * 1. 圆角按层级递进：容器 16px、卡片 12px、控件 8px、标签 4px；只有按钮与状态药丸用 full。
+ * 2. 层级 = 底色差 + 发丝描边 + 极淡阴影。阴影只给浮层（工作区卡片、弹窗、菜单），
+ *    内容区不使用阴影，避免出现脏边。
  * 3. 元信息（路径、计数、时间、状态）一律等宽小字，正文用无衬线。
  * 4. 单一强调色（奶油黄）只用于当前项、主按钮、链接与焦点环。
+ * 5. 交互状态用背景色 + 圆角过渡表达，选中项是「抬起的小卡片」，不用左侧竖线。
  */
 
-/* 字体与圆角尺度：圆角尺度整体归零。 */
+/* 字体与圆角/阴影尺度：组件只使用这套尺度，不写任意 px 圆角。 */
 @theme {
   --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
     "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
 
-  --radius-xs: 0px;
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-  --radius-3xl: 0px;
-  --radius-4xl: 0px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 26px;
+  --radius-4xl: 32px;
+}
+
+@theme inline {
+  --shadow-card: 0 1px 2px var(--shadow-soft), 0 6px 18px -14px var(--shadow-deep);
+  --shadow-pane: 0 1px 2px var(--shadow-soft), 0 24px 48px -34px var(--shadow-deep);
+  --shadow-pop: 0 2px 8px var(--shadow-soft), 0 18px 44px -18px var(--shadow-deep);
 }
 
 /* 定稿分层动画：手绕腕关节摆动、眼皮定时闭合、头部轻微点头。 */
@@ -131,6 +139,7 @@
    切换 data-theme 时只替换下面两组变量。 */
 @theme inline {
   --color-surface: var(--surface);
+  --color-rail: var(--rail);
   --color-panel: var(--panel);
   --color-raised: var(--raised);
   --color-hover: var(--hover);
@@ -168,6 +177,7 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --surface: #0b0b0e;
+  --rail: #07070a;
   --panel: #0f0f13;
   --raised: #17171d;
   --hover: #1f1f27;
@@ -200,7 +210,9 @@
   --success-line: #1c4a37;
   --overlay: rgba(4, 4, 6, 0.72);
   --resize-shadow: rgba(0, 0, 0, 0.7);
-  --pane-shadow: rgba(0, 0, 0, 0.65);
+  --shadow-soft: rgba(0, 0, 0, 0.55);
+  --shadow-deep: rgba(0, 0, 0, 0.8);
+  --rail-glow: rgba(233, 201, 110, 0.06);
   --hl-comment: #6b6b78;
   --hl-keyword: #c08cf5;
   --hl-string: #64d99b;
@@ -216,6 +228,7 @@
 :root[data-theme="light"] {
   color-scheme: light;
   --surface: #ffffff;
+  --rail: #ededf0;
   --panel: #fbfbfc;
   --raised: #f4f4f6;
   --hover: #ececee;
@@ -248,7 +261,9 @@
   --success-line: #b3e2cc;
   --overlay: rgba(16, 16, 20, 0.42);
   --resize-shadow: rgba(16, 16, 20, 0.2);
-  --pane-shadow: rgba(16, 16, 20, 0.22);
+  --shadow-soft: rgba(24, 20, 8, 0.06);
+  --shadow-deep: rgba(24, 20, 8, 0.18);
+  --rail-glow: rgba(232, 194, 90, 0.12);
   --hl-comment: #8a8a95;
   --hl-keyword: #7c3aed;
   --hl-string: #0a7d55;
@@ -286,39 +301,69 @@ body {
   color: var(--fg);
 }
 
-/* 设计约束：全局消灭圆角。形状只由直角构成。 */
-*,
-*::before,
-*::after {
-  border-radius: 0 !important;
+/* 应用底色：侧栏与卡片之间的「桌面」，用极淡的暖色光晕托起浮层。 */
+.app-backdrop {
+  background:
+    radial-gradient(1100px 520px at 28% -8%, var(--rail-glow), transparent 68%),
+    var(--rail);
 }
 
-/* 唯一例外：对话内容整体浮在侧栏之上，用圆角与柔和阴影表达层级。 */
+/* 工作区浮层：对话区与右侧面板共用，圆角 + 描边 + 极淡投影。 */
 .floating-pane {
-  border-radius: 10px !important;
-  box-shadow: -10px 0 26px -18px var(--pane-shadow);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-pane);
 }
 
-/* 焦点环是直角描边，不用默认的圆角光晕。 */
-:focus-visible {
+/* 按钮、菜单项、行：只在键盘导航时出现焦点环，形状跟随自身圆角。 */
+:where(button, a, [role="button"], [role="menuitem"], [role="menuitemradio"], [role="treeitem"], [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline-offset: 2px;
+}
+
+/* 输入类控件用强调色柔光表示焦点，避免双层硬边框。 */
+:where(input, select, textarea):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* 输入卡片的外层描边已经表示焦点，内层输入框不再叠加第二圈。 */
 .composer-input:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 
-/* 方形滚动条：滑块与轨道都是直角。 */
+/* 浮层出现动画：短促的透明度与位移，不改变布局。 */
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.popover {
+  transform-origin: top left;
+  animation: popover-in 130ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}
+
+/* 圆角滚动条：滑块两端收圆，轨道保持透明。 */
 * {
-  scrollbar-width: auto;
+  scrollbar-width: thin;
   scrollbar-color: var(--scrollbar) transparent;
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
@@ -326,8 +371,9 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar);
   border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar);
   background-clip: content-box;
 }
 
@@ -379,16 +425,6 @@ body {
   body.is-resizing,
   body.is-resizing * {
     cursor: col-resize !important;
-  }
-
-  /* 当前项标记：左侧 2px 强调色竖线，不占布局宽度。 */
-  .accent-edge {
-    box-shadow: inset 2px 0 0 0 var(--accent);
-  }
-
-  /* 顶部/底部强调线：用于强调色横条。 */
-  .accent-rule {
-    box-shadow: inset 0 2px 0 0 var(--accent);
   }
 }
 
@@ -490,8 +526,10 @@ body {
 
 .markdown-body blockquote {
   margin: 0.9rem 0;
-  border-left: 2px solid var(--line-strong);
-  padding-left: 0.9rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: var(--panel);
+  padding: 0.55rem 0.9rem;
   color: var(--muted);
 }
 
@@ -501,19 +539,34 @@ body {
   border-top: 1px solid var(--line);
 }
 
+/* 表格：外圈圆角由首末单元格补齐，横滚仍由 table 自身承担。 */
 .markdown-body table {
   display: block;
   max-width: 100%;
   overflow-x: auto;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
   font-size: 0.875rem;
 }
 
 .markdown-body th,
 .markdown-body td {
-  border: 1px solid var(--line);
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   padding: 0.4rem 0.7rem;
   text-align: left;
+}
+
+.markdown-body tr:last-child td {
+  border-bottom: 0;
+}
+
+.markdown-body th:last-child,
+.markdown-body td:last-child {
+  border-right: 0;
 }
 
 .markdown-body thead th {
@@ -521,11 +574,28 @@ body {
   font-weight: 600;
 }
 
-/* 行内代码：发丝描边的小色块，不用圆角药丸。 */
+.markdown-body thead th:first-child {
+  border-top-left-radius: calc(var(--radius-lg) - 1px);
+}
+
+.markdown-body thead th:last-child {
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
+}
+
+.markdown-body tbody tr:last-child td:first-child {
+  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+}
+
+.markdown-body tbody tr:last-child td:last-child {
+  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+}
+
+/* 行内代码：小圆角色块。 */
 .markdown-body code {
   border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
   background: var(--code);
-  padding: 0.05em 0.3em;
+  padding: 0.05em 0.32em;
   font-family: var(--font-mono);
   font-size: 0.8125em;
 }
@@ -534,6 +604,7 @@ body {
   margin: 0.8rem 0;
   overflow-x: auto;
   border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
   background: var(--code);
   padding: 0.85rem 1rem;
 }
@@ -549,6 +620,7 @@ body {
 
 .markdown-body img {
   max-width: 100%;
+  border-radius: var(--radius-lg);
 }
 
 /* Mermaid 容器自带描边，内部代码块不再重复描边。 */

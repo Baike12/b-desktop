@@ -324,11 +324,11 @@ function FileRow({
       }}
       tabIndex={0}
       style={{ paddingLeft: 8 + depth * 12 }}
-      className={`mx-1 flex h-7 w-[calc(100%-0.5rem)] min-w-0 cursor-pointer items-center gap-1.5 pr-2 text-left transition ${
+      className={`mx-1 flex h-7 w-[calc(100%-0.5rem)] min-w-0 cursor-pointer items-center gap-1.5 rounded-md pr-2 text-left transition ${
         dragOver ? 'bg-accent-soft ring-1 ring-accent' : ''
       } ${
         selected
-          ? 'accent-edge bg-hover text-fg'
+          ? 'bg-surface text-fg shadow-card ring-1 ring-line'
           : 'text-muted hover:bg-hover hover:text-fg'
       }`}
     >
@@ -353,14 +353,14 @@ function FileRow({
               onRenameCancel()
             }
           }}
-          className="min-w-0 flex-1 border border-accent bg-surface px-1 py-0.5 text-xs text-fg outline-none"
+          className="min-w-0 flex-1 rounded-sm border border-accent bg-surface px-1.5 py-0.5 text-xs text-fg outline-none"
         />
       ) : (
         <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{entry.name}</span>
       )}
       {!renaming && badge && (
         <span
-          className="shrink-0 border border-accent/40 bg-accent-soft px-1 font-mono text-[10px] text-accent-text"
+          className="shrink-0 rounded-full border border-accent/40 bg-accent-soft px-1.5 font-mono text-[10px] text-accent-text"
           aria-label="git 状态"
         >
           {badge}
@@ -409,7 +409,7 @@ function NewItemInput({
   return (
     <div
       style={{ paddingLeft: 8 + depth * 12 }}
-      className="mx-1 flex h-7 w-[calc(100%-0.5rem)] items-center gap-1.5 pr-2 text-xs text-fg"
+      className="mx-1 flex h-7 w-[calc(100%-0.5rem)] items-center gap-1.5 rounded-md pr-2 text-xs text-fg"
     >
       {isDir ? <FolderIcon open={false} /> : <FileIcon name="new" />}
       <input
@@ -428,7 +428,7 @@ function NewItemInput({
           }
         }}
         onBlur={(event) => onCommit(event.target.value)}
-        className="min-w-0 flex-1 border border-accent bg-surface px-1 py-0.5 text-xs text-fg outline-none"
+        className="min-w-0 flex-1 rounded-sm border border-accent bg-surface px-1.5 py-0.5 text-xs text-fg outline-none"
       />
     </div>
   )
@@ -919,7 +919,7 @@ export default function FileTree() {
               setSelected(path)
               void openFile(path)
             }}
-            className="mx-1 flex h-7 w-[calc(100%-0.5rem)] min-w-0 cursor-pointer items-center gap-1.5 px-2 text-left transition hover:bg-hover hover:text-fg"
+            className="mx-1 flex h-7 w-[calc(100%-0.5rem)] min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left transition hover:bg-hover hover:text-fg"
           >
             <FileIcon name={baseName(path)} />
             <span className="min-w-0 flex-1 truncate" title={path}>
@@ -947,7 +947,7 @@ export default function FileTree() {
         <button
           type="button"
           onClick={refreshAll}
-          className="mt-2 cursor-pointer border border-line px-2 py-1 text-[11px] text-muted hover:bg-hover hover:text-fg"
+          className="mt-2 cursor-pointer rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:bg-hover hover:text-fg"
         >
           重试
         </button>
@@ -986,7 +986,7 @@ export default function FileTree() {
 
       <header
         style={DRAG_REGION}
-        className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-3"
+        className="flex h-10 shrink-0 items-center gap-2 border-b border-line/70 px-3"
       >
         <FolderOpenIcon />
         <span className="shrink-0 text-xs font-medium text-fg">文件</span>
@@ -1001,7 +1001,7 @@ export default function FileTree() {
           title="新建文件"
           onClick={() => startCreate('', false)}
           disabled={!sessionId}
-          className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer rounded-md p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
         >
           <NewFileIcon />
         </button>
@@ -1013,7 +1013,7 @@ export default function FileTree() {
           title="新建文件夹"
           onClick={() => startCreate('', true)}
           disabled={!sessionId}
-          className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer rounded-md p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
         >
           <NewFolderIcon />
         </button>
@@ -1025,7 +1025,7 @@ export default function FileTree() {
           title="刷新文件"
           onClick={refreshAll}
           disabled={!sessionId}
-          className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer rounded-md p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
         >
           <RefreshIcon />
         </button>
@@ -1036,24 +1036,24 @@ export default function FileTree() {
           aria-label="隐藏文件栏"
           title="隐藏文件栏"
           onClick={() => closeSidebar(false)}
-          className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg"
+          className="cursor-pointer rounded-md p-1 text-subtle transition hover:bg-hover hover:text-fg"
         >
           <CloseIcon />
         </button>
       </header>
 
-      <div className="shrink-0 border-b border-line px-2 py-1.5">
+      <div className="shrink-0 border-b border-line/70 px-2 py-2">
         <input
           data-testid="file-tree-filter"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder="搜索文件…"
-          className="w-full border border-line bg-surface px-2 py-1 text-[11px] text-fg outline-none placeholder:text-subtle focus:border-accent"
+          className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[11px] text-fg outline-none transition placeholder:text-subtle focus:border-accent"
         />
       </div>
 
       {notice && (
-        <p className="shrink-0 border-b border-line bg-raised px-3 py-1 font-mono text-[10px] text-muted">
+        <p className="shrink-0 border-b border-line/70 bg-raised px-3 py-1 font-mono text-[10px] text-muted">
           {notice}
         </p>
       )}

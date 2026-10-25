@@ -110,9 +110,9 @@ const EFFECTS: readonly { id: RuleEffect; label: string; hint: string }[] = [
 ]
 
 const EFFECT_BADGE: Record<RuleEffect, string> = {
-  allow: 'border-success-line bg-success-soft text-success-text',
-  ask: 'border-warn-line bg-warn-soft text-warn-text',
-  deny: 'border-danger-line bg-danger-soft text-danger-text',
+  allow: 'rounded-full border-success-line bg-success-soft text-success-text',
+  ask: 'rounded-full border-warn-line bg-warn-soft text-warn-text',
+  deny: 'rounded-full border-danger-line bg-danger-soft text-danger-text',
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -177,7 +177,7 @@ function effectLabel(effect: string): string {
 }
 
 function effectBadge(effect: string): string {
-  return EFFECT_BADGE[effect as RuleEffect] ?? 'border-line bg-raised text-muted'
+  return EFFECT_BADGE[effect as RuleEffect] ?? 'rounded-full border-line bg-raised text-muted'
 }
 
 function sourceLabel(source: string): string {
@@ -189,18 +189,18 @@ function ThemePreview({ option }: { option: ThemeOption }) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-14 w-20 shrink-0 flex-col gap-1 border p-1.5"
+      className="flex h-14 w-20 shrink-0 flex-col gap-1 rounded-lg border p-1.5"
       style={{ background: shell, borderColor: line }}
     >
-      <span className="h-2 w-2/3" style={{ background: text }} />
-      <span className="h-2 w-full" style={{ background: panel }} />
-      <span className="h-2 w-1/2" style={{ background: text, opacity: 0.5 }} />
+      <span className="h-2 w-2/3 rounded-xs" style={{ background: text }} />
+      <span className="h-2 w-full rounded-xs" style={{ background: panel }} />
+      <span className="h-2 w-1/2 rounded-xs" style={{ background: text, opacity: 0.5 }} />
     </span>
   )
 }
 
 const fieldClass =
-  'w-full border border-line bg-surface px-3 py-2 text-[13px] text-fg outline-none transition placeholder:text-subtle focus:border-accent disabled:cursor-not-allowed disabled:opacity-60'
+  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-[13px] text-fg outline-none transition placeholder:text-subtle focus:border-accent disabled:cursor-not-allowed disabled:opacity-60'
 
 // MIN_THINKING_BUDGET 是扩展思考预算的协议下限，与后端 llm.MinThinkingBudget 一致。
 const MIN_THINKING_BUDGET = 1024
@@ -517,21 +517,21 @@ export default function SettingsDialog() {
   const activeItem = NAV_ITEMS.find((item) => item.id === tab) ?? NAV_ITEMS[0]
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-overlay">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4 backdrop-blur-[2px] sm:p-6">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
         data-testid="settings-dialog"
-        className="flex h-full w-full overflow-hidden bg-panel"
+        className="flex h-[min(780px,100%)] w-[min(1100px,100%)] overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-pop"
       >
-        <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-panel">
+        <aside className="flex w-60 shrink-0 flex-col border-r border-line/70 bg-raised/50">
           <div className="px-3 py-3">
             <button
               type="button"
               data-testid="settings-back"
               onClick={closeSettings}
-              className="flex w-full cursor-pointer items-center gap-1.5 px-2 py-1.5 text-[12px] text-muted transition hover:bg-hover hover:text-fg"
+              className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] text-muted transition hover:bg-hover hover:text-fg"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -566,7 +566,7 @@ export default function SettingsDialog() {
                         aria-selected={active}
                         data-testid={`settings-tab-${item.id}`}
                         onClick={() => setTab(item.id)}
-                        className={`flex w-full cursor-pointer items-center gap-2 py-1.5 pl-2.5 pr-2 text-left text-[12.5px] transition ${ active ? 'accent-edge bg-hover font-medium text-fg' : 'text-muted hover:bg-hover hover:text-fg' }`}
+                        className={`flex w-full cursor-pointer items-center gap-2 rounded-md py-1.5 pl-2.5 pr-2 text-left text-[12.5px] transition ${ active ? 'bg-surface font-medium text-fg shadow-card ring-1 ring-accent/35' : 'text-muted hover:bg-hover hover:text-fg' }`}
                       >
                         <NavIcon id={item.id} />
                         <span className="truncate">{item.label}</span>
@@ -580,7 +580,7 @@ export default function SettingsDialog() {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-start justify-between border-b border-line px-6 py-4">
+          <header className="flex items-start justify-between border-b border-line/70 px-8 py-5">
             <div>
               <h2 id="settings-title" className="text-[17px] font-semibold tracking-[-0.02em] text-fg">
                 {activeItem.label}
@@ -591,7 +591,7 @@ export default function SettingsDialog() {
               type="button"
               onClick={closeSettings}
               aria-label="关闭设置"
-              className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg"
+              className="cursor-pointer rounded-md p-1.5 text-subtle transition hover:bg-hover hover:text-fg"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -607,7 +607,7 @@ export default function SettingsDialog() {
             </button>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
           <div className="mx-auto w-full max-w-4xl">
           {tab === 'appearance' && (
             <section role="tabpanel" aria-label="外观" data-testid="settings-appearance">
@@ -622,7 +622,7 @@ export default function SettingsDialog() {
                       aria-checked={selected}
                       data-testid={`settings-theme-${option.id}`}
                       onClick={() => setTheme(option.id)}
-                      className={`flex w-full cursor-pointer items-center gap-3 border px-3 py-2.5 text-left transition ${ selected ? 'border-accent bg-accent-soft' : 'border-line hover:border-line-strong hover:bg-hover' }`}
+                      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ${ selected ? 'border-accent bg-accent-soft shadow-card' : 'border-line hover:border-line-strong hover:bg-hover' }`}
                     >
                       <ThemePreview option={option} />
                       <span className="min-w-0 flex-1">
@@ -638,7 +638,7 @@ export default function SettingsDialog() {
                       </span>
                       <span
                         aria-hidden="true"
-                        className={`grid size-4 shrink-0 place-items-center border ${ selected ? 'border-accent bg-accent' : 'border-line-strong' }`}
+                        className={`grid size-4 shrink-0 place-items-center rounded-full border ${ selected ? 'border-accent bg-accent' : 'border-line-strong' }`}
                       >
                         {selected && (
                           <svg
@@ -710,7 +710,7 @@ export default function SettingsDialog() {
               </div>
 
               {config?.initError && (
-                <p className="mt-3 border border-warn-line bg-warn-soft px-3 py-2 text-[11px] text-warn-text">
+                <p className="mt-3 rounded-lg border border-warn-line bg-warn-soft px-3 py-2 text-[11px] text-warn-text">
                   {config.initError}
                 </p>
               )}
@@ -845,7 +845,7 @@ export default function SettingsDialog() {
               {saveError && (
                 <p
                   role="alert"
-                  className="mt-3 border border-danger-line bg-danger-soft px-3 py-2 text-[11px] text-danger-text"
+                  className="mt-3 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-[11px] text-danger-text"
                 >
                   {saveError}
                 </p>
@@ -864,7 +864,7 @@ export default function SettingsDialog() {
               </div>
 
               {!sessionId ? (
-                <p className="mt-3 border border-line bg-raised px-3 py-2 text-[11px] text-muted">
+                <p className="mt-3 rounded-lg border border-line bg-raised px-3 py-2 text-[11px] text-muted">
                   先新建或选择一个会话，规则按会话生效。
                 </p>
               ) : (
@@ -874,7 +874,7 @@ export default function SettingsDialog() {
                     除外）。
                   </p>
 
-                  <div className="mt-3 border border-line bg-raised/60 p-3">
+                  <div className="mt-3 rounded-xl border border-line/80 bg-raised/60 p-3.5">
                     <div className="grid grid-cols-2 gap-3">
                       <label className="block">
                         <span className="mb-1 block text-[11px] text-muted">工具名</span>
@@ -958,7 +958,7 @@ export default function SettingsDialog() {
                         data-testid="settings-rule-add"
                         onClick={() => void addRule()}
                         disabled={!ruleValid || adding}
-                        className="shrink-0 cursor-pointer bg-accent px-3 py-1.5 text-xs font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+                        className="shrink-0 cursor-pointer rounded-full bg-accent px-3.5 py-1.5 text-xs font-medium text-on-accent shadow-card transition hover:bg-accent-hover active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
                       >
                         {adding ? '添加中…' : '添加规则'}
                       </button>
@@ -968,7 +968,7 @@ export default function SettingsDialog() {
                   {rulesError && (
                     <p
                       role="alert"
-                  className="mt-3 border border-danger-line bg-danger-soft px-3 py-2 text-[11px] text-danger-text"
+                  className="mt-3 rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-[11px] text-danger-text"
                     >
                       {rulesError}
                     </p>
@@ -984,7 +984,7 @@ export default function SettingsDialog() {
                     ) : rules.length === 0 ? (
                       <p
                         data-testid="settings-rules-empty"
-                        className="mt-2 border border-line px-3 py-2 text-[11px] text-subtle"
+                        className="mt-2 rounded-lg border border-line px-3 py-2 text-[11px] text-subtle"
                       >
                         该会话暂无规则。
                       </p>
@@ -994,7 +994,7 @@ export default function SettingsDialog() {
                           <li
                             key={rule.id}
                             data-testid={`settings-rule-${rule.id}`}
-                            className="flex items-center gap-3 border border-line px-3 py-2"
+                            className="flex items-center gap-3 rounded-lg border border-line bg-surface/60 px-3 py-2"
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
@@ -1002,7 +1002,7 @@ export default function SettingsDialog() {
                                   {rule.tool}
                                 </span>
                                 <span
-                                  className={`shrink-0 border px-1 text-[10px] ${effectBadge( rule.effect, )}`}
+                                  className={`shrink-0 border px-1.5 py-0.5 text-[10px] ${effectBadge( rule.effect, )}`}
                                 >
                                   {effectLabel(rule.effect)}
                                 </span>
@@ -1027,7 +1027,7 @@ export default function SettingsDialog() {
                               aria-label={`删除规则 ${rule.tool}`}
                               disabled={removingId !== null}
                               onClick={() => void removeRule(rule.id)}
-                              className="shrink-0 cursor-pointer border border-line-strong px-2 py-1 text-[11px] text-muted transition hover:border-danger-line hover:bg-danger-soft hover:text-danger-text disabled:cursor-not-allowed disabled:opacity-50"
+                              className="shrink-0 cursor-pointer rounded-md border border-line-strong px-2.5 py-1 text-[11px] text-muted transition hover:border-danger-line hover:bg-danger-soft hover:text-danger-text disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {removingId === rule.id ? '删除中…' : '删除'}
                             </button>
@@ -1050,14 +1050,14 @@ export default function SettingsDialog() {
         </div>
 
           {tab === 'model' && (
-            <div className="flex items-center justify-end gap-3 border-t border-line px-6 py-3">
+            <div className="flex items-center justify-end gap-3 border-t border-line/70 px-8 py-4">
               {saved && <span className="text-[11px] text-success-text">已保存，下一轮生效</span>}
               <button
                 type="button"
                 data-testid="settings-save"
                 onClick={() => void save()}
                 disabled={invalid || saving || loadingConfig}
-                className="cursor-pointer bg-accent px-4 py-1.5 text-xs font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+                className="cursor-pointer rounded-full bg-accent px-4 py-1.5 text-xs font-medium text-on-accent shadow-card transition hover:bg-accent-hover active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
               >
                 {saving ? '保存中…' : '保存模型配置'}
               </button>

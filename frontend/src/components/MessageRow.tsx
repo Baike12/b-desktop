@@ -41,7 +41,7 @@ function ChevronIcon() {
   )
 }
 
-// ThinkingBlock 不套卡片：一行低对比标题 + 左侧细线缩进的浅色正文。
+// ThinkingBlock 是一张低对比软卡片：标题行可折叠，正文缩进在卡片内部。
 //
 // 展开策略与 Zed 的默认行为一致：流式期间展开让人实时看到模型的思考，
 // 思考结束后自动收起不占空间；用户一旦手动切换，之后不再自动干预。
@@ -51,7 +51,12 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }
   const open = userOverride ?? streaming
 
   return (
-    <details open={open} className="group min-w-0">
+    <details
+      open={open}
+      className={`group min-w-0 overflow-hidden rounded-xl border bg-panel transition ${
+        streaming ? 'border-accent/40' : 'border-line/80'
+      }`}
+    >
       <summary
         // 阻止 details 的原生 toggle，改由 state 驱动，
         // 这样才能区分「用户手动切换」与「流式状态变化」。
@@ -59,14 +64,14 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }
           event.preventDefault()
           setUserOverride(!open)
         }}
-        className="list-none flex w-full cursor-pointer select-none items-center gap-1.5 py-0.5 font-mono text-[10px] tracking-[0.12em] text-subtle transition hover:text-fg [&::-webkit-details-marker]:hidden"
+        className="flex w-full cursor-pointer select-none list-none items-center gap-1.5 px-3 py-2 font-mono text-[10px] tracking-[0.12em] text-subtle transition hover:bg-hover hover:text-fg [&::-webkit-details-marker]:hidden"
       >
         <SparkIcon active={streaming} />
         <span className="uppercase">{streaming ? '思考中' : '思考过程'}</span>
         <span className="normal-case tracking-normal">{text.length} 字</span>
         <ChevronIcon />
       </summary>
-      <div className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words border-l border-line pl-3 text-[12.5px] leading-6 text-subtle">
+      <div className="max-h-64 overflow-auto whitespace-pre-wrap break-words border-t border-line/70 px-3 py-2 text-[12.5px] leading-6 text-subtle">
         {text}
       </div>
     </details>
@@ -83,7 +88,7 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
       const summary = /<summary>([\s\S]*?)<\/summary>/.exec(item.text)?.[1]
       return (
         <div className="flex justify-center">
-          <p className="max-w-[85%] border border-line bg-raised px-3 py-1 font-mono text-[11px] text-subtle">
+          <p className="max-w-[85%] rounded-full border border-line bg-raised px-3 py-1 font-mono text-[11px] text-subtle">
             {summary ? summary : item.text}
           </p>
         </div>
@@ -91,7 +96,7 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
     }
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] border border-line bg-panel px-3.5 py-2.5">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md border border-accent/25 bg-accent-soft px-4 py-2.5 shadow-card">
           <p className="whitespace-pre-wrap break-words text-[13px] leading-6 text-fg">{item.text}</p>
         </div>
       </div>
@@ -105,7 +110,7 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
         : 'border-line bg-raised text-subtle'
     return (
       <div className="flex justify-center">
-        <p className={`border px-3 py-1 font-mono text-[11px] ${tone}`}>{item.text}</p>
+        <p className={`rounded-full border px-3 py-1 font-mono text-[11px] ${tone}`}>{item.text}</p>
       </div>
     )
   }
@@ -113,7 +118,7 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {item.discarded && (
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-danger-text">
+        <span className="w-fit rounded-full border border-danger-line bg-danger-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-danger-text">
           已丢弃
         </span>
       )}

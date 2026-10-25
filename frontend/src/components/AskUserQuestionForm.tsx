@@ -163,7 +163,7 @@ export function AskUserQuestionForm({ questions, disabled, onSubmit, onDecline }
     >
       <div className="flex items-center justify-between gap-3 px-4 pt-3">
         <div className="flex min-w-0 items-baseline gap-2">
-          <span className="shrink-0 border border-line bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
+          <span className="shrink-0 rounded-full border border-line bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
             {question.header}
           </span>
           {questions.length > 1 && question.multiSelect && (
@@ -213,8 +213,8 @@ export function AskUserQuestionForm({ questions, disabled, onSubmit, onDecline }
                   disabled={disabled}
                   onClick={() => toggle(option.label)}
                   className={
-                    'block w-full cursor-pointer px-2 py-1.5 text-left transition disabled:cursor-not-allowed ' +
-                    (checked ? 'bg-hover accent-edge' : 'hover:bg-hover')
+                    'block w-full cursor-pointer rounded-lg px-2.5 py-1.5 text-left transition disabled:cursor-not-allowed ' +
+                    (checked ? 'bg-accent-soft ring-1 ring-accent/40' : 'hover:bg-hover')
                   }
                 >
                   <span className="flex items-baseline gap-2">
@@ -236,21 +236,21 @@ export function AskUserQuestionForm({ questions, disabled, onSubmit, onDecline }
               placeholder="输入你的回答…"
               onChange={(event) => changeCustom(event.target.value)}
               className={
-                'w-full bg-transparent px-2 py-1.5 text-[13px] text-fg outline-none placeholder:text-subtle ' +
-                (customText !== '' ? 'accent-edge' : '')
+                'w-full rounded-lg border border-dashed bg-surface px-2.5 py-1.5 text-[13px] text-fg outline-none transition placeholder:text-subtle ' +
+                (customText !== '' ? 'border-accent ring-1 ring-accent/30' : 'border-line-strong hover:border-line-strong')
               }
             />
           </li>
         </ol>
 
         {preview && (
-          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words border border-line bg-code p-3 font-mono text-[11px] leading-relaxed text-muted">
+          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-code p-3 font-mono text-[11px] leading-relaxed text-muted">
             {preview}
           </pre>
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 border-t border-line/70 px-4 py-2.5">
         <p className="min-w-0 truncate font-mono text-[10px] text-subtle">
           {questions.length > 1 ? '数字键或点击选择，← → 翻题，Enter 下一题' : '数字键或点击选择，Enter 提交'}
         </p>
@@ -259,7 +259,7 @@ export function AskUserQuestionForm({ questions, disabled, onSubmit, onDecline }
             type="button"
             disabled={disabled}
             onClick={onDecline}
-            className="cursor-pointer border border-line bg-surface px-3 py-1 text-[11px] text-muted transition hover:border-line-strong hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-full border border-line bg-surface px-3.5 py-1 text-[11px] text-muted transition hover:border-line-strong hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             忽略
           </button>
@@ -267,7 +267,7 @@ export function AskUserQuestionForm({ questions, disabled, onSubmit, onDecline }
             type="button"
             disabled={disabled}
             onClick={submit}
-            className="cursor-pointer bg-accent px-4 py-1 text-[11px] font-medium text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-hover disabled:text-subtle"
+            className="cursor-pointer rounded-full bg-accent px-4 py-1.5 text-[11px] font-medium text-on-accent shadow-card transition hover:bg-accent-hover active:translate-y-px disabled:cursor-not-allowed disabled:bg-hover disabled:text-subtle disabled:shadow-none"
           >
             提交
           </button>

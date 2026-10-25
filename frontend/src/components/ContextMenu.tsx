@@ -73,7 +73,7 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
       role="menu"
       data-testid="context-menu"
       style={{ left: position.left, top: position.top, minWidth: MENU_WIDTH }}
-      className="fixed z-50 overflow-hidden border border-line-strong bg-raised py-1"
+      className="popover fixed z-50 overflow-hidden rounded-xl border border-line-strong bg-raised p-1 shadow-pop"
     >
       {items.map((item, index) => (
         <Fragment key={item.id}>
@@ -90,10 +90,10 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
             }}
             className={
               item.disabled
-                ? 'block w-full cursor-not-allowed px-3 py-1.5 text-left text-[11px] text-subtle'
+                ? 'block w-full cursor-not-allowed rounded-lg px-3 py-1.5 text-left text-[11px] text-subtle'
                 : item.danger
-                  ? 'block w-full cursor-pointer px-3 py-1.5 text-left text-[11px] text-danger-text hover:bg-danger-soft'
-                  : 'block w-full cursor-pointer px-3 py-1.5 text-left text-[11px] text-muted hover:bg-hover hover:text-fg'
+                  ? 'block w-full cursor-pointer rounded-lg px-3 py-1.5 text-left text-[11px] text-danger-text hover:bg-danger-soft'
+                  : 'block w-full cursor-pointer rounded-lg px-3 py-1.5 text-left text-[11px] text-muted hover:bg-hover hover:text-fg'
             }
           >
             {item.label}

@@ -67,7 +67,7 @@ export default function PermissionModeSelect() {
         aria-expanded={open}
         aria-label={`权限模式：${label}`}
         title={disabled ? '先新建或选择一个会话' : hint}
-        className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap px-1.5 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-1 text-[11px] text-muted transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
       >
         <ShieldIcon />
         <span className="font-medium text-fg">{label}</span>
@@ -84,7 +84,7 @@ export default function PermissionModeSelect() {
           <div
             role="menu"
             aria-label="选择权限模式"
-            className="absolute bottom-full left-0 z-20 mb-2 w-72 border border-line-strong bg-panel"
+            className="popover absolute bottom-full left-0 z-20 mb-2 w-72 space-y-0.5 rounded-xl border border-line-strong bg-panel p-1.5 shadow-pop"
           >
             {PERMISSION_MODES.map((mode) => {
               const selected = mode.id === current
@@ -95,7 +95,7 @@ export default function PermissionModeSelect() {
                   role="menuitemradio"
                   aria-checked={selected}
                   onClick={() => choose(mode.id)}
-                  className={`flex w-full cursor-pointer flex-col items-start gap-0.5 border-b border-line px-3 py-2 text-left transition last:border-b-0 ${ selected ? 'bg-warn-soft' : 'hover:bg-hover' }`}
+                  className={`flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition ${ selected ? 'bg-warn-soft' : 'hover:bg-hover' }`}
                 >
                   <span className="flex w-full items-center justify-between gap-2 text-[12px] font-medium">
                     <span className={selected ? 'text-warn-text' : 'text-fg'}>{mode.label}</span>

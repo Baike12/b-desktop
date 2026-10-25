@@ -264,16 +264,16 @@ export default function PreviewPane() {
 
       <header
         style={DRAG_REGION}
-        className="flex h-9 shrink-0 items-center gap-1 border-b border-line bg-panel px-2"
+        className="flex h-10 shrink-0 items-center gap-1 border-b border-line/70 bg-panel px-2"
       >
         <button
           type="button"
           data-testid="preview-tab-changes"
           style={NO_DRAG}
           onClick={() => void openChanges()}
-          className={`flex h-7 shrink-0 cursor-pointer items-center gap-1.5 px-2 text-[11px] transition ${
+          className={`flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[11px] transition ${
             active === CHANGES_TAB
-              ? 'accent-edge bg-hover text-fg'
+              ? 'bg-surface text-fg shadow-card'
               : 'text-muted hover:bg-hover hover:text-fg'
           }`}
           title="审阅工作区的 git 变更"
@@ -298,14 +298,14 @@ export default function PreviewPane() {
                   data-testid="preview-tab"
                   data-path={tab}
                   onClick={() => setActive(tab)}
-                  className={`group flex h-7 shrink-0 cursor-pointer items-center gap-1.5 pl-2 pr-1 text-[11px] transition ${
-                    isActive ? 'accent-rule bg-hover text-fg' : 'text-muted hover:bg-hover hover:text-fg'
+                  className={`group flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md pl-2 pr-1 text-[11px] transition ${
+                    isActive ? 'bg-surface text-fg shadow-card' : 'text-muted hover:bg-hover hover:text-fg'
                   }`}
                 >
                   <span className="max-w-[180px] truncate font-mono text-[11px]">{baseName(tab)}</span>
                   {dirty && (
                     <span
-                      className="size-1.5 shrink-0 bg-warn-text"
+                      className="size-1.5 shrink-0 rounded-full bg-warn-text"
                       title="有未保存的修改"
                       aria-label="有未保存的修改"
                     />
@@ -318,7 +318,7 @@ export default function PreviewPane() {
                       closeTab(tab)
                       if (editing === tab) setEditing(null)
                     }}
-                    className="shrink-0 cursor-pointer p-0.5 text-subtle opacity-0 transition hover:bg-hover hover:text-fg group-hover:opacity-100"
+                    className="shrink-0 cursor-pointer rounded-sm p-0.5 text-subtle opacity-0 transition hover:bg-hover hover:text-fg group-hover:opacity-100"
                   >
                     <CloseIcon />
                   </button>
@@ -336,7 +336,7 @@ export default function PreviewPane() {
               onClick={startEdit}
               disabled={file.binary || isImage}
               title="编辑这个文件"
-              className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer rounded-md p-1 text-subtle transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
             >
               <PencilIcon />
             </button>
@@ -348,7 +348,7 @@ export default function PreviewPane() {
               style={NO_DRAG}
               onClick={() => void copyPath()}
               title="复制文件路径"
-              className="cursor-pointer p-1 text-subtle transition hover:bg-hover hover:text-fg"
+              className="cursor-pointer rounded-md p-1 text-subtle transition hover:bg-hover hover:text-fg"
             >
               <CopyIcon />
             </button>
@@ -357,7 +357,7 @@ export default function PreviewPane() {
       </header>
 
       {notice && (
-        <p className="shrink-0 border-b border-line bg-raised px-3 py-1 font-mono text-[10px] text-muted">
+        <p className="shrink-0 border-b border-line/70 bg-raised px-3 py-1 font-mono text-[10px] text-muted">
           {notice}
         </p>
       )}
@@ -385,7 +385,7 @@ export default function PreviewPane() {
           </div>
         ) : file.image ? (
           <>
-            <div className="flex shrink-0 items-center gap-2 border-b border-line bg-panel px-3 py-1">
+            <div className="flex shrink-0 items-center gap-2 border-b border-line/70 bg-panel px-3 py-1">
               <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted" title={file.path}>
                 {file.path}
               </span>
@@ -417,7 +417,7 @@ export default function PreviewPane() {
           />
         ) : (
           <>
-            <div className="flex shrink-0 items-center gap-2 border-b border-line bg-panel px-3 py-1">
+            <div className="flex shrink-0 items-center gap-2 border-b border-line/70 bg-panel px-3 py-1">
               <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted" title={file.path}>
                 {file.path}
               </span>

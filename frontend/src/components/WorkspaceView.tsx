@@ -50,14 +50,14 @@ export default function WorkspaceView({ panel }: WorkspaceViewProps) {
     <div data-testid="workspace-view" data-panel={panel} className="flex min-h-0 flex-1 flex-col bg-surface">
       <header
         style={DRAG_REGION}
-        className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-panel px-4 py-2.5"
+        className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line/70 bg-panel px-4 py-2.5"
       >
         <button
           type="button"
           data-testid="panel-back"
           style={NO_DRAG}
           onClick={() => setPanel('chat')}
-          className="flex cursor-pointer items-center gap-1 border border-line px-2 py-1 text-xs text-muted transition hover:bg-hover hover:text-fg"
+          className="flex cursor-pointer items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition hover:bg-hover hover:text-fg"
         >
           <BackIcon />
           返回对话
@@ -78,8 +78,8 @@ export default function WorkspaceView({ panel }: WorkspaceViewProps) {
           onClick={toggleRightSidebar}
           className={
             rightSidebarOpen
-              ? 'shrink-0 cursor-pointer bg-hover p-1.5 text-fg'
-              : 'shrink-0 cursor-pointer p-1.5 text-subtle transition hover:bg-hover hover:text-fg'
+              ? 'shrink-0 cursor-pointer rounded-md bg-hover p-1.5 text-fg'
+              : 'shrink-0 cursor-pointer rounded-md p-1.5 text-subtle transition hover:bg-hover hover:text-fg'
           }
         >
           <FilesPanelIcon open={rightSidebarOpen} />

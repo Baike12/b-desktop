@@ -38,7 +38,7 @@ function formatTimestamp(ms: number): string {
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="border border-line bg-panel px-3 py-2">
+    <div className="rounded-xl border border-line/80 bg-surface px-3.5 py-2.5 shadow-card">
       <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">{label}</div>
       <div className="mt-1 font-mono text-[15px] font-semibold tabular-nums text-fg">{value}</div>
       {hint && <div className="mt-0.5 text-[10px] text-subtle">{hint}</div>}
@@ -92,7 +92,7 @@ export default function UsagePanel({
   return (
     <section
       data-testid="usage-panel"
-      className={`flex flex-col gap-4 border border-line bg-surface p-4 ${className}`}
+      className={`flex flex-col gap-4 rounded-xl border border-line bg-panel p-4 shadow-card ${className}`}
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
         {showHeader ? (
@@ -111,7 +111,7 @@ export default function UsagePanel({
               : '读取本地模型调用记录'}
           </p>
         )}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1.5">
           {RANGE_OPTIONS.map((option) => (
             <button
               key={option}
@@ -119,7 +119,7 @@ export default function UsagePanel({
               data-testid={`usage-range-${option}`}
               aria-pressed={option === days}
               onClick={() => setDays(option)}
-              className={`cursor-pointer border px-2 py-1 font-mono text-[11px] transition ${ option === days ? 'border-accent bg-accent-soft text-accent-text' : 'border-line text-muted hover:border-line-strong hover:bg-hover' }`}
+              className={`cursor-pointer rounded-full border px-2.5 py-1 font-mono text-[11px] transition ${ option === days ? 'border-accent bg-accent-soft text-accent-text shadow-card' : 'border-line text-muted hover:border-line-strong hover:bg-hover' }`}
             >
               {option} 天
             </button>
@@ -129,7 +129,7 @@ export default function UsagePanel({
             data-testid="usage-refresh"
             onClick={() => setReloadToken((value) => value + 1)}
             disabled={loading}
-            className="ml-1 cursor-pointer border border-line px-2 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-1 cursor-pointer rounded-full border border-line px-2.5 py-1 text-[11px] text-muted transition hover:border-line-strong hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? '刷新中…' : '刷新'}
           </button>
@@ -139,7 +139,7 @@ export default function UsagePanel({
       {error && (
         <p
           role="alert"
-          className="border border-danger-line bg-danger-soft px-3 py-2 text-[11px] text-danger-text"
+          className="rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-[11px] text-danger-text"
         >
           {error}
         </p>
@@ -185,9 +185,9 @@ export default function UsagePanel({
               return (
                 <li key={day.date} className="flex items-center gap-2 font-mono text-[11px]">
                   <span className="w-14 shrink-0 tabular-nums text-muted">{day.date.slice(5)}</span>
-                  <span className="h-2 min-w-0 flex-1 overflow-hidden border border-line bg-raised">
+                  <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full border border-line bg-raised">
                     <span
-                      className="block h-full bg-accent"
+                      className="block h-full rounded-full bg-accent"
                       style={{ width: `${Math.max(ratio * 100, day.totalTokens > 0 ? 2 : 0)}%` }}
                     />
                   </span>

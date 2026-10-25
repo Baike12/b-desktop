@@ -72,8 +72,14 @@ function ChangeRow({
   const badge = STATUS_BADGE[change.status] ?? 'M'
   const badgeClass = STATUS_BADGE_CLASS[change.status] ?? 'bg-raised text-muted'
   return (
-    <div className="border-b border-line/60 last:border-b-0">
-      <div className="flex items-center gap-1.5 px-2 py-1 hover:bg-hover">
+    <div
+      className={`mx-1.5 my-0.5 rounded-lg border transition ${
+        expanded
+          ? 'border-line/80 bg-panel shadow-card'
+          : 'border-transparent hover:border-line/70 hover:bg-hover/60'
+      }`}
+    >
+      <div className="flex items-center gap-1.5 px-2 py-1">
         <button
           type="button"
           data-testid="change-row"
@@ -83,7 +89,7 @@ function ChangeRow({
           className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left"
         >
           <span
-            className={`flex shrink-0 items-center justify-center border px-1 font-mono text-[10px] ${badgeClass}`}
+            className={`flex size-5 shrink-0 items-center justify-center rounded-xs border font-mono text-[10px] ${badgeClass}`}
           >
             {badge}
           </span>
@@ -119,7 +125,7 @@ function ChangeRow({
             data-testid="change-open-file"
             onClick={onOpenFile}
             title="打开文件"
-            className="cursor-pointer px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-hover hover:text-fg"
+            className="cursor-pointer rounded-sm px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-raised hover:text-fg"
           >
             打开
           </button>
@@ -129,7 +135,7 @@ function ChangeRow({
               data-testid="change-unstage"
               onClick={onUnstage}
               title="取消暂存"
-              className="cursor-pointer px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-hover hover:text-fg"
+              className="cursor-pointer rounded-sm px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-raised hover:text-fg"
             >
               取消暂存
             </button>
@@ -139,7 +145,7 @@ function ChangeRow({
               data-testid="change-stage"
               onClick={onStage}
               title="暂存这个文件的改动"
-              className="cursor-pointer px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-hover hover:text-fg"
+              className="cursor-pointer rounded-sm px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-raised hover:text-fg"
             >
               暂存
             </button>
@@ -151,8 +157,8 @@ function ChangeRow({
             title={change.staged ? '放弃暂存区与工作区的改动，文件回到 HEAD' : '放弃工作区里对这个文件的改动'}
             className={
               confirming
-                ? 'cursor-pointer border border-danger-line bg-danger-soft px-1.5 py-0.5 font-mono text-[10px] text-danger-text'
-                : 'cursor-pointer px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-hover hover:text-fg'
+                ? 'cursor-pointer rounded-sm border border-danger-line bg-danger-soft px-1.5 py-0.5 font-mono text-[10px] text-danger-text'
+                : 'cursor-pointer rounded-sm px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-raised hover:text-fg'
             }
           >
             {confirming ? '确认放弃' : '放弃'}
@@ -160,7 +166,7 @@ function ChangeRow({
         </div>
       </div>
       {expanded && (
-        <div className="border-t border-line/60">
+        <div className="mx-1.5 mb-1.5 overflow-hidden rounded-lg border border-line/70">
           <DiffBody path={change.path} staged={change.staged} />
         </div>
       )}
@@ -258,7 +264,7 @@ export default function ChangesPanel() {
     <section>
       <h3 className="flex items-center gap-2 px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-subtle">
         {title}
-        <span className="border border-line bg-raised px-1 font-mono text-[10px] tabular-nums text-muted">
+        <span className="rounded-full border border-line bg-raised px-1.5 font-mono text-[10px] tabular-nums text-muted">
           {items.length}
         </span>
       </h3>
@@ -314,7 +320,7 @@ export default function ChangesPanel() {
           data-testid="changes-refresh"
           onClick={() => void refreshChanges()}
           title="刷新变更"
-          className="cursor-pointer px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-hover hover:text-fg"
+          className="cursor-pointer rounded-sm px-1.5 py-0.5 font-mono text-[10px] text-subtle transition hover:bg-raised hover:text-fg"
         >
           刷新
         </button>

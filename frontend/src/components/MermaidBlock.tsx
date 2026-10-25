@@ -204,7 +204,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
     return (
       <figure
         data-testid="mermaid-streaming"
-        className="my-3 overflow-x-auto border border-line bg-code p-3"
+        className="my-3 overflow-x-auto rounded-xl border border-line bg-code p-3"
       >
         <pre className="text-[12px] leading-5 text-muted">
           <code>{code}</code>
@@ -218,7 +218,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
     return (
       <div
         data-testid="mermaid-error"
-        className="my-3 overflow-hidden border border-danger-line bg-danger-soft"
+        className="my-3 overflow-hidden rounded-xl border border-danger-line bg-danger-soft"
       >
         <p className="border-b border-danger-line px-3 py-2 text-[11px] text-danger-text">
           Mermaid 渲染失败：{error.split('\n')[0]}
@@ -234,7 +234,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
     <figure
       data-testid="mermaid"
       aria-label="Mermaid 图表"
-      className="group relative my-3 overflow-x-auto border border-line bg-surface p-3"
+      className="group relative my-3 overflow-x-auto rounded-xl border border-line bg-surface p-3"
     >
       {svg ? (
         <>
@@ -244,7 +244,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
             aria-label="放大图表"
             title="放大图表"
             onClick={() => setExpanded(true)}
-            className="absolute right-2 top-2 z-10 cursor-pointer border border-line bg-surface/90 p-1.5 text-muted opacity-70 backdrop-blur transition hover:bg-hover hover:text-fg hover:opacity-100 focus:opacity-100"
+            className="absolute right-2 top-2 z-10 cursor-pointer rounded-lg border border-line bg-surface/90 p-1.5 text-muted opacity-70 shadow-card backdrop-blur transition hover:bg-hover hover:text-fg hover:opacity-100 focus:opacity-100"
           >
             <ExpandIcon />
           </button>
@@ -268,7 +268,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
             onClick={() => setExpanded(false)}
           >
             <div
-              className="flex h-14 shrink-0 items-center justify-between border-b border-line px-5"
+              className="flex h-14 shrink-0 items-center justify-between border-b border-line/70 px-5"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center gap-2 text-sm font-medium text-fg">
@@ -285,7 +285,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
                   data-testid="mermaid-close"
                   aria-label="关闭图表预览"
                   onClick={() => setExpanded(false)}
-                  className="cursor-pointer p-1.5 text-subtle transition hover:bg-hover hover:text-fg"
+                  className="cursor-pointer rounded-lg p-1.5 text-subtle transition hover:bg-hover hover:text-fg"
                 >
                   <CloseIcon />
                 </button>
