@@ -1,9 +1,17 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import type { MermaidConfig } from 'mermaid'
 import { MarkdownStreamingContext } from './markdownStreaming'
 
 let renderSeq = 0
+
+const ZOOM_MIN = 0.4
+const ZOOM_MAX = 8
+const ZOOM_STEP = 1.25
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
 
 function ExpandIcon() {
   return (
@@ -48,7 +56,97 @@ function readVar(styles: CSSStyleDeclaration, name: string, fallback: string): s
   return value || fallback
 }
 
-// buildConfig 把应用主题映射成 mermaid 的基础配色。
+interface Tint {
+  fill: string
+  stroke: string
+}
+
+interface DiagramPalette {
+  // 节点按 nth-of-type 轮换，避免整张图只有一种灰色。
+  nodes: Tint[]
+  // 子图面积大，只用极淡的同族底色区分层次。
+  clusters: Tint[]
+  // 饼图等按数据分类配色的图形。
+  pies: string[]
+}
+
+const DARK_PALETTE: DiagramPalette = {
+  nodes: [
+    { fill: '#2a2415', stroke: '#6f5b2c' },
+    { fill: '#152b27', stroke: '#2f6156' },
+    { fill: '#1a2434', stroke: '#365378' },
+    { fill: '#251e32', stroke: '#513e6d' },
+    { fill: '#2c1d25', stroke: '#6b3b4d' },
+    { fill: '#232a1a', stroke: '#4e6132' },
+    { fill: '#1b242b', stroke: '#3d5367' },
+    { fill: '#2c211b', stroke: '#6b4732' },
+  ],
+  clusters: [
+    { fill: 'rgba(233, 201, 110, 0.055)', stroke: 'rgba(233, 201, 110, 0.20)' },
+    { fill: 'rgba(76, 211, 154, 0.05)', stroke: 'rgba(76, 211, 154, 0.18)' },
+    { fill: 'rgba(127, 168, 255, 0.055)', stroke: 'rgba(127, 168, 255, 0.20)' },
+    { fill: 'rgba(192, 140, 245, 0.055)', stroke: 'rgba(192, 140, 245, 0.20)' },
+    { fill: 'rgba(255, 138, 157, 0.05)', stroke: 'rgba(255, 138, 157, 0.18)' },
+    { fill: 'rgba(185, 207, 107, 0.05)', stroke: 'rgba(185, 207, 107, 0.18)' },
+    { fill: 'rgba(143, 182, 207, 0.05)', stroke: 'rgba(143, 182, 207, 0.18)' },
+    { fill: 'rgba(240, 164, 92, 0.055)', stroke: 'rgba(240, 164, 92, 0.20)' },
+  ],
+  pies: ['#d9b45c', '#3fae82', '#6f93d8', '#a678d8', '#d96a7f', '#93a94f', '#6c92a8', '#c9834f'],
+}
+
+const LIGHT_PALETTE: DiagramPalette = {
+  nodes: [
+    { fill: '#f9edc9', stroke: '#c9a54a' },
+    { fill: '#e4f2ec', stroke: '#6fae95' },
+    { fill: '#e7eefb', stroke: '#7d9fd6' },
+    { fill: '#f0eafb', stroke: '#a68bd0' },
+    { fill: '#fbe9ee', stroke: '#d4899e' },
+    { fill: '#edf3e0', stroke: '#93ac6a' },
+    { fill: '#e9eff3', stroke: '#8aa3b3' },
+    { fill: '#faece2', stroke: '#cd9976' },
+  ],
+  clusters: [
+    { fill: '#fcf8ea', stroke: '#e3d3a5' },
+    { fill: '#f1f9f5', stroke: '#c2e0d5' },
+    { fill: '#f2f7fd', stroke: '#c8d9ef' },
+    { fill: '#f7f3fc', stroke: '#ddcff0' },
+    { fill: '#fdf4f6', stroke: '#efcbd4' },
+    { fill: '#f6f9ef', stroke: '#d5e0c0' },
+    { fill: '#f4f7f9', stroke: '#cfdbe3' },
+    { fill: '#fdf7f1', stroke: '#ecd6c4' },
+  ],
+  pies: ['#c9a54a', '#3f8f72', '#4f74b8', '#8a63bd', '#b85a70', '#748c3b', '#517b92', '#b07445'],
+}
+
+// buildPaletteCss 生成注入到 SVG 内的样式。
+// mermaid 的节点规则带 #svg-id 前缀，这里用 !important 覆盖填充色；
+// 同时关掉 neo 外观的投影，保持与工作台一致的扁平层级。
+function buildPaletteCss(palette: DiagramPalette): string {
+  const shapeTags = ['rect', 'polygon', 'circle', 'ellipse', 'path']
+  const rules: string[] = []
+
+  palette.nodes.forEach((tint, index) => {
+    const selectors = shapeTags
+      .map((tag) => `.node:nth-of-type(${palette.nodes.length}n+${index + 1}) > ${tag}`)
+      .join(',')
+    rules.push(`${selectors}{fill:${tint.fill}!important;stroke:${tint.stroke}!important;}`)
+  })
+
+  palette.clusters.forEach((tint, index) => {
+    rules.push(
+      `.cluster:nth-of-type(${palette.clusters.length}n+${index + 1}) > rect{fill:${tint.fill}!important;stroke:${tint.stroke}!important;}`,
+    )
+  })
+
+  rules.push(
+    '.node rect,.node polygon,.node circle,.node ellipse,.node path,.cluster rect{filter:none!important;stroke-width:1px!important;}',
+    '.cluster-label span p{background:transparent!important;}',
+  )
+
+  return rules.join('\n')
+}
+
+// buildConfig 把应用主题映射成 mermaid 的配色。
 // securityLevel=strict 会清洗标签内容；同时限制文本与边数量，避免恶意大图卡住渲染。
 function buildConfig(theme: 'light' | 'dark'): MermaidConfig {
   const styles = getComputedStyle(document.documentElement)
@@ -67,6 +165,8 @@ function buildConfig(theme: 'light' | 'dark'): MermaidConfig {
   const warnSoft = v('--warn-soft', 'rgba(245,158,11,.14)')
   const warnLine = v('--warn-line', '#78350f')
   const warnText = v('--warn-text', '#fcd34d')
+  const palette = theme === 'light' ? LIGHT_PALETTE : DARK_PALETTE
+  const pies = Object.fromEntries(palette.pies.map((color, index) => [`pie${index + 1}`, color]))
 
   return {
     startOnLoad: false,
@@ -75,6 +175,7 @@ function buildConfig(theme: 'light' | 'dark'): MermaidConfig {
     maxTextSize: 50000,
     maxEdges: 500,
     theme: 'base',
+    themeCSS: buildPaletteCss(palette),
     themeVariables: {
       fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
       fontSize: '13px',
@@ -117,6 +218,7 @@ function buildConfig(theme: 'light' | 'dark'): MermaidConfig {
       compositeBackground: panel,
       compositeBorder: line,
       compositeTitleBackground: raised,
+      ...pies,
     },
     flowchart: { htmlLabels: false, useMaxWidth: true },
     sequence: { useMaxWidth: true },
@@ -136,7 +238,8 @@ interface MermaidBlockProps {
 // MermaidBlock 渲染 ```mermaid 代码块。
 // - 流式期间只显示源码，文本结束后才解析；
 // - 主题切换后按新配色重绘；
-// - 解析失败时回退到源码并展示原因，不打断整条消息。
+// - 解析失败时回退到源码并展示原因，不打断整条消息；
+// - 图表本体不带外框，点击任意位置进入可缩放/拖动的预览。
 export function MermaidBlock({ code }: MermaidBlockProps) {
   const streaming = useContext(MarkdownStreamingContext)
   const [svg, setSvg] = useState('')
@@ -144,7 +247,56 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
   const [loading, setLoading] = useState(true)
   const [theme, setTheme] = useState<'light' | 'dark'>(currentTheme)
   const [expanded, setExpanded] = useState(false)
+  const [view, setView] = useState({ scale: 1, x: 0, y: 0 })
   const closeRef = useRef<HTMLButtonElement | null>(null)
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const dragRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+  } | null>(null)
+
+  const openViewer = () => {
+    setView({ scale: 1, x: 0, y: 0 })
+    setExpanded(true)
+  }
+
+  const resetView = () => setView({ scale: 1, x: 0, y: 0 })
+
+  const zoomBy = (factor: number) => {
+    setView((prev) => {
+      const scale = clamp(prev.scale * factor, ZOOM_MIN, ZOOM_MAX)
+      const ratio = scale / prev.scale
+      return { scale, x: prev.x * ratio, y: prev.y * ratio }
+    })
+  }
+
+  // 滚轮以指针为锚点缩放；必须用非 passive 监听，React 的 onWheel 拦不住页面滚动。
+  useEffect(() => {
+    if (!expanded) return
+    const element = viewportRef.current
+    if (!element) return
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const rect = element.getBoundingClientRect()
+      const pointerX = event.clientX - rect.left - rect.width / 2
+      const pointerY = event.clientY - rect.top - rect.height / 2
+      const factor = Math.exp(-clamp(event.deltaY, -120, 120) * 0.0015)
+      setView((prev) => {
+        const scale = clamp(prev.scale * factor, ZOOM_MIN, ZOOM_MAX)
+        const ratio = scale / prev.scale
+        return {
+          scale,
+          x: pointerX - (pointerX - prev.x) * ratio,
+          y: pointerY - (pointerY - prev.y) * ratio,
+        }
+      })
+    }
+    element.addEventListener('wheel', onWheel, { passive: false })
+    return () => element.removeEventListener('wheel', onWheel)
+  }, [expanded])
 
   // 放大预览：Esc 关闭并锁定页面滚动，打开时把焦点交给关闭按钮。
   useEffect(() => {
@@ -159,6 +311,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
+      dragRef.current = null
     }
   }, [expanded])
 
@@ -200,6 +353,36 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
     }
   }, [code, theme, streaming])
 
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: view.x,
+      originY: view.y,
+    }
+  }
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    setView((prev) => ({
+      ...prev,
+      x: drag.originX + event.clientX - drag.startX,
+      y: drag.originY + event.clientY - drag.startY,
+    }))
+  }
+
+  const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId !== event.pointerId) return
+    dragRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
   if (streaming) {
     return (
       <figure
@@ -234,21 +417,36 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
     <figure
       data-testid="mermaid"
       aria-label="Mermaid 图表"
-      className="group relative my-3 overflow-x-auto rounded-xl border border-line bg-surface p-3"
+      className="group relative my-3 overflow-x-auto"
     >
       {svg ? (
         <>
+          <div
+            role="button"
+            tabIndex={0}
+            data-testid="mermaid-canvas"
+            aria-label="放大 Mermaid 图表"
+            title="点击放大"
+            onClick={openViewer}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                openViewer()
+              }
+            }}
+            className="mermaid-svg cursor-zoom-in select-none rounded-lg outline-offset-4 focus-visible:outline-2 focus-visible:outline-accent"
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
           <button
             type="button"
             data-testid="mermaid-expand"
             aria-label="放大图表"
             title="放大图表"
-            onClick={() => setExpanded(true)}
+            onClick={openViewer}
             className="absolute right-2 top-2 z-10 cursor-pointer rounded-lg border border-line bg-surface/90 p-1.5 text-muted opacity-70 shadow-card backdrop-blur transition hover:bg-hover hover:text-fg hover:opacity-100 focus:opacity-100"
           >
             <ExpandIcon />
           </button>
-          <div className="mermaid-svg" dangerouslySetInnerHTML={{ __html: svg }} />
         </>
       ) : (
         <p className="py-2 text-center text-[11px] text-subtle">
@@ -265,20 +463,48 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
             aria-modal="true"
             aria-label="Mermaid 图表全屏预览"
             className="fixed inset-0 z-[100] flex flex-col bg-surface"
-            onClick={() => setExpanded(false)}
           >
-            <div
-              className="flex h-14 shrink-0 items-center justify-between border-b border-line/70 px-5"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="flex items-center gap-2 text-sm font-medium text-fg">
+            <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line/70 px-5">
+              <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-fg">
                 <span className="text-muted" aria-hidden="true">
                   ◇
                 </span>
-                Mermaid 图表
+                <span className="truncate">Mermaid 图表</span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="hidden text-[11px] text-subtle sm:inline">Esc 关闭</span>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="hidden text-[11px] text-subtle md:inline">
+                  滚轮缩放 · 拖动平移 · 双击复位 · Esc 关闭
+                </span>
+                <div className="flex items-center gap-0.5 rounded-lg border border-line/70 bg-panel px-1 py-0.5">
+                  <button
+                    type="button"
+                    aria-label="缩小图表"
+                    title="缩小"
+                    onClick={() => zoomBy(1 / ZOOM_STEP)}
+                    className="cursor-pointer rounded-md px-2 py-1 font-mono text-[12px] text-muted transition hover:bg-hover hover:text-fg"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="mermaid-zoom"
+                    aria-label="重置缩放"
+                    title="重置缩放"
+                    onClick={resetView}
+                    className="min-w-12 cursor-pointer rounded-md px-1 py-1 font-mono text-[11px] text-muted transition hover:bg-hover hover:text-fg"
+                  >
+                    {Math.round(view.scale * 100)}%
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="放大图表"
+                    title="放大"
+                    onClick={() => zoomBy(ZOOM_STEP)}
+                    className="cursor-pointer rounded-md px-2 py-1 font-mono text-[12px] text-muted transition hover:bg-hover hover:text-fg"
+                  >
+                    +
+                  </button>
+                </div>
                 <button
                   ref={closeRef}
                   type="button"
@@ -291,12 +517,26 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
                 </button>
               </div>
             </div>
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6">
+            <div
+              ref={viewportRef}
+              data-testid="mermaid-viewport"
+              data-scale={view.scale.toFixed(2)}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerEnd}
+              onPointerCancel={handlePointerEnd}
+              onDoubleClick={resetView}
+              className="relative min-h-0 flex-1 cursor-grab touch-none select-none overflow-hidden active:cursor-grabbing"
+            >
               <div
-                className="mermaid-fullscreen h-full w-full"
-                onClick={(event) => event.stopPropagation()}
-                dangerouslySetInnerHTML={{ __html: svg }}
-              />
+                className="absolute inset-0 origin-center"
+                style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
+              >
+                <div
+                  className="mermaid-fullscreen h-full w-full"
+                  dangerouslySetInnerHTML={{ __html: svg }}
+                />
+              </div>
             </div>
           </div>,
           document.body,

@@ -355,31 +355,37 @@ body {
   }
 }
 
-/* 圆角滚动条：滑块两端收圆，轨道保持透明。 */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar) transparent;
-}
-
+/* 无边框滚动条：只有一枚悬浮的圆角滑块，轨道、边角与两端按钮全部透明。
+   不写 scrollbar-width/scrollbar-color，否则 WebKit 会退回原生滚动条，
+   露出带描边的轨道并在滚动区域末端留下截断的灰条。 */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
+  background: transparent;
 }
 
-::-webkit-scrollbar-track {
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
 }
 
 ::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: 999px;
-  background: var(--scrollbar);
+  background-color: var(--scrollbar);
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--line-strong);
-  background-clip: content-box;
+  background-color: var(--line-strong);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--muted);
 }
 
 @layer components {

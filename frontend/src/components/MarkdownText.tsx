@@ -1,4 +1,12 @@
-import { Children, isValidElement, memo, useDeferredValue, useMemo, type ComponentProps } from 'react'
+import {
+  Children,
+  isValidElement,
+  memo,
+  useDeferredValue,
+  useMemo,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
@@ -16,6 +24,16 @@ const REHYPE_PLUGINS: NonNullable<ComponentProps<typeof ReactMarkdown>['rehypePl
   [rehypeHighlight, { ignoreMissing: true }],
 ]
 
+// isMermaidChild 判断 pre 的子节点是否会被渲染成 Mermaid 图表。
+// react-markdown 传给 pre 的是 code 元素本身，此时还没有渲染成 MermaidBlock，
+// 所以除了组件类型，还要按 language-mermaid 类名兜底。
+function isMermaidChild(child: ReactNode): boolean {
+  if (!isValidElement(child)) return false
+  if (child.type === MermaidBlock) return true
+  const className = (child.props as { className?: unknown }).className
+  return typeof className === 'string' && /(^|\s)language-mermaid(\s|$)/.test(className)
+}
+
 const COMPONENTS: Components = {
   // 外链交给系统浏览器；不覆盖会让 WKWebView 直接跳走整个应用。
   a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer noopener" />,
@@ -32,10 +50,7 @@ const COMPONENTS: Components = {
   },
   // Mermaid 块自带 figure 容器，不能再套一层 <pre>。
   pre: ({ node: _node, children, ...props }) => {
-    const hasMermaid = Children.toArray(children).some(
-      (child) => isValidElement(child) && child.type === MermaidBlock,
-    )
-    if (hasMermaid) return <>{children}</>
+    if (Children.toArray(children).some(isMermaidChild)) return <>{children}</>
     return <pre {...props}>{children}</pre>
   },
 }
