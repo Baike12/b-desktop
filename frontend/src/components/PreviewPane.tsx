@@ -15,10 +15,16 @@ import { useWorkbenchStore } from '../stores/workbench'
 import ChangesPanel from './ChangesPanel'
 import CodeEditor from './CodeEditor'
 import CodeView from './CodeView'
+import { MarkdownText } from './MarkdownText'
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean)
   return parts[parts.length - 1] ?? path
+}
+
+// isMarkdownPath 判断文件是否用 Markdown 渲染；MDX 仍按普通文本预览。
+function isMarkdownPath(path: string): boolean {
+  return /\.(md|markdown)$/i.test(path)
 }
 
 function CloseIcon() {
@@ -124,6 +130,8 @@ export default function PreviewPane() {
   // editing 是正在编辑的文件路径；null 表示处于只读预览态。
   const [editing, setEditing] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // markdownRaw 记录被手动切到原文的 Markdown 文件；默认按渲染态打开。
+  const [markdownRaw, setMarkdownRaw] = useState<ReadonlySet<string>>(() => new Set())
   const sessionRef = useRef(activeId)
 
   // 切换会话时清空已打开的文件：文件路径属于某个工作目录，不能跨会话复用。
@@ -132,6 +140,7 @@ export default function PreviewPane() {
     sessionRef.current = activeId
     setEditing(null)
     setNotice(null)
+    setMarkdownRaw(new Set())
     usePreviewStore.setState({ tabs: [], active: null, files: {} })
   }, [activeId])
 
@@ -202,6 +211,30 @@ export default function PreviewPane() {
     () => (file && !file.image ? detectLanguage(file.path) : null),
     [file],
   )
+  // Markdown 文件默认渲染；用户切到原文后只影响当前 tab。
+  const markdown = Boolean(
+    file && isMarkdownPath(file.path) && !file.loading && !file.error && !file.binary && !file.image,
+  )
+  const showMarkdownSource = Boolean(file && markdown && markdownRaw.has(file.path))
+
+  const setMarkdownRawMode = (path: string, raw: boolean) => {
+    setMarkdownRaw((prev) => {
+      const next = new Set(prev)
+      if (raw) next.add(path)
+      else next.delete(path)
+      return next
+    })
+  }
+
+  // 关闭 tab 后忘掉该文件的显示方式，重新打开时恢复默认的渲染态。
+  const forgetMarkdownMode = (path: string) => {
+    setMarkdownRaw((prev) => {
+      if (!prev.has(path)) return prev
+      const next = new Set(prev)
+      next.delete(path)
+      return next
+    })
+  }
 
   const startEdit = () => {
     if (!file) return
@@ -317,6 +350,7 @@ export default function PreviewPane() {
                       event.stopPropagation()
                       closeTab(tab)
                       if (editing === tab) setEditing(null)
+                      forgetMarkdownMode(tab)
                     }}
                     className="shrink-0 cursor-pointer rounded-sm p-0.5 text-subtle opacity-0 transition hover:bg-hover hover:text-fg group-hover:opacity-100"
                   >
@@ -327,7 +361,43 @@ export default function PreviewPane() {
             })}
         </div>
 
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-1">
+          {file && markdown && editing !== file.path && (
+            <div
+              data-testid="markdown-view-toggle"
+              data-mode={showMarkdownSource ? 'source' : 'rendered'}
+              role="group"
+              aria-label="Markdown 显示方式"
+              className="flex items-center rounded-md border border-line/70 bg-panel p-0.5"
+            >
+              <button
+                type="button"
+                data-testid="markdown-view-rendered"
+                aria-pressed={!showMarkdownSource}
+                onClick={() => setMarkdownRawMode(file.path, false)}
+                className={`cursor-pointer rounded-sm px-2 py-0.5 text-[11px] transition ${
+                  !showMarkdownSource
+                    ? 'bg-surface text-fg shadow-card'
+                    : 'text-muted hover:bg-hover hover:text-fg'
+                }`}
+              >
+                渲染
+              </button>
+              <button
+                type="button"
+                data-testid="markdown-view-source"
+                aria-pressed={showMarkdownSource}
+                onClick={() => setMarkdownRawMode(file.path, true)}
+                className={`cursor-pointer rounded-sm px-2 py-0.5 text-[11px] transition ${
+                  showMarkdownSource
+                    ? 'bg-surface text-fg shadow-card'
+                    : 'text-muted hover:bg-hover hover:text-fg'
+                }`}
+              >
+                原文
+              </button>
+            </div>
+          )}
           {file && editing !== file.path && (
             <button
               type="button"
@@ -430,11 +500,22 @@ export default function PreviewPane() {
                 文件较大，预览已截断。
               </p>
             )}
-            <CodeView
-              content={file.content}
-              language={language}
-              testId="file-preview-content"
-            />
+            {markdown && !showMarkdownSource ? (
+              <div
+                data-testid="file-preview-markdown"
+                className="min-h-0 flex-1 overflow-auto"
+              >
+                <div className="mx-auto w-full max-w-[52rem] px-5 py-6">
+                  <MarkdownText text={file.content} />
+                </div>
+              </div>
+            ) : (
+              <CodeView
+                content={file.content}
+                language={language}
+                testId="file-preview-content"
+              />
+            )}
           </>
         )}
       </div>

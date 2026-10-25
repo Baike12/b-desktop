@@ -19,7 +19,7 @@
 | 职责 | 位置 |
 |---|---|
 | 面板布局（预览 + 文件树） | `frontend/src/App.tsx` |
-| 预览面板：tab 栏、宽度拖动、编辑态 | `frontend/src/components/PreviewPane.tsx` |
+| 预览面板：tab 栏、宽度拖动、Markdown 渲染/原文切换、编辑态 | `frontend/src/components/PreviewPane.tsx` |
 | 文件树：懒加载、右键菜单、拖拽移动 | `frontend/src/components/FileTree.tsx` |
 | 变更列表与单文件差异 | `frontend/src/components/ChangesPanel.tsx` |
 | 带高亮的 diff 渲染 | `frontend/src/components/ReviewDiff.tsx` |
@@ -42,6 +42,16 @@ token 配色（`frontend/src/style.css` 里的 `.hljs-*` 规则），明暗主�
   块级元素复制时会保留换行，行号列 `select-none` 不会进剪贴板。
 - diff 高亮：先把 diff 还原成「改动前」「改动后」两段完整文本分别整体高亮，再按增删关系把 token
   映射回每一行。跨行的块注释与模板字符串因此不会断裂（逐行匹配会断）。
+
+## Markdown 预览
+
+`.md` / `.markdown` 文件默认按渲染态打开，直接复用会话侧的
+`frontend/src/components/MarkdownText.tsx`：GFM、表格、代码高亮、Mermaid 的行为与对话里完全一致，
+不维护第二套 Markdown 管线。
+
+- 顶部工具栏的「渲染 / 原文」分段按钮切换当前 tab；「原文」走带行号的 `CodeView`，编辑入口也直接进源码。
+- 显示方式只保存在 `PreviewPane` 的内存状态里：切换 tab 保留，关闭 tab 或切换会话后恢复默认渲染。
+- `.mdx` 不参与渲染，避免把 JSX 当正文；仍按 `markdown` 语言做源码高亮。
 
 ## 变更审阅
 

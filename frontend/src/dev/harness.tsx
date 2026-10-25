@@ -1439,6 +1439,11 @@ const api = {
       filePreview: document.querySelector('[data-testid="preview-pane"]') !== null,
       filePreviewImage: document.querySelector('[data-testid="file-preview-image"]') !== null,
       filePreviewPath: usePreviewStore.getState().active,
+      filePreviewMarkdown: document.querySelector('[data-testid="file-preview-markdown"]') !== null,
+      markdownViewMode:
+        document
+          .querySelector('[data-testid="markdown-view-toggle"]')
+          ?.getAttribute('data-mode') ?? null,
       filePreviewLines:
         (document.querySelector('[data-testid="file-preview-content"]')?.textContent ?? '').split(
           '\n',
