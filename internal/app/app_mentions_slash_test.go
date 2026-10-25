@@ -46,7 +46,7 @@ func TestExpandAtMentionsFile(t *testing.T) {
 	}
 	text := blocks[0].Text
 	if !strings.Contains(text, `<system-reminder>`) ||
-		!strings.Contains(text, `Called the "Read" tool with the following input: {"file_path": "notes.md"}`) ||
+		!strings.Contains(text, `Called the "Read" tool with the following input: {"file_path":"notes.md"}`) ||
 		!strings.Contains(text, "Result of calling the \"Read\" tool:") ||
 		!strings.Contains(text, "alpha") {
 		t.Fatalf("reminder text = %q", text)
@@ -132,7 +132,7 @@ func TestExpandAtMentionsQuotedPath(t *testing.T) {
 	}
 
 	blocks := app.expandAtMentions(workDir, `读取 @"my docs/a b.txt"`)
-	if len(blocks) != 1 || !strings.Contains(blocks[0].Text, `{"file_path": "my docs/a b.txt"}`) {
+	if len(blocks) != 1 || !strings.Contains(blocks[0].Text, `{"file_path":"my docs/a b.txt"}`) {
 		t.Fatalf("blocks = %+v", blocks)
 	}
 }

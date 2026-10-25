@@ -78,6 +78,18 @@ export interface TaskView {
   summary?: string
 }
 
+// TodoItemView 与 agent.TodoItemView 对应：待办清单里的一条。
+export interface TodoItemView {
+  content: string
+  status: 'pending' | 'in_progress' | 'completed' | string
+  activeForm?: string
+}
+
+// TodoStateView 与 agent.TodoStateView 对应：todo_update 事件的完整快照。
+export interface TodoStateView {
+  items: TodoItemView[]
+}
+
 export type AgentEventType =
   | 'turn_queued'
   | 'turn_start'
@@ -100,6 +112,7 @@ export type AgentEventType =
   | 'message_stop'
   | 'message_discard'
   | 'task_update'
+  | 'todo_update'
   | 'error'
   | 'turn_end'
 
@@ -135,4 +148,6 @@ export interface AgentEvent {
   error?: AgentErrorView
   stopReason?: StopReason | string
   task?: TaskView
+  // todos 是 todo_update 事件的完整清单快照；其他事件恒为 undefined。
+  todos?: TodoStateView
 }

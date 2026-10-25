@@ -905,6 +905,19 @@ const bindings = {
       '先确认要读哪个文件，再决定后续动作：需要看看 README 里写了什么，' +
       '确认工具参数怎么写，最后再总结结论。'
     const INTERLEAVED_TAIL = '读完了：文件里确认了两处待办，下面是结论。'
+    // 模拟一轮 TodoWrite 计划：todo_update 事件驱动右上角计划面板。
+    emitEvent({
+      type: 'todo_update',
+      sessionId,
+      turnId,
+      todos: {
+        items: [
+          { content: '调研现有实现', status: 'completed' },
+          { content: '补齐缺失功能', status: 'in_progress', activeForm: '正在补齐缺失功能' },
+          { content: '端到端验证并构建', status: 'pending' },
+        ],
+      },
+    })
     const steps: Array<() => boolean> = [
       // 思考增量
       () => {
@@ -1160,6 +1173,9 @@ const bindings = {
   ReloadSkills: async () => clone(fakeSkills),
   ListSlashCommands: async (_workDir: string) => [
     { name: 'compact', description: '压缩当前会话上下文，生成摘要并保留最近消息', argumentHint: '', source: 'builtin' },
+    { name: 'clear', description: '清空当前对话，在同一项目下开始新会话', argumentHint: '', source: 'builtin' },
+    { name: 'model', description: '查看或切换模型：/model <模型名>；不带参数打开设置', argumentHint: '', source: 'builtin' },
+    { name: 'export', description: '导出当前会话为 Markdown 文件并复制到剪贴板', argumentHint: '', source: 'builtin' },
     ...fakeSkills.map((skill) => ({
       name: skill.name,
       description: skill.description,
@@ -1193,6 +1209,65 @@ const bindings = {
     })
     return { ...result }
   },
+
+  ListRewindPoints: async (sessionId: string) => {
+    const view = views.get(sessionId)
+    if (!view) return []
+    const points: { messageId: string; preview: string; imageCount: number; timeMs: number }[] = []
+    for (const message of view.messages) {
+      if (message.role !== 'user') continue
+      const text = message.blocks
+        .filter((block) => block.type === 'text')
+        .map((block) => ((block as { text?: string }).text ?? ''))
+        .filter((value) => !value.startsWith('<system-reminder>'))
+        .join('\n')
+      if (!text.trim()) continue
+      points.push({
+        messageId: message.id,
+        preview: Array.from(text).slice(0, 160).join(''),
+        imageCount: 0,
+        timeMs: message.timeMs,
+      })
+    }
+    return points
+  },
+
+  RewindSession: async (sessionId: string, messageId: string) => {
+    const view = views.get(sessionId)
+    if (!view) throw new Error('app: session not found')
+    const index = view.messages.findIndex((message) => message.id === messageId)
+    if (index < 0) throw new Error(`app: rewind session: user message not found: ${messageId}`)
+    const target = view.messages[index]
+    const text = target.blocks
+      .filter((block) => block.type === 'text')
+      .map((block) => ((block as { text?: string }).text ?? ''))
+      .filter((value) => !value.startsWith('<system-reminder>'))
+      .join('\n')
+    view.messages = view.messages.slice(0, index)
+    return { messageId, text, images: [] }
+  },
+
+  ExportSession: async (sessionId: string, _path: string) => {
+    const view = views.get(sessionId)
+    if (!view || view.messages.length === 0) {
+      throw new Error('app: export session: nothing to export')
+    }
+    return {
+      path: `/tmp/bdesk-harness/exports/${sessionId}.md`,
+      messageCount: view.messages.length,
+      bytes: 2048,
+    }
+  },
+
+  CreateTerminal: async (sessionId: string) => ({
+    id: `tty_harness_${sessionId}`,
+    sessionId,
+    workDir: '/tmp/bdesk-harness',
+  }),
+  TerminalWrite: async () => undefined,
+  TerminalResize: async () => undefined,
+  CloseTerminal: async () => undefined,
+
   GetSkillDetail: async (name: string) => {
     const skill = fakeSkills.find((item) => item.name === name)
     if (!skill) throw new Error(`skill not found: ${name}`)

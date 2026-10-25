@@ -1539,6 +1539,8 @@ func (t *turn) emitEvent(typ EventType, mutate func(*Event)) {
 }
 
 // emitToolResult 调用 PostToolUse 钩子并发出一条工具结束事件（完成即发，不整批聚集）。
+// 工具实现 TodoProvider（内置 TodoWrite）时随后补发一条 todo_update，
+// 携带完整清单快照，前端据此渲染计划面板。
 func (t *turn) emitToolResult(c tool.Call, res tool.Result, paths []string) {
 	t.postToolUse(c, res, paths)
 	view := &ToolResultView{
@@ -1556,6 +1558,23 @@ func (t *turn) emitToolResult(c tool.Call, res tool.Result, paths []string) {
 		ev.ToolUseID = c.ToolUseID
 		ev.ToolName = c.Name
 		ev.Result = view
+	})
+	t.emitTodoUpdate(c.Name)
+}
+
+// emitTodoUpdate 在待办类工具执行结束后推送完整清单；不是待办工具或清单为空时不发。
+func (t *turn) emitTodoUpdate(toolName string) {
+	provider, ok := t.engine.todoProvider(toolName)
+	if !ok {
+		return
+	}
+	entries := provider.TodoList()
+	items := make([]TodoItemView, len(entries))
+	for i, entry := range entries {
+		items[i] = TodoItemView{Content: entry.Content, Status: entry.Status, ActiveForm: entry.ActiveForm}
+	}
+	t.emitEvent(EventTodoUpdate, func(ev *Event) {
+		ev.Todos = &TodoStateView{Items: items}
 	})
 }
 

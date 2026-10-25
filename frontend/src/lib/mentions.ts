@@ -41,17 +41,55 @@ export function parseUserMentions(text: string): UserMention[] {
 
 // parseUserAttachmentBlock 从 user 消息的一个 system-reminder 文本块解析附件
 // 摘要；返回 null 表示不是附件块，应并入正文渲染。
+// 伪造 Read 工具对里的输入是紧凑 JSON（json.Marshal 产物），带 offset/limit 时
+// 还原成 cc 风格的 @path#L10-20 标签。
 export function parseUserAttachmentBlock(text: string): UserMention | null {
   if (!text.startsWith('<system-reminder>')) return null
   const command = /<command-name>\/([^<]+)<\/command-name>/.exec(text)
   if (command) return { kind: 'command', label: `/${command[1]}` }
   const read =
-    /Called the "Read" tool with the following input: \{"file_path": "((?:[^"\\]|\\.)*)"\}/.exec(text)
-  if (read) return { kind: 'file', label: unescapeJsonString(read[1]) }
+    /Called the "Read" tool with the following input: (\{[^\n]*\})/.exec(text)
+  if (read) {
+    const input = parseJsonObject(read[1])
+    if (input && typeof input.file_path === 'string') {
+      return { kind: 'file', label: readFileLabel(input) }
+    }
+    return { kind: 'file', label: '附件' }
+  }
   const ls =
-    /Called the "Bash" tool with the following input: \{"command": "ls ((?:[^"\\]|\\.)*)"/.exec(text)
-  if (ls) return { kind: 'directory', label: unescapeJsonString(ls[1]) }
+    /Called the "Bash" tool with the following input: (\{[^\n]*\})/.exec(text)
+  if (ls) {
+    const input = parseJsonObject(ls[1])
+    const commandText = typeof input?.command === 'string' ? input.command : ''
+    const target = commandText.replace(/^ls\s+/, '')
+    if (target) return { kind: 'directory', label: unescapeJsonString(target) }
+  }
   return { kind: 'file', label: '附件' }
+}
+
+// parseJsonObject 安全解析紧凑 JSON 对象。
+function parseJsonObject(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
+    }
+  } catch {
+    // 非法 JSON 走兜底标签。
+  }
+  return null
+}
+
+// readFileLabel 按 offset/limit 还原带行范围的展示标签。
+// offset 是 0 起始行：#L10-20 对应 offset=9、limit=11。
+function readFileLabel(input: Record<string, unknown>): string {
+  const path = unescapeJsonString(String(input.file_path))
+  const offset = typeof input.offset === 'number' ? input.offset : -1
+  const limit = typeof input.limit === 'number' ? input.limit : 0
+  if (offset < 0) return path
+  const start = offset + 1
+  const end = limit > 0 ? offset + limit : null
+  return end === null ? `${path}#L${start}` : `${path}#L${start}-${end}`
 }
 
 // unquoteAtToken 去掉 @token 的成对双引号并处理转义。

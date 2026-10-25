@@ -18,9 +18,20 @@ type SlashCommandDTO struct {
 }
 
 // builtinSlashCommands 是不进入模型消息、由前端本地执行的命令。
-// /compact 交给 CompactSession 绑定；前端 send 对它拦截。
+// /compact 交给 CompactSession 绑定；/clear、/model、/export 由前端 send 拦截实现。
 var builtinSlashCommands = []SlashCommandDTO{
 	{Name: "compact", Description: "压缩当前会话上下文，生成摘要并保留最近消息", Source: "builtin"},
+	{Name: "clear", Description: "清空当前对话，在同一项目下开始新会话", Source: "builtin"},
+	{Name: "model", Description: "查看或切换模型：/model <模型名>；不带参数打开设置", Source: "builtin"},
+	{Name: "export", Description: "导出当前会话为 Markdown 文件并复制到剪贴板", Source: "builtin"},
+}
+
+// builtinCommandNames 是内置本地命令名集合：展开与本地拦截共用。
+var builtinCommandNames = map[string]bool{
+	"compact": true,
+	"clear":   true,
+	"model":   true,
+	"export":  true,
 }
 
 // slashCommandNameRe 校验 / 后第一个 token 形如命令名（与参考实现一致的字符集）。
@@ -29,7 +40,7 @@ var slashCommandNameRe = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.\-]*$`)
 // positionalArgsRe 匹配正文里的位置参数占位符 $1..$9。
 var positionalArgsRe = regexp.MustCompile(`\$[1-9]`)
 
-// ListSlashCommands 返回 / 面板候选：内置命令 + 指定工作目录的可用技能。
+// ListSlashCommands 返回 / 面板候选：内置命令 + 命令目录 + 指定工作目录的技能。
 // workDir 为空时使用应用默认工作目录。
 func (a *App) ListSlashCommands(workDir string) ([]SlashCommandDTO, error) {
 	out := append([]SlashCommandDTO(nil), builtinSlashCommands...)
@@ -38,6 +49,9 @@ func (a *App) ListSlashCommands(workDir string) ([]SlashCommandDTO, error) {
 		return nil, err
 	}
 	for _, s := range loader.List() {
+		if builtinCommandNames[s.Name] {
+			continue
+		}
 		out = append(out, SlashCommandDTO{
 			Name:         s.Name,
 			Description:  s.Description,
@@ -45,13 +59,26 @@ func (a *App) ListSlashCommands(workDir string) ([]SlashCommandDTO, error) {
 			Source:       "skill",
 		})
 	}
+	commands, err := a.commandsComponent(workDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range commands.List() {
+		out = append(out, SlashCommandDTO{
+			Name:         c.Name,
+			Description:  c.Description,
+			ArgumentHint: c.ArgumentHint,
+			Source:       "command",
+		})
+	}
 	return out, nil
 }
 
-// expandSlashCommand 解析以 / 开头的 prompt。命中技能时返回展开后的附件块
-// （<command-name> 面包屑 + 参数替换后的正文，包在 system-reminder 里），
+// expandSlashCommand 解析以 / 开头的 prompt。命中命令目录或技能时返回展开后的
+// 附件块（<command-name> 面包屑 + 参数替换后的正文，包在 system-reminder 里），
 // 与参考实现的消息组装一致：用户原文保留，展开正文追加在原文本块之后。
-// 未命中（含内置命令）返回 nil，调用方按普通文本发送。
+// 未命中（含内置本地命令）返回 nil，调用方按普通文本发送。
+// 命令目录优先于技能：同名时 .md 命令覆盖 SKILL.md 技能。
 func (a *App) expandSlashCommand(workDir, prompt string) []llm.ContentBlock {
 	prompt = strings.TrimSpace(prompt)
 	if !strings.HasPrefix(prompt, "/") {
@@ -59,19 +86,11 @@ func (a *App) expandSlashCommand(workDir, prompt string) []llm.ContentBlock {
 	}
 	name, args, _ := strings.Cut(strings.TrimPrefix(prompt, "/"), " ")
 	name = strings.TrimSpace(name)
-	// compact 是内置本地命令，不展开进模型消息。
-	if !slashCommandNameRe.MatchString(name) || name == "compact" {
+	if !slashCommandNameRe.MatchString(name) || builtinCommandNames[name] {
 		return nil
 	}
-	loader, err := a.skillsComponent(workDir)
-	if err != nil {
-		return nil
-	}
-	if _, ok := loader.Lookup(name); !ok {
-		return nil
-	}
-	body, err := loader.Body(a.lifeCtx(), name)
-	if err != nil {
+	body, ok, err := a.slashCommandBody(workDir, name)
+	if err != nil || !ok {
 		return nil
 	}
 	body = substituteSkillArguments(body, args)
@@ -80,6 +99,26 @@ func (a *App) expandSlashCommand(workDir, prompt string) []llm.ContentBlock {
 		name, name, args, body,
 	)
 	return []llm.ContentBlock{{Type: llm.BlockText, Text: reminder}}
+}
+
+// slashCommandBody 查找命令正文：先命令目录，再技能目录。
+// 第二个返回值报告是否命中。
+func (a *App) slashCommandBody(workDir, name string) (string, bool, error) {
+	if commands, err := a.commandsComponent(workDir); err == nil {
+		if _, ok := commands.Lookup(name); ok {
+			body, err := commands.Body(a.lifeCtx(), name)
+			return body, err == nil, err
+		}
+	}
+	loader, err := a.skillsComponent(workDir)
+	if err != nil {
+		return "", false, err
+	}
+	if _, ok := loader.Lookup(name); !ok {
+		return "", false, nil
+	}
+	body, err := loader.Body(a.lifeCtx(), name)
+	return body, err == nil, err
 }
 
 // substituteSkillArguments 把命令参数替换进技能正文，占位符语义与参考实现一致：

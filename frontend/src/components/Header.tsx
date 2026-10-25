@@ -1,7 +1,27 @@
 import { DRAG_REGION, NO_DRAG } from '../lib/platform'
 import { useSettingsStore } from '../stores/settings'
+import { useTerminalStore } from '../stores/terminal'
 import { useWorkbenchStore } from '../stores/workbench'
 import FilesPanelIcon from './FilesPanelIcon'
+
+// TerminalIcon 是终端面板开关图标。
+function TerminalIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="m7 9 3 3-3 3M12.5 15H17" />
+    </svg>
+  )
+}
 
 // Header 只显示当前会话标题，高度与右侧预览/文件树头部一致（h-9）。
 export default function Header() {
@@ -11,6 +31,8 @@ export default function Header() {
   const error = useWorkbenchStore((state) => state.error)
   const rightSidebarOpen = useSettingsStore((state) => state.rightSidebarOpen)
   const toggleRightSidebar = useSettingsStore((state) => state.toggleRightSidebar)
+  const terminalOpen = useTerminalStore((state) => state.open)
+  const toggleTerminal = useTerminalStore((state) => state.toggle)
 
   return (
     <header className="relative flex h-10 shrink-0 items-center gap-2 border-b border-line/70 bg-surface px-4">
@@ -27,6 +49,22 @@ export default function Header() {
             运行中{step > 0 ? ` · ${step}` : ''}
           </span>
         )}
+        <button
+          type="button"
+          data-testid="terminal-toggle"
+          style={NO_DRAG}
+          aria-pressed={terminalOpen}
+          aria-label={terminalOpen ? '关闭终端' : '打开终端'}
+          title={terminalOpen ? '关闭终端' : '打开终端'}
+          onClick={toggleTerminal}
+          className={
+            terminalOpen
+              ? 'shrink-0 cursor-pointer rounded-md bg-hover p-1 text-fg'
+              : 'shrink-0 cursor-pointer rounded-md p-1 text-subtle transition hover:bg-hover hover:text-fg'
+          }
+        >
+          <TerminalIcon />
+        </button>
         <button
           type="button"
           data-testid="right-sidebar-toggle"

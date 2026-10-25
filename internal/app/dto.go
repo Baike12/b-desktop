@@ -126,6 +126,9 @@ type ProviderConfigDTO struct {
 	PermissionMode  string `json:"permissionMode"`
 	WorkDir         string `json:"workDir"`
 	InitError       string `json:"initError,omitempty"`
+	// SupportsImages 报告当前模型是否接受图像输入（llm.ModelInfoOf 判定），
+	// 前端据此禁用图片附件入口。
+	SupportsImages bool `json:"supportsImages"`
 }
 
 // ProviderConfigInput 是 SetProviderConfig 的入参。
@@ -268,6 +271,7 @@ func toProviderConfigDTO(cfg Config, initErr error) ProviderConfigDTO {
 	if initErr != nil {
 		out.InitError = initErr.Error()
 	}
+	out.SupportsImages = llm.ModelInfoOf(cfg.Model).SupportsImages
 	return out
 }
 

@@ -22,6 +22,10 @@ export function CancelTurn(arg1) {
   return window['go']['app']['App']['CancelTurn'](arg1);
 }
 
+export function CloseTerminal(arg1) {
+  return window['go']['app']['App']['CloseTerminal'](arg1);
+}
+
 export function CompactSession(arg1) {
   return window['go']['app']['App']['CompactSession'](arg1);
 }
@@ -42,6 +46,10 @@ export function CreateSkill(arg1) {
   return window['go']['app']['App']['CreateSkill'](arg1);
 }
 
+export function CreateTerminal(arg1) {
+  return window['go']['app']['App']['CreateTerminal'](arg1);
+}
+
 export function DeleteHook(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['DeleteHook'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -60,6 +68,10 @@ export function DeleteSkill(arg1) {
 
 export function DiscardSessionFile(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['DiscardSessionFile'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function ExportSession(arg1, arg2) {
+  return window['go']['app']['App']['ExportSession'](arg1, arg2);
 }
 
 export function GetProviderConfig() {
@@ -120,6 +132,10 @@ export function ListProjects() {
 
 export function ListRequestTraces(arg1) {
   return window['go']['app']['App']['ListRequestTraces'](arg1);
+}
+
+export function ListRewindPoints(arg1) {
+  return window['go']['app']['App']['ListRewindPoints'](arg1);
 }
 
 export function ListSessionChanges(arg1, arg2) {
@@ -194,6 +210,10 @@ export function RenameSessionFile(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['RenameSessionFile'](arg1, arg2, arg3, arg4);
 }
 
+export function RewindSession(arg1, arg2) {
+  return window['go']['app']['App']['RewindSession'](arg1, arg2);
+}
+
 export function SaveHook(arg1, arg2) {
   return window['go']['app']['App']['SaveHook'](arg1, arg2);
 }
@@ -228,6 +248,14 @@ export function StageSessionFiles(arg1, arg2, arg3) {
 
 export function StopBackgroundTask(arg1) {
   return window['go']['app']['App']['StopBackgroundTask'](arg1);
+}
+
+export function TerminalResize(arg1, arg2, arg3) {
+  return window['go']['app']['App']['TerminalResize'](arg1, arg2, arg3);
+}
+
+export function TerminalWrite(arg1, arg2) {
+  return window['go']['app']['App']['TerminalWrite'](arg1, arg2);
 }
 
 export function UnstageSessionFiles(arg1, arg2, arg3) {

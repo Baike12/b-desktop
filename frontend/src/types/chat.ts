@@ -58,6 +58,8 @@ export type UserItem = {
   text: string
   images?: UserImage[]
   attachments?: UserMention[]
+  // queued 表示这条消息在运行中提交、尚未真正发送（轮次结束后自动发送）。
+  queued?: boolean
   timeMs: number
 }
 

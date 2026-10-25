@@ -151,6 +151,9 @@ type ModelInfo struct {
 	ContextWindow int
 	MaxOutput     int
 	SupportsTools bool
+	// SupportsImages 报告模型是否接受图像输入；未知模型默认 true，
+	// 避免错误拦截视觉模型（纯文本模型发图只会收到供应商报错，可回灌恢复）。
+	SupportsImages bool
 }
 
 // EventType 是流事件的判别字段。

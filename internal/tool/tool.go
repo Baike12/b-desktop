@@ -54,6 +54,20 @@ type Tool interface {
 	Run(ctx context.Context, input json.RawMessage, progress ProgressFunc) (Result, error)
 }
 
+// TodoEntry 是待办清单里的一条目，由前端计划面板直接渲染。
+type TodoEntry struct {
+	Content    string `json:"content"`
+	Status     string `json:"status"`
+	ActiveForm string `json:"activeForm,omitempty"`
+}
+
+// TodoProvider 由维护「会话级待办清单」的工具实现（内置 TodoWrite）。
+// agent 在该工具每次执行结束后读取完整清单并推给前端，前端据此渲染计划面板。
+type TodoProvider interface {
+	// TodoList 返回当前完整清单，按提交顺序排列。
+	TodoList() []TodoEntry
+}
+
 // PathAware 由文件类工具实现，返回本次调用会触及的绝对路径（已解析符号链接）。
 // agent 在权限预检前调用它，把结果填进 permission.Request.Paths，
 // 避免在权限层重复解析文件路径字段。

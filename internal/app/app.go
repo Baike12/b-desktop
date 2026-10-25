@@ -77,6 +77,8 @@ var (
 	ErrTooManyImages = errors.New("app: too many images")
 	// ErrInvalidImage 表示图片附件非法：格式不支持、base64 损坏或超过体积上限。
 	ErrInvalidImage = errors.New("app: invalid image")
+	// ErrModelNoImageSupport 表示当前模型不支持图像输入（llm.ModelInfoOf 判定）。
+	ErrModelNoImageSupport = errors.New("app: model does not support image input")
 	// ErrInvalidProviderConfig 表示 Provider 配置非法。
 	ErrInvalidProviderConfig = errors.New("app: invalid provider config")
 	// ErrProjectDialogCanceled 表示用户取消了打开项目对话框。
@@ -510,12 +512,18 @@ type App struct {
 	projects *project.Store
 	pickDir  DirectoryPicker
 	emitter  *Emitter
+	// sender 与 emitter 内部持有的是同一个 Sender，供 agent:event 之外的
+	// 高频事件通道（terminal:data 等）直接发送；构造后不变。
+	sender   Sender
 	factory  ProviderFactory
 	sessions map[string]*sessionRuntime
 	gen      int64
 	closed   bool
-	turns    sync.WaitGroup
-	initErr  error
+	// started 表示 Wails Startup 已执行：runtime.* 调用（剪贴板、事件）需要
+	// 生命周期 context，未启动时必须跳过而不是 panic。
+	started bool
+	turns   sync.WaitGroup
+	initErr error
 	// extMu 保护 extData：扩展组件（skills / memory / mcp / …）按 key 惰性创建并复用。
 	extMu   sync.Mutex
 	extData map[string]any
@@ -561,6 +569,7 @@ func newApp(cfg Config, sender Sender, store session.Store, factory ProviderFact
 		cfg:      cfg,
 		store:    store,
 		emitter:  NewEmitter(sender),
+		sender:   sender,
 		factory:  factory,
 		sessions: make(map[string]*sessionRuntime),
 	}
@@ -585,6 +594,7 @@ func (a *App) Startup(ctx context.Context) {
 	if ctx != nil {
 		a.ctx = ctx
 	}
+	a.started = true
 	needStore := a.store == nil
 	cfg := a.cfg
 	a.mu.Unlock()
@@ -642,6 +652,8 @@ func (a *App) Shutdown(ctx context.Context) {
 
 	// 轮次已退出，扩展组件不会再有新的调用：先停调度循环，再释放子进程与会话。
 	a.closeExtensions()
+	// 终端进程独立于扩展组件：最后统一回收。
+	a.closeTerminals()
 
 	if store != nil {
 		flushCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -883,6 +895,14 @@ func (a *App) LoadSession(sessionID string) (SessionViewDTO, error) {
 func (a *App) SendMessage(sessionID, prompt string, images []ImageInput) (SendMessageResult, error) {
 	if err := session.ValidateID(sessionID); err != nil {
 		return SendMessageResult{}, fmt.Errorf("app: send message: %w", err)
+	}
+	// 模型能力门控先行：不支持图像的模型直接拒绝，错误只回给前端，
+	// 不把必然失败的请求转成错误工具结果打断对话。
+	if len(images) > 0 {
+		cfgNow, _ := a.configSnapshot()
+		if !llm.ModelInfoOf(cfgNow.Model).SupportsImages {
+			return SendMessageResult{}, fmt.Errorf("%w: %s", ErrModelNoImageSupport, cfgNow.Model)
+		}
 	}
 	promptBlocks, err := a.validateMessageInput(prompt, images)
 	if err != nil {
@@ -1201,6 +1221,13 @@ func (a *App) isClosed() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.closed
+}
+
+// isStarted 报告 Wails 生命周期是否已启动；runtime.* 调用前必须检查。
+func (a *App) isStarted() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.started
 }
 
 // configSnapshot 返回配置与 generation 的快照。

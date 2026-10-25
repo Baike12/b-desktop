@@ -266,6 +266,22 @@ export namespace app {
 		    return a;
 		}
 	}
+	export class ExportResultDTO {
+	    path: string;
+	    messageCount: number;
+	    bytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.messageCount = source["messageCount"];
+	        this.bytes = source["bytes"];
+	    }
+	}
 	
 	export class FileContentDTO {
 	    path: string;
@@ -688,6 +704,7 @@ export namespace app {
 	    permissionMode: string;
 	    workDir: string;
 	    initError?: string;
+	    supportsImages: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProviderConfigDTO(source);
@@ -707,6 +724,7 @@ export namespace app {
 	        this.permissionMode = source["permissionMode"];
 	        this.workDir = source["workDir"];
 	        this.initError = source["initError"];
+	        this.supportsImages = source["supportsImages"];
 	    }
 	}
 	export class ProviderConfigInput {
@@ -766,6 +784,72 @@ export namespace app {
 	        this.stopReason = source["stopReason"];
 	        this.err = source["err"];
 	    }
+	}
+	export class RewindImage {
+	    mediaType: string;
+	    data: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RewindImage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mediaType = source["mediaType"];
+	        this.data = source["data"];
+	    }
+	}
+	export class RewindPointDTO {
+	    messageId: string;
+	    preview: string;
+	    imageCount: number;
+	    timeMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RewindPointDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.messageId = source["messageId"];
+	        this.preview = source["preview"];
+	        this.imageCount = source["imageCount"];
+	        this.timeMs = source["timeMs"];
+	    }
+	}
+	export class RewindResultDTO {
+	    messageId: string;
+	    text: string;
+	    images?: RewindImage[];
+	
+	    static createFrom(source: any = {}) {
+	        return new RewindResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.messageId = source["messageId"];
+	        this.text = source["text"];
+	        this.images = this.convertValues(source["images"], RewindImage);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class RuleDTO {
 	    id: string;
@@ -1121,6 +1205,22 @@ export namespace app {
 	        this.name = source["name"];
 	        this.description = source["description"];
 	        this.path = source["path"];
+	    }
+	}
+	export class TerminalInfoDTO {
+	    id: string;
+	    sessionId: string;
+	    workDir: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TerminalInfoDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.sessionId = source["sessionId"];
+	        this.workDir = source["workDir"];
 	    }
 	}
 	

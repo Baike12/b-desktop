@@ -4,13 +4,17 @@ import {
   CancelTurn,
   CompactSession,
   CreateSession,
+  ExportSession,
   GetProviderConfig,
   ListProjects,
+  ListRewindPoints,
   ListSessions,
   LoadSession,
   OpenProject,
+  RewindSession,
   SendMessage,
   SetPermissionMode,
+  SetProviderConfig,
 } from '../../wailsjs/go/app/App'
 import type { app } from '../../wailsjs/go/models'
 import { addUsage, emptyUsage } from '../lib/format'
@@ -18,10 +22,11 @@ import { parseUserMentions } from '../lib/mentions'
 import { normalizePermissionMode } from '../lib/permission'
 import { reduceAgentEvents, type StreamState } from '../lib/reduceAgentEvents'
 import { viewToItems } from '../lib/sessionView'
-import type { AgentEvent, ApprovalView, PermissionMode, RetryInfo, Usage } from '../types/agent'
+import type { AgentEvent, ApprovalView, PermissionMode, RetryInfo, TodoItemView, Usage } from '../types/agent'
 import type { UserImage } from '../types/chat'
 import type { ChatItem } from '../types/chat'
 import { useAppStore } from './app'
+import { useSettingsStore } from './settings'
 
 let localSeq = 0
 
@@ -39,6 +44,19 @@ export function errorMessage(err: unknown): string {
   } catch {
     return String(err)
   }
+}
+
+// QueuedInput 是运行中排队的一条用户输入；轮次结束后合并发送。
+export interface QueuedInput {
+  text: string
+  images: UserImage[]
+}
+
+// Prefill 是回溯后回填输入框的内容；nonce 用于触发 Composer 消费。
+export interface Prefill {
+  text: string
+  images: UserImage[]
+  nonce: number
 }
 
 function toUsage(value: app.UsageDTO | undefined): Usage {
@@ -94,6 +112,18 @@ export interface WorkbenchState {
   bootstrapping: boolean
   // 文件树刷新信号：每轮结束后自增，右侧栏据此重载已展开目录。
   filesRevision: number
+  // todos 是会话待办清单（todo_update 事件驱动），驱动计划面板。
+  todos: TodoItemView[]
+  // supportsImages 报告当前模型是否接受图像输入（能力门控）。
+  supportsImages: boolean
+  // queues 是每个会话的运行中排队输入；轮次结束后合并发送。
+  queues: Record<string, QueuedInput[]>
+  // 回溯状态：选择器打开时展示 rewindPoints。
+  rewindOpen: boolean
+  rewindPoints: app.RewindPointDTO[]
+  rewindLoading: boolean
+  // prefill 是回溯后回填输入框的内容；Composer 按 nonce 消费。
+  prefill: Prefill | null
 
   init: () => Promise<void>
   setPanel: (panel: PanelId) => void
@@ -111,6 +141,40 @@ export interface WorkbenchState {
   bumpFilesRevision: () => void
   applySessionTitle: (sessionId: string, title: string) => void
   ingest: (events: AgentEvent[]) => void
+  // clearConversation 实现 /clear：同项目开新会话，当前会话保留在历史里。
+  clearConversation: () => Promise<void>
+  // changeModel 实现 /model <模型名>；空参数打开设置页。
+  changeModel: (modelName: string) => Promise<void>
+  // exportConversation 实现 /export：导出 Markdown 并展示路径。
+  exportConversation: () => Promise<void>
+  // openRewind 加载回溯锚点并打开选择器（双击 Esc 或双击用户气泡）。
+  openRewind: () => Promise<void>
+  closeRewind: () => void
+  // rewindTo 回退到指定用户消息之前，并把消息内容回填输入框。
+  rewindTo: (messageId: string) => Promise<void>
+  consumePrefill: () => Prefill | null
+}
+
+// LOCAL_COMMAND_RE 是由前端本地执行的内置命令；后端 expandSlashCommand 对
+// 同名命令不展开（见 internal/app/app_slash.go 的 builtinCommandNames）。
+const LOCAL_COMMAND_RE = /^\/(compact|clear|model|export)(?:\s|$)/
+
+// drainQueue 取走会话的排队输入并合并发送；队列元素在发送前已从 items 移除。
+function drainQueue(sessionId: string): void {
+  const state = useWorkbenchStore.getState()
+  const queued = state.queues[sessionId]
+  if (!queued || queued.length === 0) return
+  useWorkbenchStore.setState((prev) => ({
+    queues: { ...prev.queues, [sessionId]: [] },
+    // 移除排队乐观气泡；send 会追加正式的用户消息。
+    items: prev.items.filter((item) => !(item.kind === 'user' && item.queued)),
+  }))
+  const text = queued
+    .map((item) => item.text)
+    .filter((value) => value !== '')
+    .join('\n\n')
+  const images = queued.flatMap((item) => item.images)
+  void useWorkbenchStore.getState().send(text, images.length > 0 ? images : undefined)
 }
 
 export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
@@ -139,6 +203,13 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   bootstrapped: false,
   bootstrapping: false,
   filesRevision: 0,
+  todos: [],
+  supportsImages: true,
+  queues: {},
+  rewindOpen: false,
+  rewindPoints: [],
+  rewindLoading: false,
+  prefill: null,
 
   init: async () => {
     if (get().bootstrapping || get().bootstrapped) return
@@ -156,6 +227,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         model: config.model,
         contextWindow: config.contextWindow,
         permissionMode: normalizePermissionMode(config.permissionMode),
+        supportsImages: config.supportsImages ?? true,
         error: config.initError ? `后端初始化提示：${config.initError}` : null,
         bootstrapped: true,
         bootstrapping: false,
@@ -214,7 +286,16 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         stopReason: null,
         loading: false,
         error: null,
+        // 清单是会话级的：恢复会话后等下一次 todo_update 再展示。
+        todos: [],
+        rewindOpen: false,
+        rewindPoints: [],
       })
+      // 运行中排队后切走的会话：turn_end 事件当时未经过 ingest，
+      // 回到该会话且已空闲时补发遗留队列。
+      if (!view.running && (get().queues[id]?.length ?? 0) > 0) {
+        drainQueue(id)
+      }
     } catch (err) {
       set({ loading: false, error: errorMessage(err) })
     }
@@ -258,7 +339,31 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   send: async (prompt, images) => {
     const text = prompt.trim()
     const attachments = images ?? []
-    if ((text === '' && attachments.length === 0) || get().running) return
+    if (text === '' && attachments.length === 0) return
+    if (get().running) {
+      // 运行中输入排队（cc 语义）：轮次结束后自动发送。
+      const sessionId = get().activeId
+      if (!sessionId) return
+      set((state) => ({
+        queues: {
+          ...state.queues,
+          [sessionId]: [...(state.queues[sessionId] ?? []), { text, images: attachments }],
+        },
+        items: [
+          ...state.items,
+          {
+            kind: 'user',
+            id: localId('queued'),
+            text,
+            images: attachments.length > 0 ? attachments : undefined,
+            attachments: parseUserMentions(text).length > 0 ? parseUserMentions(text) : undefined,
+            queued: true,
+            timeMs: Date.now(),
+          } as ChatItem,
+        ],
+      }))
+      return
+    }
 
     let sessionId = get().activeId
     if (!sessionId) {
@@ -267,9 +372,19 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       if (!sessionId) return
     }
 
-    // /compact 是内置本地命令：不进入模型消息，直接触发手动压缩。
-    if (/^\/compact(?:\s|$)/.test(text)) {
-      await get().compact()
+    // 内置本地命令：不进入模型消息，由前端直接执行。
+    if (LOCAL_COMMAND_RE.test(text)) {
+      const name = text.slice(1).split(/\s/, 1)[0]
+      const args = text.slice(1 + name.length).trim()
+      if (name === 'compact') {
+        await get().compact()
+      } else if (name === 'clear') {
+        await get().clearConversation()
+      } else if (name === 'model') {
+        await get().changeModel(args)
+      } else if (name === 'export') {
+        await get().exportConversation()
+      }
       return
     }
 
@@ -372,12 +487,13 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     }
   },
 
-  // applyProviderConfig 在设置页保存后同步模型名与上下文窗口；
+  // applyProviderConfig 在设置页保存后同步模型名、上下文窗口与图像能力；
   // 已在运行中的会话在下一轮由后端按新配置重建引擎。
   applyProviderConfig: (config) => {
     set({
       model: config.model,
       contextWindow: config.contextWindow,
+      supportsImages: config.supportsImages ?? true,
     })
   },
 
@@ -414,6 +530,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       roundUsage: previous.roundUsage,
       contextTokens: previous.contextTokens,
       stopReason: previous.stopReason,
+      todos: previous.todos,
     }
     const next = reduceAgentEvents(stream, relevant)
     const ended = relevant.some((event) => event.type === 'turn_end')
@@ -433,12 +550,131 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       stopReason: next.stopReason,
       usage,
       notice: null,
+      todos: next.todos,
       // 一轮结束可能改了文件；右侧文件树据此刷新已展开目录。
       filesRevision: ended ? previous.filesRevision + 1 : previous.filesRevision,
     })
 
     if (ended) {
       void get().refreshSessions()
+      // 轮次结束自动发送排队输入（cc 的队列语义）。
+      if ((get().queues[activeId]?.length ?? 0) > 0) {
+        drainQueue(activeId)
+      }
     }
   },
+
+  // ── 内置本地命令 ────────────────────────────────────────────────
+
+  clearConversation: async () => {
+    const workDir = get().workDir
+    try {
+      const info = await CreateSession({ title: '新会话', workDir: workDir || undefined })
+      set((state) => ({
+        sessions: [info, ...state.sessions.filter((session) => session.id !== info.id)],
+      }))
+      await get().selectSession(info.id)
+    } catch (err) {
+      set({ error: errorMessage(err) })
+    }
+  },
+
+  changeModel: async (modelName) => {
+    const trimmed = modelName.trim()
+    if (trimmed === '') {
+      const { openSettings } = useSettingsStore.getState()
+      openSettings()
+      return
+    }
+    try {
+      const config = await GetProviderConfig()
+      await SetProviderConfig({
+        provider: config.provider,
+        baseUrl: config.baseUrl,
+        model: trimmed,
+        apiKey: '',
+        contextWindow: config.contextWindow,
+        maxOutputTokens: config.maxOutputTokens,
+        thinkingEnabled: config.thinkingEnabled,
+        thinkingBudget: config.thinkingBudget,
+      })
+      const next = await GetProviderConfig()
+      get().applyProviderConfig(next)
+      pushSystemItem(`模型已切换为 ${trimmed}`)
+    } catch (err) {
+      set({ error: errorMessage(err) })
+    }
+  },
+
+  exportConversation: async () => {
+    const sessionId = get().activeId
+    if (!sessionId) return
+    try {
+      const result = await ExportSession(sessionId, '')
+      pushSystemItem(
+        `已导出 ${result.messageCount} 条消息 → ${result.path}（内容已复制到剪贴板）`,
+      )
+    } catch (err) {
+      set({ error: errorMessage(err) })
+    }
+  },
+
+  // ── 回溯（双击 Esc / 双击用户气泡） ─────────────────────────────
+
+  openRewind: async () => {
+    const sessionId = get().activeId
+    if (!sessionId) return
+    if (get().running) {
+      set({ notice: '请先停止当前轮次再回溯' })
+      return
+    }
+    set({ rewindLoading: true })
+    try {
+      const points = await ListRewindPoints(sessionId)
+      set({ rewindPoints: points, rewindOpen: true, rewindLoading: false })
+    } catch (err) {
+      set({ rewindLoading: false, error: errorMessage(err) })
+    }
+  },
+
+  closeRewind: () => set({ rewindOpen: false, rewindPoints: [] }),
+
+  rewindTo: async (messageId) => {
+    const sessionId = get().activeId
+    if (!sessionId) return
+    try {
+      const result = await RewindSession(sessionId, messageId)
+      get().closeRewind()
+      // transcript 已截断：重载会话视图，再把锚点消息回填输入框。
+      await get().selectSession(sessionId)
+      set({
+        prefill: {
+          text: result.text,
+          images: (result.images ?? []).map((img) => ({
+            mediaType: img.mediaType,
+            data: img.data,
+          })),
+          nonce: Date.now(),
+        },
+      })
+    } catch (err) {
+      set({ error: errorMessage(err) })
+    }
+  },
+
+  consumePrefill: () => {
+    const prefill = get().prefill
+    if (prefill) set({ prefill: null })
+    return prefill
+  },
 }))
+
+// pushSystemItem 追加一条本地系统消息（导出结果、模型切换等）。
+function pushSystemItem(text: string): void {
+  useWorkbenchStore.setState((state) => ({
+    items: [
+      ...state.items,
+      { kind: 'system', id: localId('sys'), tone: 'info' as const, text, timeMs: Date.now() },
+    ],
+  }))
+}

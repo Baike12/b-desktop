@@ -226,6 +226,16 @@ func (e *Engine) DrainNotifications() []string {
 // Permissions 返回该引擎使用的权限引擎。
 func (e *Engine) Permissions() *permission.Engine { return e.cfg.Permissions }
 
+// todoProvider 按名查找工具并判断它是否维护待办清单。
+func (e *Engine) todoProvider(name string) (tool.TodoProvider, bool) {
+	tl, ok := e.cfg.Tools.Lookup(name)
+	if !ok {
+		return nil, false
+	}
+	provider, ok := tl.(tool.TodoProvider)
+	return provider, ok
+}
+
 // Extensions 返回装配时注入的扩展集合。
 func (e *Engine) Extensions() Extensions { return e.cfg.Extensions }
 

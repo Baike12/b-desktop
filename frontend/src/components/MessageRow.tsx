@@ -1,4 +1,5 @@
 import { memo, useState } from 'react'
+import { useWorkbenchStore } from '../stores/workbench'
 import type { AssistantBlock, ChatItem } from '../types/chat'
 import { MarkdownText } from './MarkdownText'
 import { ToolCallCard } from './ToolCallCard'
@@ -81,6 +82,8 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }
 // MessageRow 用 memo 包裹：store 只替换发生变化的消息对象，
 // 其余消息保持引用不变，因此长消息流里只有正在流式的那条会重渲染。
 export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem }) {
+  // 双击用户气泡 = 回溯到这条消息（cc 的双击 Esc 等价入口）。
+  const openRewind = useWorkbenchStore((state) => state.openRewind)
   if (item.kind === 'user') {
     // 后台任务唤醒轮的 prompt 是 <task-notification>，不是用户输入：
     // 渲染成居中的系统提示，不占用户气泡。
@@ -96,7 +99,21 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
     }
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md border border-accent/25 bg-accent-soft px-4 py-2.5 shadow-card">
+        <div
+          data-testid={item.queued ? 'queued-message' : 'user-message'}
+          title="双击回溯到这条消息"
+          onDoubleClick={() => void openRewind()}
+          className={`max-w-[85%] rounded-2xl rounded-br-md border px-4 py-2.5 shadow-card ${
+            item.queued
+              ? 'border-dashed border-line bg-panel/60 opacity-80'
+              : 'border-accent/25 bg-accent-soft'
+          }`}
+        >
+          {item.queued && (
+            <p className="mb-1 text-right font-mono text-[10px] tracking-[0.12em] text-subtle">
+              排队中 · 本轮结束后自动发送
+            </p>
+          )}
           {item.attachments && item.attachments.length > 0 && (
             <div
               data-testid="user-attachments"

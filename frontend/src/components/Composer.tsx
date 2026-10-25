@@ -128,6 +128,8 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
   const dismissedRef = useRef<string | null>(null)
   // pendingCaret 是候选写回后的光标位置，在文本更新后应用。
   const pendingCaret = useRef<number | null>(null)
+  // lastEscRef 记录上一次无面板 Esc 的时间：双击 Esc 打开回溯选择器。
+  const lastEscRef = useRef(0)
 
   const status = useAppStore((state) => state.status)
   const running = useWorkbenchStore((state) => state.running)
@@ -136,15 +138,33 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
   const retry = useWorkbenchStore((state) => state.retry)
   const notice = useWorkbenchStore((state) => state.notice)
   const stopReason = useWorkbenchStore((state) => state.stopReason)
+  const supportsImages = useWorkbenchStore((state) => state.supportsImages)
+  const prefill = useWorkbenchStore((state) => state.prefill)
   const activeId = useWorkbenchStore((state) => state.activeId)
   const workDir = useWorkbenchStore((state) => state.workDir)
   const send = useWorkbenchStore((state) => state.send)
   const cancel = useWorkbenchStore((state) => state.cancel)
+  const openRewind = useWorkbenchStore((state) => state.openRewind)
+  const consumePrefill = useWorkbenchStore((state) => state.consumePrefill)
 
   const hero = variant === 'hero'
+  // running 时仍可输入：提交进入队列，本轮结束后自动发送（cc 语义）。
   const canSend =
-    status === 'ready' && !running && !loading && (text.trim() !== '' || images.length > 0)
+    status === 'ready' && !loading && (text.trim() !== '' || images.length > 0)
   const hasStatus = compacting || retry !== null || notice !== null
+
+  // 消费回溯回填：rewindTo 完成后把锚点消息放回输入框（按 nonce 触发）。
+  useEffect(() => {
+    if (!prefill) return
+    setText(prefill.text)
+    setImages(prefill.images)
+    setImageNames(prefill.images.map((_, index) => `图片 ${index + 1}`))
+    setImageError(null)
+    consumePrefill()
+    textareaRef.current?.focus()
+    // nonce 是唯一的触发信号；其余依赖故意省略。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill?.nonce])
 
   const candidates = useMemo<SuggestCandidate[]>(() => {
     if (!suggest) return []
@@ -313,10 +333,26 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
       closeSuggest()
       return
     }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      handleBareEscape()
+      return
+    }
     if (event.key !== 'Enter' || event.shiftKey) return
     if (event.nativeEvent.isComposing) return
     event.preventDefault()
     submit()
+  }
+
+  // handleBareEscape 实现双击 Esc：两次无面板 Esc（500ms 内）打开回溯选择器。
+  const handleBareEscape = () => {
+    const now = Date.now()
+    if (now - lastEscRef.current < 500) {
+      lastEscRef.current = 0
+      void openRewind()
+      return
+    }
+    lastEscRef.current = now
   }
 
   return (
@@ -429,6 +465,7 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
             onChange={(event) => handleChange(event.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={(event) => {
+              if (!supportsImages) return
               const files = Array.from(event.clipboardData.files ?? [])
               if (files.some((file) => file.type.startsWith('image/'))) {
                 event.preventDefault()
@@ -438,7 +475,11 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
             rows={3}
             disabled={status !== 'ready'}
             placeholder={
-              status === 'ready' ? '输入消息，@ 引用文件，/ 调用命令，可粘贴图片' : '后端未连接'
+              status !== 'ready'
+                ? '后端未连接'
+                : running
+                  ? '运行中输入将排队，本轮结束后自动发送'
+                  : '输入消息，@ 引用文件，/ 调用命令，双击 Esc 回溯'
             }
             className="composer-input w-full resize-none rounded-t-2xl bg-transparent px-4 py-3 text-sm leading-6 text-fg outline-none placeholder:text-subtle disabled:cursor-not-allowed"
           />
@@ -458,10 +499,10 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
               <button
                 type="button"
                 data-testid="attach-image"
-                title="添加图片"
-                disabled={status !== 'ready'}
+                title={supportsImages ? '添加图片' : '当前模型不支持图片输入'}
+                disabled={status !== 'ready' || !supportsImages}
                 onClick={() => fileInputRef.current?.click()}
-                className="shrink-0 cursor-pointer rounded-md border border-line bg-raised p-1.5 text-subtle transition hover:border-accent hover:text-accent-text disabled:cursor-not-allowed"
+                className="shrink-0 cursor-pointer rounded-md border border-line bg-raised p-1.5 text-subtle transition hover:border-accent hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <AttachIcon />
               </button>
@@ -505,11 +546,13 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
               )}
               <button
                 type="button"
+                data-testid={running ? 'queue-send' : 'send'}
                 onClick={submit}
                 disabled={!canSend}
+                title={running ? '排队：本轮结束后自动发送' : '发送'}
                 className="shrink-0 cursor-pointer rounded-full bg-accent px-4 py-1.5 text-[11px] font-medium text-on-accent shadow-card transition hover:bg-accent-hover active:translate-y-px disabled:cursor-not-allowed disabled:bg-hover disabled:text-subtle disabled:shadow-none"
               >
-                发送
+                {running ? '排队' : '发送'}
               </button>
             </div>
           </div>

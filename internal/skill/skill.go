@@ -245,6 +245,12 @@ func (l *Loader) ExtraContext(ctx context.Context, sessionID, workDir, prompt st
 	return strings.TrimRight(b.String(), "\n")
 }
 
+// ParseFrontmatter 解析文件开头的 --- 块，识别 name、description 与 argument-hint。
+// 返回解析到的字段与正文。commands 包复用同一套 frontmatter 语义。
+func ParseFrontmatter(content string) (name, description, argumentHint, body string) {
+	return parseFrontmatter(content)
+}
+
 // parseFrontmatter 解析文件开头的 --- 块，识别 name、description 与 argument-hint。
 // 返回解析到的字段、正文以及是否找到 frontmatter。
 func parseFrontmatter(content string) (name, description, argumentHint, body string) {

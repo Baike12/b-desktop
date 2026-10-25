@@ -1,4 +1,4 @@
-import type { AgentEvent, ApprovalView, RetryInfo, Usage } from '../types/agent'
+import type { AgentEvent, ApprovalView, RetryInfo, TodoItemView, Usage } from '../types/agent'
 import type { AssistantBlock, AssistantItem, ChatItem, ToolStatus } from '../types/chat'
 
 // StreamState 是 agent 事件影响的状态子集，便于纯函数式归并。
@@ -12,6 +12,7 @@ export interface StreamState {
   roundUsage: Usage | null
   contextTokens: number
   stopReason: string | null
+  todos: TodoItemView[]
 }
 
 // Draft 在一帧内对 items 做写时复制：数组只复制一次，单条消息只在首次修改时复制，
@@ -274,6 +275,7 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
   let roundUsage = state.roundUsage
   let contextTokens = state.contextTokens
   let stopReason = state.stopReason
+  let todos = state.todos
 
   for (const ev of events) {
     const timeMs = ev.timeMs || Date.now()
@@ -472,6 +474,11 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         pushSystem(draft, task.status === 'failed' ? 'error' : 'info', summary, timeMs)
         break
       }
+      case 'todo_update': {
+        // 每次都是完整清单快照，整体替换。
+        todos = ev.todos?.items ?? []
+        break
+      }
       case 'message_stop': {
         markMessageStreaming(draft, ev.messageId, false)
         clearMessageActive(draft, ev.messageId)
@@ -534,5 +541,6 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
     roundUsage,
     contextTokens,
     stopReason,
+    todos,
   }
 }

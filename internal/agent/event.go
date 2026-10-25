@@ -36,6 +36,7 @@ const (
 	EventMessageStop        EventType = "message_stop"        // EventMessageStop 表示一条 assistant 消息结束。
 	EventMessageDiscard     EventType = "message_discard"     // EventMessageDiscard 表示丢弃未完成的 assistant 消息。
 	EventTaskUpdate         EventType = "task_update"         // EventTaskUpdate 表示一个后台任务状态变化。
+	EventTodoUpdate         EventType = "todo_update"         // EventTodoUpdate 表示会话待办清单整体变化。
 	EventError              EventType = "error"               // EventError 表示可展示的错误。
 	EventTurnEnd            EventType = "turn_end"            // EventTurnEnd 表示轮次结束，一定是本轮最后一个事件。
 )
@@ -78,6 +79,20 @@ type Event struct {
 	Error         *ErrorView     `json:"error,omitempty"`
 	StopReason    StopReason     `json:"stopReason,omitempty"`
 	Task          *TaskView      `json:"task,omitempty"`
+	// Todos 是 todo_update 事件的完整清单快照；其他事件恒为 nil。
+	Todos *TodoStateView `json:"todos,omitempty"`
+}
+
+// TodoStateView 是待办清单的前端视图，条目按提交顺序排列。
+type TodoStateView struct {
+	Items []TodoItemView `json:"items"`
+}
+
+// TodoItemView 是一条待办。
+type TodoItemView struct {
+	Content    string `json:"content"`
+	Status     string `json:"status"`
+	ActiveForm string `json:"activeForm,omitempty"`
 }
 
 // TaskView 是一次后台任务状态变化的前端视图。

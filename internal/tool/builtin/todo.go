@@ -100,6 +100,17 @@ func (t *TodoWrite) ConcurrencySafe(json.RawMessage) bool { return true }
 // AlwaysAllow 报告该工具在任何权限模式下都默认放行（无文件、无进程副作用）。
 func (t *TodoWrite) AlwaysAllow() bool { return true }
 
+// TodoList 返回当前完整清单（tool.TodoProvider 契约）。
+func (t *TodoWrite) TodoList() []tool.TodoEntry {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make([]tool.TodoEntry, len(t.items))
+	for i, item := range t.items {
+		out[i] = tool.TodoEntry{Content: item.Content, Status: item.Status, ActiveForm: item.ActiveForm}
+	}
+	return out
+}
+
 // Run 校验并替换清单，返回渲染后的文本。
 func (t *TodoWrite) Run(_ context.Context, input json.RawMessage, _ tool.ProgressFunc) (tool.Result, error) {
 	var in todoInput

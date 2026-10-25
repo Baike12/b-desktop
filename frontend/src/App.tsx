@@ -8,13 +8,17 @@ import MascotStage from './components/MascotStage'
 import MessageList from './components/MessageList'
 import PermissionDialog from './components/PermissionDialog'
 import PreviewPane from './components/PreviewPane'
+import RewindPicker from './components/RewindPicker'
 import SettingsDialog from './components/SettingsDialog'
 import Sidebar from './components/Sidebar'
+import TerminalPanel from './components/TerminalPanel'
+import TodoPanel from './components/TodoPanel'
 import WorkspaceView from './components/WorkspaceView'
 import { useAgentEvents } from './hooks/useAgentEvents'
 import { useSessionTitleEvents } from './hooks/useSessionTitleEvents'
 import { applyTheme } from './lib/theme'
 import { useSettingsStore } from './stores/settings'
+import { useTerminalStore } from './stores/terminal'
 import { useWorkbenchStore } from './stores/workbench'
 
 // App 是三栏工作台：左侧项目与任务列表，中间对话，右侧「文件预览 + 文件树」。
@@ -59,7 +63,11 @@ export default function App() {
       <div className="floating-pane relative flex min-w-0 flex-1 overflow-hidden border border-line bg-surface">
         <div
           data-testid="chat-view"
-          className={activePanel === 'chat' ? 'flex min-h-0 min-w-0 flex-1 flex-col' : 'hidden'}
+          className={
+            activePanel === 'chat'
+              ? 'relative flex min-h-0 min-w-0 flex-1 flex-col'
+              : 'hidden'
+          }
         >
           <Header />
           {welcome ? (
@@ -91,11 +99,13 @@ export default function App() {
             </main>
           ) : (
             <>
+              <TodoPanel />
               <MessageList />
               <AskUserQuestionDock />
               <Composer />
             </>
           )}
+          <TerminalDrawer />
         </div>
         {activePanel !== 'chat' && <WorkspaceView panel={activePanel} />}
         {rightSidebarOpen && (
@@ -106,7 +116,17 @@ export default function App() {
         )}
       </div>
       <PermissionDialog />
+      <RewindPicker />
       <SettingsDialog />
     </div>
   )
+}
+
+// TerminalDrawer 只在对话视图渲染终端抽屉；store.open 控制展开。
+// 挂载本身零成本：未展开时组件直接返回 null。
+function TerminalDrawer() {
+  const activePanel = useWorkbenchStore((state) => state.activePanel)
+  const terminalOpen = useTerminalStore((state) => state.open)
+  if (activePanel !== 'chat' || !terminalOpen) return null
+  return <TerminalPanel />
 }

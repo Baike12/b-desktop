@@ -2,7 +2,10 @@ module github.com/Baike12/b-desktop
 
 go 1.26.5
 
-require github.com/wailsapp/wails/v2 v2.17.0
+require (
+	github.com/creack/pty v1.1.24
+	github.com/wailsapp/wails/v2 v2.17.0
+)
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
