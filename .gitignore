@@ -1,6 +1,7 @@
 # Wails build output
 build/bin/
 build/darwin/
+build/dist/
 build/windows/
 build/linux/
 
