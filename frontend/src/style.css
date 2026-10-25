@@ -156,6 +156,12 @@
   animation: mascot-pose-blink 5.2s steps(1, end) calc(var(--mascot-delay, 0s) + 1.4s) infinite;
 }
 
+/* 躺平休息只有一张闭眼素材，用慢呼吸代替眨眼。 */
+.mascot-pose[data-mascot-pose='resting'] .mascot-pose-bob {
+  transform-origin: 50% 92%;
+  animation: mascot-pose-rest 5.6s ease-in-out var(--mascot-delay, 0s) infinite;
+}
+
 @keyframes mascot-pose-idle {
   0%,
   100% {
@@ -163,6 +169,16 @@
   }
   50% {
     transform: translateY(-2.4%) rotate(0.9deg) scale(1.012);
+  }
+}
+
+@keyframes mascot-pose-rest {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-0.8%) scale(1.008, 1.025);
   }
 }
 

@@ -296,6 +296,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       if (!view.running && (get().queues[id]?.length ?? 0) > 0) {
         drainQueue(id)
       }
+      // 列表里的运行/提问状态来自后台，切换会话时同步一次。
+      void get().refreshSessions()
     } catch (err) {
       set({ loading: false, error: errorMessage(err) })
     }

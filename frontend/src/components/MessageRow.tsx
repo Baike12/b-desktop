@@ -9,23 +9,6 @@ function blockKey(block: AssistantBlock): string {
   return `${block.kind}-${block.index}`
 }
 
-function SparkIcon({ active }: { active: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`size-3 shrink-0 ${active ? 'animate-pulse text-accent-text' : 'text-subtle'}`}
-      aria-hidden="true"
-    >
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
-    </svg>
-  )
-}
-
 function ChevronIcon() {
   return (
     <svg
@@ -69,10 +52,10 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }
         className="flex w-full cursor-pointer select-none list-none items-center gap-1.5 px-3 py-2 font-mono text-[10px] tracking-[0.12em] text-subtle transition hover:bg-hover hover:text-fg [&::-webkit-details-marker]:hidden"
       >
         <span
-          data-testid={streaming ? 'thinking-mascot' : undefined}
+          data-testid="thinking-mascot"
           className="-my-1.5 flex size-7 shrink-0 items-center justify-center"
         >
-          {streaming ? <MascotPose pose="thinking" className="h-7" /> : <SparkIcon active={false} />}
+          <MascotPose pose="thinking" className="h-7" />
         </span>
         <span className="uppercase">{streaming ? '思考中' : '思考过程'}</span>
         <span className="normal-case tracking-normal">{text.length} 字</span>

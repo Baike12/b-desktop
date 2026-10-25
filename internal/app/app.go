@@ -491,6 +491,16 @@ func (rt *sessionRuntime) isRunning() bool {
 	return rt.running
 }
 
+// questioning 报告该会话是否正在等待 AskUserQuestion 的回答。
+func (rt *sessionRuntime) questioning() bool {
+	for _, view := range rt.approvals.Pending(rt.id) {
+		if view.ToolName == "AskUserQuestion" {
+			return true
+		}
+	}
+	return false
+}
+
 // permissionMode 返回该会话显式选择的权限模式；空表示沿用全局配置。
 func (rt *sessionRuntime) permissionMode() permission.Mode {
 	rt.mu.Lock()
@@ -837,10 +847,13 @@ func (a *App) ListSessions() ([]SessionInfoDTO, error) {
 	out := make([]SessionInfoDTO, 0, len(infos))
 	for _, info := range infos {
 		running := false
+		questioning := false
 		if rt := runtimes[info.ID]; rt != nil {
 			running = rt.isRunning()
+			questioning = rt.questioning()
 		}
 		item := toSessionInfoDTO(info, running)
+		item.Questioning = questioning
 		item.ProjectPath = projectPathForWorkDir(info.WorkDir, projects)
 		out = append(out, item)
 	}

@@ -966,6 +966,51 @@ func TestApproveToolDeliversResponse(t *testing.T) {
 	}
 }
 
+func TestListSessionsReportsQuestioning(t *testing.T) {
+	app, _ := newTestApp(t, newFakeProvider())
+	info := createTestSession(t, app)
+
+	rt, err := app.runtimeOf(info.ID)
+	if err != nil {
+		t.Fatalf("runtimeOf: %v", err)
+	}
+	assertQuestioning := func(want bool) {
+		t.Helper()
+		list, err := app.ListSessions()
+		if err != nil {
+			t.Fatalf("ListSessions: %v", err)
+		}
+		for _, item := range list {
+			if item.ID != info.ID {
+				continue
+			}
+			if item.Questioning != want {
+				t.Fatalf("questioning = %v, want %v", item.Questioning, want)
+			}
+			return
+		}
+		t.Fatalf("session %s not found", info.ID)
+	}
+
+	assertQuestioning(false)
+	_, cleanupBash := rt.approvals.Prepare(permission.ApprovalView{
+		RequestID: "req_bash",
+		SessionID: info.ID,
+		ToolName:  "Bash",
+	})
+	assertQuestioning(false)
+	cleanupBash()
+
+	_, cleanupAsk := rt.approvals.Prepare(permission.ApprovalView{
+		RequestID: "req_ask",
+		SessionID: info.ID,
+		ToolName:  "AskUserQuestion",
+	})
+	assertQuestioning(true)
+	cleanupAsk()
+	assertQuestioning(false)
+}
+
 // TestSetPermissionModePersistsPerSession 验证权限模式是会话级的：
 // 切换后 LoadSession 返回新值、transcript 写入 mode 记录，全局配置不变。
 func TestSetPermissionModePersistsPerSession(t *testing.T) {

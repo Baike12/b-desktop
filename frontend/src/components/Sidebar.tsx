@@ -167,10 +167,23 @@ interface SessionRowProps {
   session: app.SessionInfoDTO
   active: boolean
   onSelect: (id: string) => void | Promise<void>
+  // 当前会话的状态以 store 为准，其余会话使用列表接口返回的状态。
+  liveRunning?: boolean
+  questioning?: boolean
 }
 
 // SessionRow 用 memo 固定：只有自身 session 对象或选中态变化时才重渲染。
-const SessionRow = memo(function SessionRow({ session, active, onSelect }: SessionRowProps) {
+const SessionRow = memo(function SessionRow({
+  session,
+  active,
+  onSelect,
+  liveRunning,
+  questioning = false,
+}: SessionRowProps) {
+  const running = liveRunning ?? session.running
+  // 会话行图标常驻：提问中、运行中、完成后各对应一个姿态。
+  const pose = questioning ? 'question' : running ? 'working' : 'resting'
+
   return (
     <button
       type="button"
@@ -184,13 +197,27 @@ const SessionRow = memo(function SessionRow({ session, active, onSelect }: Sessi
       }
     >
       <span className="flex items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{session.title}</span>
-        {session.running && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-accent" />}
-      </span>
-      <span className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-subtle">
-        <span className="truncate">{formatRelative(session.updatedAtMs)}</span>
-        <span>·</span>
-        <span>{session.messages}</span>
+        <span
+          data-testid="session-mascot"
+          className="flex h-6 w-[30px] shrink-0 items-center justify-center"
+        >
+          {pose === 'question' && <MascotPose pose="question" className="h-6" />}
+          {pose === 'working' && <MascotPose pose="working" className="h-6" />}
+          {pose === 'resting' && <MascotPose pose="resting" className="h-5 w-[30px]" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate text-[12.5px] text-fg">{session.title}</span>
+            {running && (
+              <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-accent" />
+            )}
+          </span>
+          <span className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-subtle">
+            <span className="truncate">{formatRelative(session.updatedAtMs)}</span>
+            <span>·</span>
+            <span>{session.messages}</span>
+          </span>
+        </span>
       </span>
     </button>
   )
@@ -200,6 +227,8 @@ interface ProjectSectionProps {
   project: app.ProjectDTO
   sessions: app.SessionInfoDTO[]
   activeId: string | null
+  activeRunning: boolean
+  activeQuestioning: boolean
   open: boolean
   onToggle: (path: string) => void
   onSelect: (id: string) => void | Promise<void>
@@ -212,6 +241,8 @@ const ProjectSection = memo(function ProjectSection({
   project,
   sessions,
   activeId,
+  activeRunning,
+  activeQuestioning,
   open,
   onToggle,
   onSelect,
@@ -274,6 +305,10 @@ const ProjectSection = memo(function ProjectSection({
                 key={session.id}
                 session={session}
                 active={session.id === activeId}
+                liveRunning={session.id === activeId ? activeRunning : undefined}
+                questioning={
+                  session.id === activeId ? activeQuestioning : session.questioning
+                }
                 onSelect={onSelect}
               />
             ))
@@ -291,6 +326,7 @@ export default function Sidebar() {
   const workDir = useWorkbenchStore((state) => state.workDir)
   const loading = useWorkbenchStore((state) => state.loading)
   const running = useWorkbenchStore((state) => state.running)
+  const approvals = useWorkbenchStore((state) => state.approvals)
   const newSession = useWorkbenchStore((state) => state.newSession)
   const openProject = useWorkbenchStore((state) => state.openProject)
   const selectSession = useWorkbenchStore((state) => state.selectSession)
@@ -313,6 +349,8 @@ export default function Sidebar() {
     () => groupSessionsByProject(projects, sessions),
     [projects, sessions],
   )
+  // 当前会话的提问状态以实时审批为准，列表接口只用于其他会话。
+  const activeQuestioning = approvals.some((item) => item.toolName === 'AskUserQuestion')
 
   // 当前会话所属项目始终展开；“新建任务”也优先落在该项目里。
   // 工作树会话的 workDir 不是项目路径，优先使用后端标注的 projectPath。
@@ -449,15 +487,6 @@ export default function Sidebar() {
           })}
         </nav>
         <div className="flex-1" />
-        {running && (
-          <div
-            data-testid="sidebar-mascot"
-            className="mb-2 flex justify-center"
-            title="噜噜干活中"
-          >
-            <MascotPose pose="working" className="h-11" />
-          </div>
-        )}
         <button
           type="button"
           data-testid="settings-button"
@@ -602,6 +631,8 @@ export default function Sidebar() {
               project={project}
               sessions={items}
               activeId={activeId}
+              activeRunning={running}
+              activeQuestioning={activeQuestioning}
               open={open}
               onToggle={toggleProject}
               onSelect={selectSession}
@@ -622,6 +653,10 @@ export default function Sidebar() {
                   key={session.id}
                   session={session}
                   active={session.id === activeId}
+                  liveRunning={session.id === activeId ? running : undefined}
+                  questioning={
+                    session.id === activeId ? activeQuestioning : session.questioning
+                  }
                   onSelect={selectSession}
                 />
               ))}
@@ -629,22 +664,6 @@ export default function Sidebar() {
           </section>
         )}
       </nav>
-
-      {running && (
-        <div
-          data-testid="sidebar-mascot"
-          className="mx-2 mb-1 flex items-center gap-2.5 rounded-lg border border-line/80 bg-surface px-2.5 py-2 shadow-card"
-        >
-          <MascotPose pose="working" className="h-11" />
-          <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium text-fg">噜噜干活中</p>
-            <p className="mt-0.5 flex items-center gap-1 font-mono text-[10px] tracking-[0.1em] text-subtle">
-              <span className="size-1.5 animate-pulse rounded-full bg-accent" />
-              正在执行任务
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="px-2 py-2">
         <button

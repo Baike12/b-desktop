@@ -923,6 +923,7 @@ export namespace app {
 	    messages: number;
 	    updatedAtMs: number;
 	    running: boolean;
+	    questioning: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new SessionInfoDTO(source);
@@ -937,6 +938,7 @@ export namespace app {
 	        this.messages = source["messages"];
 	        this.updatedAtMs = source["updatedAtMs"];
 	        this.running = source["running"];
+	        this.questioning = source["questioning"];
 	    }
 	}
 	export class SessionSearchHitDTO {

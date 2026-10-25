@@ -40,7 +40,7 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 | `window.__bdesk.openChanges()` | 打开「变更」审阅标签 |
 | `window.__bdesk.text()` / `bootErrors()` | 页面文本 / 启动期错误 |
 
-`metrics()` 覆盖：`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`toolMascots`、`toolMascotPoses`、`thinkingMascot`、`askMascot`、`sidebarMascot`、`sidebarMascotPose`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
+`metrics()` 覆盖：`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`toolMascots`、`toolMascotPoses`、`thinkingMascot`、`askMascot`、`sessionMascots`、`sessionMascotPoses`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
 
 右侧文件面板另有：`fileRows`、`filePaths`、`filePreview`、`filePreviewImage`、`filePreviewPath`、`filePreviewMarkdown`、`markdownViewMode`、`filePreviewLines`、`previewPaneWidth`、`previewTabs`、`previewTokens`、`changesPanel`、`changeRows`、`reviewDiff`、`diffTokens`。
 
@@ -60,7 +60,7 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 - 语法高亮：`main.go` / `src/main.rs` / `src/widget.c` / `src/App.tsx` 打开后 `previewTokens` 均大于 0（关键字、字符串、标题、注释分别着色）。
 - 变更审阅：`openChanges()` 后 `changesPanel === true`、`changeRows === 2`；展开某个文件后 `reviewDiff === true` 且 `diffTokens` 大于 0。
 - 文件操作：新建文件后树里出现新条目并自动打开；重命名、移动、删除都会刷新树并给出提示；删除需要二次确认。
-- 噜噜状态：注入运行中的 Read / Write / Bash、流式 thinking 与 AskUserQuestion 审批后，工具行依次显示 reading / writing / working，思考卡显示 thinking，提问卡显示 question，侧边栏显示 working；一轮结束后工具行与侧边栏回到静态图标和品牌头像。
+- 噜噜状态：工具行前始终显示状态图标（Read / Glob / Grep / WebFetch / WebSearch → reading，Write / Edit / MultiEdit / NotebookEdit → writing，Bash / PowerShell → bash，Task / TodoWrite 等 → working）；思考卡前为 thinking，AskUserQuestion 提问卡为 question；会话列表行图标常驻，等待回答时显示 question、运行中显示 working、其余显示 resting。一轮结束后工具行图标保持在历史里，会话行从 working 回到 resting。
 - 启动期 `bootErrors()` 为空。
 
 ## 约束

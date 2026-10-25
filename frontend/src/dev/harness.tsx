@@ -108,6 +108,7 @@ interface FakeSessionInfo {
   messages: number
   updatedAtMs: number
   running: boolean
+  questioning: boolean
 }
 
 const MARKDOWN_REPLY = [
@@ -233,6 +234,7 @@ const sessions: FakeSessionInfo[] = [
     messages: 3,
     updatedAtMs: NOW - 100_000,
     running: false,
+    questioning: false,
   },
   {
     id: SESSION_EMPTY,
@@ -242,6 +244,7 @@ const sessions: FakeSessionInfo[] = [
     messages: 0,
     updatedAtMs: NOW - 3_600_000,
     running: false,
+    questioning: false,
   },
   {
     id: SESSION_ORPHAN,
@@ -250,6 +253,7 @@ const sessions: FakeSessionInfo[] = [
     messages: 0,
     updatedAtMs: NOW - 172_800_000,
     running: false,
+    questioning: false,
   },
 ]
 
@@ -852,6 +856,7 @@ const bindings = {
       messages: 0,
       updatedAtMs: Date.now(),
       running: false,
+      questioning: false,
     }
     sessions.unshift(info)
     return clone(info)
@@ -1479,11 +1484,10 @@ const api = {
       ].map((element) => element.getAttribute('data-mascot-pose')),
       thinkingMascot: document.querySelector('[data-testid="thinking-mascot"]') !== null,
       askMascot: document.querySelector('[data-testid="ask-mascot"]') !== null,
-      sidebarMascot: document.querySelector('[data-testid="sidebar-mascot"]') !== null,
-      sidebarMascotPose:
-        document
-          .querySelector('[data-testid="sidebar-mascot"] [data-mascot-pose]')
-          ?.getAttribute('data-mascot-pose') ?? null,
+      sessionMascots: document.querySelectorAll('[data-testid="session-mascot"]').length,
+      sessionMascotPoses: [
+        ...document.querySelectorAll('[data-testid="session-mascot"] [data-mascot-pose]'),
+      ].map((element) => element.getAttribute('data-mascot-pose')),
       items: useWorkbenchStore.getState().items.length,
       running: useWorkbenchStore.getState().running,
       permissionMode: useWorkbenchStore.getState().permissionMode,

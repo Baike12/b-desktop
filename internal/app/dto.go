@@ -51,6 +51,8 @@ type SessionInfoDTO struct {
 	Messages    int    `json:"messages"`
 	UpdatedAtMS int64  `json:"updatedAtMs"`
 	Running     bool   `json:"running"`
+	// Questioning 表示该会话正在等待 AskUserQuestion 的回答。
+	Questioning bool `json:"questioning"`
 }
 
 // ProjectDTO 是侧边栏项目列表项。Path 是解析后的绝对路径，

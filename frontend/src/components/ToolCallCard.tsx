@@ -15,8 +15,6 @@ interface ToolDiff {
 
 const EDIT_TOOLS = new Set(['edit', 'write', 'multiedit', 'notebookedit'])
 
-const ACTIVE_STATUSES = new Set<ToolStatus>(['pending', 'running', 'waiting'])
-
 function readString(record: Record<string, unknown>, keys: readonly string[]): string | undefined {
   for (const key of keys) {
     const value = record[key]
@@ -70,73 +68,6 @@ const STATUS_META: Record<ToolStatus, { label: string; text: string; dot: string
   denied: { label: '已拒绝', text: 'text-danger-text', dot: 'bg-danger' },
 }
 
-// ToolIcon 按工具名给出类别图标，让摘要行在不加卡片的情况下仍可快速扫读。
-function ToolIcon({ name }: { name: string }) {
-  const normalized = name.toLowerCase()
-  const className = 'size-3.5 shrink-0 text-subtle'
-  const common = {
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.6,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    className,
-    'aria-hidden': true,
-  }
-  if (/(bash|shell|terminal|powershell)/.test(normalized)) {
-    return (
-      <svg {...common}>
-        <path d="m4 7 5 5-5 5M11 17h9" />
-      </svg>
-    )
-  }
-  if (/(read|write|edit|notebook)/.test(normalized)) {
-    return (
-      <svg {...common}>
-        <path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8Z" />
-        <path d="M14 3v5h5M8 13h8M8 17h5" />
-      </svg>
-    )
-  }
-  if (/(grep|glob|search)/.test(normalized)) {
-    return (
-      <svg {...common}>
-        <circle cx="11" cy="11" r="7" />
-        <path d="m20 20-3.5-3.5" />
-      </svg>
-    )
-  }
-  if (/(webfetch|websearch|fetch|http)/.test(normalized)) {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M3 12h18M12 3c2.6 2.5 4 5.7 4 9s-1.4 6.5-4 9c-2.6-2.5-4-5.7-4-9s1.4-6.5 4-9Z" />
-      </svg>
-    )
-  }
-  if (/(agent|task|team)/.test(normalized)) {
-    return (
-      <svg {...common}>
-        <rect x="5" y="8" width="14" height="11" />
-        <path d="M12 8V4M9 13h.01M15 13h.01M9 16h6" />
-      </svg>
-    )
-  }
-  if (/todo/.test(normalized)) {
-    return (
-      <svg {...common}>
-        <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />
-      </svg>
-    )
-  }
-  return (
-    <svg {...common}>
-      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.1-2.1Z" />
-    </svg>
-  )
-}
-
 // ToolCallCard 展示一次工具调用：单行摘要，悬停时抬起为软卡片；展开后显示参数与结果。
 export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolBlock }) {
   const [open, setOpen] = useState(false)
@@ -151,7 +82,6 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
   const inputDetail = block.input !== undefined ? stringifyJSON(block.input) : block.inputText
   const resultPreview = block.result?.preview ?? ''
   const diff = toolDiff(block)
-  const active = ACTIVE_STATUSES.has(block.status)
 
   return (
     <div className="group/tool -mx-2 min-w-0 rounded-xl px-2 py-1 transition hover:bg-raised/60">
@@ -162,14 +92,10 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
         aria-expanded={open}
       >
         <span
-          data-testid={active ? 'tool-mascot' : undefined}
+          data-testid="tool-mascot"
           className="flex size-8 shrink-0 items-center justify-center"
         >
-          {active ? (
-            <MascotPose pose={mascotPoseForTool(block.toolName)} className="h-8" />
-          ) : (
-            <ToolIcon name={block.toolName} />
-          )}
+          <MascotPose pose={mascotPoseForTool(block.toolName)} className="h-8" />
         </span>
         <span className="shrink-0 font-mono text-[12px] text-fg">{block.toolName}</span>
         <span
