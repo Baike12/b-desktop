@@ -9,6 +9,7 @@ import (
 	sysctx "github.com/Baike12/b-desktop/internal/context"
 	"github.com/Baike12/b-desktop/internal/llm"
 	"github.com/Baike12/b-desktop/internal/permission"
+	"github.com/Baike12/b-desktop/internal/task"
 	"github.com/Baike12/b-desktop/internal/tool"
 	"github.com/Baike12/b-desktop/internal/tool/builtin"
 )
@@ -85,17 +86,19 @@ func (r *Registry) Names() []string {
 }
 
 // DefaultTools 按内置工具清单构造注册表：
-// Read、Write、Edit、Glob、Grep、Bash、TodoWrite。
+// Read、Write、Edit、Glob、Grep、Bash、TodoWrite、AskUserQuestion。
 // root 是会话工作目录，所有路径类工具都被限制在该目录内。
-func DefaultTools(root string) (*Registry, error) {
+// sessionID 与 tasks 透传给 Bash：装配了任务表时 Bash 支持 run_in_background。
+func DefaultTools(root, sessionID string, tasks *task.Registry) (*Registry, error) {
 	registry, err := NewRegistry(
 		builtin.NewRead(root),
 		builtin.NewWrite(root),
 		builtin.NewEdit(root),
 		builtin.NewGlob(root),
 		builtin.NewGrep(root),
-		builtin.NewBash(root),
+		builtin.NewBashWithTasks(root, sessionID, tasks),
 		builtin.NewTodoWrite(),
+		builtin.NewAskUserQuestion(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("agent: default tools: %w", err)
@@ -155,6 +158,10 @@ type WireOptions struct {
 	SystemExtra     string
 	Summarizer      sysctx.Summarizer
 	Now             func() time.Time
+	// SessionID 是发起调用的会话；后台任务据此归属通知目标。
+	SessionID string
+	// TaskRegistry 是后台任务注册表；nil 时 Bash 不支持 run_in_background。
+	TaskRegistry *task.Registry
 	// ReadFile 与 RunGit 是测试注入点；nil 时使用默认实现。
 	ReadFile func(path string) ([]byte, error)
 	RunGit   func(ctx context.Context, dir string, args ...string) ([]byte, error)
@@ -165,7 +172,7 @@ func Wire(opts WireOptions) (*Components, error) {
 	if opts.Provider == nil {
 		return nil, fmt.Errorf("agent: wire: %w: missing Provider", ErrInvalidConfig)
 	}
-	tools, err := DefaultTools(opts.WorkDir)
+	tools, err := DefaultTools(opts.WorkDir, opts.SessionID, opts.TaskRegistry)
 	if err != nil {
 		return nil, err
 	}

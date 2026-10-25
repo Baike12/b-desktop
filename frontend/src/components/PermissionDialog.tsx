@@ -15,14 +15,16 @@ const FALLBACK_OPTIONS = [
   { id: 'deny_once', label: '拒绝' },
 ]
 
-// PermissionDialog 展示队首审批请求。没有确认按钮之外的关闭方式：
-// 权限检查不得默认放行，用户必须显式选择。
+// PermissionDialog 展示队首的普通审批请求（AskUserQuestion 除外：
+// 问答式审批由 AskUserQuestionDock 停靠在输入框上方渲染）。
+// 没有确认按钮之外的关闭方式：权限检查不得默认放行，用户必须显式选择。
 export default function PermissionDialog() {
   const approvals = useWorkbenchStore((state) => state.approvals)
   const approve = useWorkbenchStore((state) => state.approve)
   const [submitting, setSubmitting] = useState(false)
 
-  const approval = approvals[0]
+  // AskUserQuestion 的审批由输入框上方的问答卡片处理，这里跳过。
+  const approval = approvals.find((item) => item.toolName !== 'AskUserQuestion')
   const inputText = useMemo(() => {
     if (!approval) return ''
     return truncate(stringifyJSON(approval.input) || '（无参数）', 4000)

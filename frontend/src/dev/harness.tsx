@@ -1041,7 +1041,7 @@ const bindings = {
     emitEvent({ type: 'turn_end', sessionId, turnId, stopReason: 'canceled' })
   },
 
-  ApproveTool: async (sessionId: string, requestId: string, option: string) => {
+  ApproveTool: async (sessionId: string, requestId: string, option: string, _updatedInput?: string) => {
     const turnId = activeTurns.get(sessionId) ?? ''
     emitEvent({
       type: 'permission_resolved',

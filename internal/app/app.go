@@ -111,20 +111,20 @@ func (e *Emitter) Emit(ctx context.Context, ev agent.Event) {
 
 // Config 是应用级配置。零值字段由 normalized 填充默认值。
 type Config struct {
-	Provider           string // 供应商：anthropic | openai
-	APIKey             string // 模型密钥；只保存在进程内，绝不下发前端
-	BaseURL            string // 空时使用供应商默认地址
-	Model              string // 模型名；为空时 SendMessage 返回 ErrModelNotConfigured
-	PermissionMode     string // 五档权限模式之一
-	DataDir            string // 会话存储根目录
-	WorkDir            string // 新会话的默认工作目录
-	ContextWindow      int    // 上下文窗口（token）
-	MaxOutputTokens    int    // 单次请求最大输出（token）
+	Provider        string // 供应商：anthropic | openai
+	APIKey          string // 模型密钥；只保存在进程内，绝不下发前端
+	BaseURL         string // 空时使用供应商默认地址
+	Model           string // 模型名；为空时 SendMessage 返回 ErrModelNotConfigured
+	PermissionMode  string // 五档权限模式之一
+	DataDir         string // 会话存储根目录
+	WorkDir         string // 新会话的默认工作目录
+	ContextWindow   int    // 上下文窗口（token）
+	MaxOutputTokens int    // 单次请求最大输出（token）
 	// ThinkingEnabled 打开扩展思考；ThinkingBudget 是思考预算（token），0 取默认值。
-	ThinkingEnabled bool
-	ThinkingBudget  int
-	MaxTurns           int    // 单轮最大模型调用次数，0 取默认 100
-	MaxToolConcurrency int    // 工具并发上限，0 取默认 10
+	ThinkingEnabled    bool
+	ThinkingBudget     int
+	MaxTurns           int // 单轮最大模型调用次数，0 取默认 100
+	MaxToolConcurrency int // 工具并发上限，0 取默认 10
 	// ConfigPath 是配置文件路径，供设置页保存后回写；空表示不落盘（测试注入）。
 	ConfigPath string
 }
@@ -449,9 +449,12 @@ func defaultProviderFactory(cfg Config) (llm.Provider, error) {
 //   - SetProviderConfig 递增 generation，下一次 SendMessage 重建引擎；
 //   - Shutdown 取消当前轮次、释放引擎与待审批项。
 type sessionRuntime struct {
-	id         string
-	workDir    string
-	approvals  *agent.Approvals
+	id        string
+	workDir   string
+	approvals *agent.Approvals
+	// notifs 承接后台任务完成通知：运行中由循环在工具边界注入，
+	// 轮次结束后由自动续跑逻辑取走；它跨引擎重建存活。
+	notifs     *agent.NotificationBuffer
 	mu         sync.Mutex
 	engine     *agent.Engine
 	engineGen  int64
@@ -471,6 +474,7 @@ func newSessionRuntime(meta session.Meta) *sessionRuntime {
 		id:        meta.ID,
 		workDir:   meta.WorkDir,
 		approvals: agent.NewApprovals(),
+		notifs:    agent.NewNotificationBuffer(),
 	}
 }
 
@@ -945,15 +949,31 @@ func (a *App) SendMessage(sessionID, prompt string) (SendMessageResult, error) {
 			rt.mu.Unlock()
 		}()
 		// Run 只在内部故障时返回 error；模型/工具错误、取消与 panic 都已转成事件。
-		_, _ = engine.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt}, func(ev agent.Event) {
-			a.emitter.Emit(base, ev)
-		})
+		// 后台任务完成通知若在轮次收尾后才到达，会留在 rt.notifs 里：
+		// 这里取走并以它们自动续跑（cc 的 target-continuation 语义），
+		// 直到没有遗留通知或本轮被用户取消。
+		prompt := prompt
+		for {
+			_, err := engine.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt}, func(ev agent.Event) {
+				a.emitter.Emit(base, ev)
+			})
+			if err != nil || turnCtx.Err() != nil {
+				return
+			}
+			pending := rt.notifs.Drain()
+			if len(pending) == 0 {
+				return
+			}
+			prompt = strings.Join(pending, "\n\n")
+			turnID = newID("turn")
+		}
 	}()
 
 	return SendMessageResult{SessionID: sessionID, TurnID: turnID, Running: true}, nil
 }
 
 // CancelTurn 取消指定会话进行中的轮次。没有进行中的轮次时是空操作。
+// 用户主动取消同时清空通知队列：后台任务的遗留通知不再自动续跑。
 func (a *App) CancelTurn(sessionID string) error {
 	if err := session.ValidateID(sessionID); err != nil {
 		return fmt.Errorf("app: cancel turn: %w", err)
@@ -973,13 +993,16 @@ func (a *App) CancelTurn(sessionID string) error {
 	if engine != nil {
 		engine.Cancel()
 	}
+	rt.notifs.Drain()
 	return nil
 }
 
 // ApproveTool 回应一次工具审批请求。
 // option 必须是 allow_once / allow_always / deny_once / deny_always 之一；
 // requestID 必须属于该会话且尚未应答，否则返回 ErrApprovalNotFound。
-func (a *App) ApproveTool(sessionID, requestID, option string) error {
+// updatedInput 是前端改写后的工具输入 JSON（交互类工具回填用户应答），
+// 仅对 allow 类选项生效；空字符串表示保持原输入。
+func (a *App) ApproveTool(sessionID, requestID, option, updatedInput string) error {
 	if err := session.ValidateID(sessionID); err != nil {
 		return fmt.Errorf("app: approve tool: %w", err)
 	}
@@ -988,6 +1011,13 @@ func (a *App) ApproveTool(sessionID, requestID, option string) error {
 	}
 	if !validApprovalOption(option) {
 		return fmt.Errorf("app: approve tool: %w", ErrInvalidOption)
+	}
+	resp := permission.Response{Option: option}
+	if trimmed := strings.TrimSpace(updatedInput); trimmed != "" {
+		if !json.Valid([]byte(trimmed)) {
+			return fmt.Errorf("app: approve tool: %w", ErrInvalidOption)
+		}
+		resp.UpdatedInput = json.RawMessage(trimmed)
 	}
 
 	rt, err := a.runtimeOf(sessionID)
@@ -1000,7 +1030,7 @@ func (a *App) ApproveTool(sessionID, requestID, option string) error {
 	if !approvalPending(rt.approvals, sessionID, requestID) {
 		return ErrApprovalNotFound
 	}
-	if !rt.approvals.Decide(requestID, permission.Response{Option: option}) {
+	if !rt.approvals.Decide(requestID, resp) {
 		return ErrApprovalNotFound
 	}
 	return nil
@@ -1258,6 +1288,10 @@ func (a *App) buildEngine(rt *sessionRuntime, cfg Config) (*agent.Engine, error)
 	if rt.mode != "" {
 		mode = rt.mode
 	}
+	reg, err := a.taskRegistryComponent()
+	if err != nil {
+		reportExtensionError("tasks", err)
+	}
 	components, err := agent.Wire(agent.WireOptions{
 		WorkDir:         workDir,
 		Model:           cfg.Model,
@@ -1265,6 +1299,8 @@ func (a *App) buildEngine(rt *sessionRuntime, cfg Config) (*agent.Engine, error)
 		PermissionMode:  mode,
 		ContextWindow:   cfg.ContextWindow,
 		MaxOutputTokens: cfg.MaxOutputTokens,
+		SessionID:       rt.id,
+		TaskRegistry:    reg,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("app: wire session %q: %w", rt.id, err)
@@ -1290,6 +1326,7 @@ func (a *App) buildEngine(rt *sessionRuntime, cfg Config) (*agent.Engine, error)
 		Builder:            components.Builder,
 		Compactor:          components.Compactor,
 		Store:              store,
+		Notifications:      rt.notifs,
 		Extensions:         extensions,
 	})
 	if err != nil {

@@ -253,7 +253,7 @@ func TestWireBuildsDefaultComponents(t *testing.T) {
 		t.Fatalf("Wire: %v", err)
 	}
 
-	want := []string{"Read", "Write", "Edit", "Glob", "Grep", "Bash", "TodoWrite"}
+	want := []string{"Read", "Write", "Edit", "Glob", "Grep", "Bash", "TodoWrite", "AskUserQuestion"}
 	got := comps.Tools.Names()
 	if len(got) != len(want) {
 		t.Fatalf("tool names = %v, want %v", got, want)

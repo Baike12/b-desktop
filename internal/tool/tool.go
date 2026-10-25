@@ -59,6 +59,14 @@ type AlwaysAllow interface {
 	AlwaysAllow() bool
 }
 
+// Interactive 由「需要用户交互才能产出结果」的工具实现（例如 AskUserQuestion）。
+// agent 对这类调用强制走审批通道：交互界面本身就是审批对话框，
+// 用户提交的应答经审批通道回填进工具输入后再执行。
+type Interactive interface {
+	// Interactive 报告该工具是否必须与用户交互。
+	Interactive() bool
+}
+
 // Spec 是工具的对外规格，由 agent 转换成 llm.ToolSpec。
 type Spec struct {
 	Name        string

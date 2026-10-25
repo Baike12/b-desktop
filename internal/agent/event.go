@@ -35,6 +35,7 @@ const (
 	EventRetry              EventType = "retry"               // EventRetry 表示模型调用即将重试。
 	EventMessageStop        EventType = "message_stop"        // EventMessageStop 表示一条 assistant 消息结束。
 	EventMessageDiscard     EventType = "message_discard"     // EventMessageDiscard 表示丢弃未完成的 assistant 消息。
+	EventTaskUpdate         EventType = "task_update"         // EventTaskUpdate 表示一个后台任务状态变化。
 	EventError              EventType = "error"               // EventError 表示可展示的错误。
 	EventTurnEnd            EventType = "turn_end"            // EventTurnEnd 表示轮次结束，一定是本轮最后一个事件。
 )
@@ -76,6 +77,25 @@ type Event struct {
 	Retry         *llm.RetryInfo `json:"retry,omitempty"`
 	Error         *ErrorView     `json:"error,omitempty"`
 	StopReason    StopReason     `json:"stopReason,omitempty"`
+	Task          *TaskView      `json:"task,omitempty"`
+}
+
+// TaskView 是一次后台任务状态变化的前端视图。
+// Kind 为 local_bash 时 Command/ExitCode/OutputFile 有效，
+// 为 local_agent 时 AgentType/Result 有效。
+type TaskView struct {
+	TaskID      string `json:"taskId"`
+	Kind        string `json:"kind"`
+	Description string `json:"description,omitempty"`
+	Command     string `json:"command,omitempty"`
+	AgentType   string `json:"agentType,omitempty"`
+	Status      string `json:"status"`
+	ExitCode    int    `json:"exitCode,omitempty"`
+	Error       string `json:"error,omitempty"`
+	Result      string `json:"result,omitempty"`
+	OutputFile  string `json:"outputFile,omitempty"`
+	// Summary 是完成通知的摘要文本（与 <task-notification> 的 summary 一致）。
+	Summary string `json:"summary,omitempty"`
 }
 
 // ToolResultView 是工具结果的前端视图，不包含完整内容（完整内容在历史里）。

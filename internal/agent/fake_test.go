@@ -271,6 +271,7 @@ type harnessOptions struct {
 	budget         sysctx.Budget
 	summarizer     sysctx.Summarizer
 	extensions     Extensions
+	notifications  NotificationQueue
 }
 
 // idGen 生成稳定可读的 ID。
@@ -338,6 +339,7 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 		Builder:            testBuilder(dir),
 		Compactor:          compactor,
 		Store:              store,
+		Notifications:      opts.notifications,
 		Now:                fixedNow,
 		NewID:              ids.next,
 		Extensions:         opts.extensions,

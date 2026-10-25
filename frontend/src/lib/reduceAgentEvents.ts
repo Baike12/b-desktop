@@ -460,6 +460,16 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         retry = ev.retry ?? null
         break
       }
+      case 'task_update': {
+        const task = ev.task
+        if (!task) break
+        if (task.status === 'running') break
+        const summary =
+          task.summary ||
+          `后台任务 ${task.taskId} ${task.status === 'completed' ? '已完成' : task.status === 'failed' ? '失败' : '已停止'}`
+        pushSystem(draft, task.status === 'failed' ? 'error' : 'info', summary, timeMs)
+        break
+      }
       case 'message_stop': {
         markMessageStreaming(draft, ev.messageId, false)
         clearMessageActive(draft, ev.messageId)

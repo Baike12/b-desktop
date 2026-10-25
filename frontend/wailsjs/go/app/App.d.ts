@@ -6,7 +6,7 @@ export function AddPermissionRule(arg1:string,arg2:app.RuleInput):Promise<app.Ru
 
 export function AddProject(arg1:string):Promise<app.ProjectDTO>;
 
-export function ApproveTool(arg1:string,arg2:string,arg3:string):Promise<void>;
+export function ApproveTool(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function CancelSubagentTask(arg1:string):Promise<void>;
 
@@ -39,6 +39,8 @@ export function GetSkillDetail(arg1:string):Promise<app.SkillDetailDTO>;
 export function GetUsageSummary(arg1:number):Promise<app.UsageSummaryDTO>;
 
 export function Greet(arg1:string):Promise<string>;
+
+export function ListBackgroundTasks():Promise<Array<app.BackgroundTaskDTO>>;
 
 export function ListHooks(arg1:string):Promise<Array<app.HookDTO>>;
 
@@ -107,6 +109,8 @@ export function SetPermissionMode(arg1:string,arg2:string):Promise<void>;
 export function SetProviderConfig(arg1:app.ProviderConfigInput):Promise<void>;
 
 export function StageSessionFiles(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
+
+export function StopBackgroundTask(arg1:string):Promise<void>;
 
 export function UnstageSessionFiles(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
 

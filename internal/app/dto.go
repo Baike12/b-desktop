@@ -104,8 +104,8 @@ type ProviderConfigDTO struct {
 	ContextWindow   int    `json:"contextWindow"`
 	MaxOutputTokens int    `json:"maxOutputTokens"`
 	// ThinkingEnabled 表示是否请求扩展思考；ThinkingBudget 是思考预算（token）。
-	ThinkingEnabled bool `json:"thinkingEnabled"`
-	ThinkingBudget  int  `json:"thinkingBudget"`
+	ThinkingEnabled bool   `json:"thinkingEnabled"`
+	ThinkingBudget  int    `json:"thinkingBudget"`
 	PermissionMode  string `json:"permissionMode"`
 	WorkDir         string `json:"workDir"`
 	InitError       string `json:"initError,omitempty"`

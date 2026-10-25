@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -903,8 +904,10 @@ func toolCalls(msg llm.Message) []tool.Call {
 }
 
 // callPlan 是一个工具调用在权限预检后的执行计划。
+// input 是生效输入：审批通道允许前端（AskUserQuestion）回填应答后改写。
 type callPlan struct {
 	tool      tool.Tool
+	input     json.RawMessage
 	paths     []string
 	readOnly  bool
 	immediate *tool.Result
@@ -912,6 +915,7 @@ type callPlan struct {
 
 // precheck 在工具执行前完成未知工具、路径、参数与权限判定。
 // allow 继续执行；deny 生成拒绝结果；ask 阻塞等待审批，不得默认放行。
+// 交互类工具（tool.Interactive）强制 ask：交互界面本身就是审批对话框。
 func (t *turn) precheck(c tool.Call) (plan callPlan) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -932,6 +936,29 @@ func (t *turn) precheck(c tool.Call) (plan callPlan) {
 		return plan
 	}
 	plan.tool = tl
+	plan.input = c.Input
+
+	if !json.Valid(c.Input) {
+		r := errorResult("invalid input json")
+		plan.immediate = &r
+		return plan
+	}
+
+	plan.readOnly = tl.ReadOnly(c.Input)
+	if iv, ok := tl.(tool.Interactive); ok && iv.Interactive() {
+		allowed, reason, updated := t.awaitApproval(c, tl, permission.Decision{
+			Effect: permission.EffectAsk,
+			Reason: "requires user interaction",
+		})
+		if !allowed {
+			r := errorResult("permission denied: %s", reason)
+			plan.immediate = &r
+			return plan
+		}
+		plan.input = firstNonEmptyJSON(updated, plan.input)
+		plan.readOnly = tl.ReadOnly(plan.input)
+		return plan
+	}
 
 	if pa, ok := tl.(tool.PathAware); ok {
 		paths, err := pa.AffectedPaths(c.Input)
@@ -943,13 +970,6 @@ func (t *turn) precheck(c tool.Call) (plan callPlan) {
 		plan.paths = paths
 	}
 
-	if !json.Valid(c.Input) {
-		r := errorResult("invalid input json")
-		plan.immediate = &r
-		return plan
-	}
-
-	plan.readOnly = tl.ReadOnly(c.Input)
 	noApproval := false
 	if aa, ok := tl.(tool.AlwaysAllow); ok {
 		noApproval = aa.AlwaysAllow()
@@ -979,17 +999,28 @@ func (t *turn) precheck(c tool.Call) (plan callPlan) {
 		plan.immediate = &r
 		return plan
 	default:
-		allowed, reason := t.awaitApproval(c, tl, decision)
+		allowed, reason, updated := t.awaitApproval(c, tl, decision)
 		if !allowed {
 			r := errorResult("permission denied: %s", reason)
 			plan.immediate = &r
+			return plan
+		}
+		if len(updated) > 0 {
+			plan.input = updated
+			plan.readOnly = tl.ReadOnly(plan.input)
+			if pa, ok := tl.(tool.PathAware); ok {
+				if paths, err := pa.AffectedPaths(plan.input); err == nil {
+					plan.paths = paths
+				}
+			}
 		}
 		return plan
 	}
 }
 
 // awaitApproval 发出审批事件并在审批通道上等待 Decide；ctx 取消立即返回拒绝。
-func (t *turn) awaitApproval(c tool.Call, tl tool.Tool, decision permission.Decision) (bool, string) {
+// 前端允许在放行时改写输入（交互类工具回填用户应答），原样返回 UpdatedInput。
+func (t *turn) awaitApproval(c tool.Call, tl tool.Tool, decision permission.Decision) (bool, string, json.RawMessage) {
 	requestID := t.engine.cfg.NewID("perm")
 	alwaysSafe := t.alwaysRuleSafe(c, tl)
 	view := permission.ApprovalView{
@@ -1010,25 +1041,35 @@ func (t *turn) awaitApproval(c tool.Call, tl tool.Tool, decision permission.Deci
 	case resp, ok := <-ch:
 		if !ok {
 			t.emitPermissionResolved(requestID, "canceled")
-			return false, "approval canceled"
+			return false, "approval canceled", nil
 		}
 		t.emitPermissionResolved(requestID, resp.Option)
 		switch resp.Option {
 		case permission.OptionAllowOnce:
-			return true, ""
+			return true, "", resp.UpdatedInput
 		case permission.OptionAllowAlways:
 			t.addAlwaysRule(c, tl, permission.EffectAllow)
-			return true, ""
+			return true, "", resp.UpdatedInput
 		case permission.OptionDenyAlways:
 			t.addAlwaysRule(c, tl, permission.EffectDeny)
-			return false, "denied by user"
+			return false, "denied by user", nil
 		default:
-			return false, "denied by user"
+			return false, "denied by user", nil
 		}
 	case <-t.ctx.Done():
 		t.emitPermissionResolved(requestID, "canceled")
-		return false, "canceled by user"
+		return false, "canceled by user", nil
 	}
+}
+
+// firstNonEmptyJSON 返回第一个非空 JSON 片段。
+func firstNonEmptyJSON(values ...json.RawMessage) json.RawMessage {
+	for _, v := range values {
+		if len(v) > 0 {
+			return v
+		}
+	}
+	return nil
 }
 
 // approvalOptions 返回审批选项。无法安全推导 always 规则时只给单次选项。
@@ -1173,6 +1214,12 @@ func (t *turn) executeTools(calls []tool.Call) error {
 		plan := t.precheck(c)
 		resolved[i] = plan.tool
 		paths[i] = plan.paths
+		// 审批通道可能回填了生效输入（AskUserQuestion 的 answers）；
+		// 后续执行、批次分组与结果消息都以生效输入为准。
+		if len(plan.input) > 0 && !bytes.Equal(plan.input, c.Input) {
+			calls[i].Input = plan.input
+			c = calls[i]
+		}
 		if plan.immediate != nil {
 			results[i] = *plan.immediate
 			done[i] = true
@@ -1263,7 +1310,9 @@ func (t *turn) drainTool(calls []tool.Call, results []tool.Result, done []bool, 
 }
 
 // finishToolExecution 为未完成的调用补取消结果、落盘一条工具结果消息；
-// 取消时随后结束本轮。
+// 取消时随后结束本轮。非取消路径把引擎通知队列里的 <task-notification>
+// 作为文本块追加进同一条 user 消息（Anthropic 要求消息角色交替，
+// 通知不能独立成消息），模型在下一轮调用即可看到任务结果。
 func (t *turn) finishToolExecution(calls []tool.Call, results []tool.Result, done []bool, paths [][]string, canceled bool) error {
 	for i, c := range calls {
 		if done[i] {
@@ -1275,6 +1324,11 @@ func (t *turn) finishToolExecution(calls []tool.Call, results []tool.Result, don
 	}
 
 	msg := toolResultMessage(calls, results, t.engine.cfg.NewID("msg"), t.engine.now())
+	if !canceled {
+		for _, text := range t.engine.DrainNotifications() {
+			msg.Blocks = append(msg.Blocks, llm.ContentBlock{Type: llm.BlockText, Text: text})
+		}
+	}
 	if err := t.appendMessage(msg); err != nil {
 		return err
 	}

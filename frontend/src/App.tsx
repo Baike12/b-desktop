@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import AskUserQuestionDock from './components/AskUserQuestionDock'
 import Composer from './components/Composer'
 import FileTree from './components/FileTree'
 import Header from './components/Header'
@@ -82,11 +83,13 @@ export default function App() {
                   <MascotStage className="mt-0.5 size-28 shrink-0 sm:size-32" />
                 </div>
               </div>
+              <AskUserQuestionDock />
               <Composer variant="hero" />
             </main>
           ) : (
             <>
               <MessageList />
+              <AskUserQuestionDock />
               <Composer />
             </>
           )}

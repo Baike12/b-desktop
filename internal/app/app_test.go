@@ -48,6 +48,7 @@ type fakeProvider struct {
 	mu    sync.Mutex
 	steps []fakeStep
 	calls int
+	seen  []llm.Request
 }
 
 // newFakeProvider 创建脚本化 Provider。
@@ -55,14 +56,24 @@ func newFakeProvider(steps ...fakeStep) *fakeProvider {
 	return &fakeProvider{steps: steps}
 }
 
+// requests 返回全部模型请求快照（含 prompt 历史），供测试断言注入内容。
+func (p *fakeProvider) requests() []llm.Request {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := make([]llm.Request, len(p.seen))
+	copy(out, p.seen)
+	return out
+}
+
 // Name 实现 llm.Provider。
 func (p *fakeProvider) Name() string { return "fake" }
 
 // Stream 实现 llm.Provider。
-func (p *fakeProvider) Stream(context.Context, llm.Request) (llm.Stream, error) {
+func (p *fakeProvider) Stream(_ context.Context, req llm.Request) (llm.Stream, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.calls++
+	p.seen = append(p.seen, req)
 	var step fakeStep
 	if len(p.steps) > 0 {
 		step = p.steps[0]
@@ -717,13 +728,13 @@ func TestSendMessageValidation(t *testing.T) {
 		t.Fatalf("CancelTurn missing error = %v", err)
 	}
 
-	if err := app.ApproveTool(info.ID, "req_x", "maybe"); !errors.Is(err, ErrInvalidOption) {
+	if err := app.ApproveTool(info.ID, "req_x", "maybe", ""); !errors.Is(err, ErrInvalidOption) {
 		t.Fatalf("invalid option error = %v", err)
 	}
-	if err := app.ApproveTool(info.ID, "req_x", permission.OptionAllowOnce); !errors.Is(err, ErrApprovalNotFound) {
+	if err := app.ApproveTool(info.ID, "req_x", permission.OptionAllowOnce, ""); !errors.Is(err, ErrApprovalNotFound) {
 		t.Fatalf("unknown approval error = %v", err)
 	}
-	if err := app.ApproveTool(info.ID, "  ", permission.OptionAllowOnce); !errors.Is(err, ErrApprovalNotFound) {
+	if err := app.ApproveTool(info.ID, "  ", permission.OptionAllowOnce, ""); !errors.Is(err, ErrApprovalNotFound) {
 		t.Fatalf("blank approval error = %v", err)
 	}
 }
@@ -933,10 +944,10 @@ func TestApproveToolDeliversResponse(t *testing.T) {
 	})
 	defer cleanup()
 
-	if err := app.ApproveTool(second.ID, "req_1", permission.OptionAllowOnce); !errors.Is(err, ErrApprovalNotFound) {
+	if err := app.ApproveTool(second.ID, "req_1", permission.OptionAllowOnce, ""); !errors.Is(err, ErrApprovalNotFound) {
 		t.Fatalf("cross-session approval error = %v", err)
 	}
-	if err := app.ApproveTool(first.ID, "req_1", permission.OptionAllowAlways); err != nil {
+	if err := app.ApproveTool(first.ID, "req_1", permission.OptionAllowAlways, ""); err != nil {
 		t.Fatalf("ApproveTool: %v", err)
 	}
 	select {
@@ -950,7 +961,7 @@ func TestApproveToolDeliversResponse(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for approval response")
 	}
-	if err := app.ApproveTool(first.ID, "req_1", permission.OptionAllowOnce); !errors.Is(err, ErrApprovalNotFound) {
+	if err := app.ApproveTool(first.ID, "req_1", permission.OptionAllowOnce, ""); !errors.Is(err, ErrApprovalNotFound) {
 		t.Fatalf("answered approval error = %v", err)
 	}
 }

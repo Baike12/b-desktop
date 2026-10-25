@@ -100,7 +100,7 @@ export interface WorkbenchState {
   openProject: () => Promise<void>
   send: (prompt: string) => Promise<void>
   cancel: () => Promise<void>
-  approve: (requestId: string, option: string) => Promise<void>
+  approve: (requestId: string, option: string, updatedInput?: unknown) => Promise<void>
   setPermissionMode: (mode: PermissionMode) => Promise<void>
   applyProviderConfig: (config: app.ProviderConfigDTO) => void
   bumpFilesRevision: () => void
@@ -305,11 +305,16 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     }
   },
 
-  approve: async (requestId, option) => {
+  approve: async (requestId, option, updatedInput) => {
     const sessionId = get().activeId
     if (!sessionId) return
     try {
-      await ApproveTool(sessionId, requestId, option)
+      await ApproveTool(
+        sessionId,
+        requestId,
+        option,
+        updatedInput === undefined ? '' : JSON.stringify(updatedInput),
+      )
       set((state) => ({
         approvals: state.approvals.filter((item) => item.requestId !== requestId),
       }))

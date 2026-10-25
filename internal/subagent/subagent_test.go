@@ -348,7 +348,7 @@ func TestAgentToolDecoration(t *testing.T) {
 		t.Fatalf("schema is not JSON: %v", err)
 	}
 	props := schema["properties"].(map[string]any)
-	for _, key := range []string{"description", "prompt", "agent_type", "background"} {
+	for _, key := range []string{"description", "prompt", "agent_type", "run_in_background"} {
 		if _, ok := props[key]; !ok {
 			t.Fatalf("schema missing property %q", key)
 		}
@@ -358,7 +358,7 @@ func TestAgentToolDecoration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tool Run: %v", err)
 	}
-	if out.Content != "工具结果" || out.IsError {
+	if !strings.Contains(out.Content, "工具结果") || out.IsError {
 		t.Fatalf("tool result = %+v", out)
 	}
 	if out.Meta["taskId"] == "" {

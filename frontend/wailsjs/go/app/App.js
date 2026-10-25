@@ -10,8 +10,8 @@ export function AddProject(arg1) {
   return window['go']['app']['App']['AddProject'](arg1);
 }
 
-export function ApproveTool(arg1, arg2, arg3) {
-  return window['go']['app']['App']['ApproveTool'](arg1, arg2, arg3);
+export function ApproveTool(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['ApproveTool'](arg1, arg2, arg3, arg4);
 }
 
 export function CancelSubagentTask(arg1) {
@@ -76,6 +76,10 @@ export function GetUsageSummary(arg1) {
 
 export function Greet(arg1) {
   return window['go']['app']['App']['Greet'](arg1);
+}
+
+export function ListBackgroundTasks() {
+  return window['go']['app']['App']['ListBackgroundTasks']();
 }
 
 export function ListHooks(arg1) {
@@ -212,6 +216,10 @@ export function SetProviderConfig(arg1) {
 
 export function StageSessionFiles(arg1, arg2, arg3) {
   return window['go']['app']['App']['StageSessionFiles'](arg1, arg2, arg3);
+}
+
+export function StopBackgroundTask(arg1) {
+  return window['go']['app']['App']['StopBackgroundTask'](arg1);
 }
 
 export function UnstageSessionFiles(arg1, arg2, arg3) {

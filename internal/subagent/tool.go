@@ -15,10 +15,11 @@ const ToolName = "Agent"
 
 // agentToolInput 是 Agent 工具的输入。
 type agentToolInput struct {
-	Description string `json:"description"`
-	Prompt      string `json:"prompt"`
-	AgentType   string `json:"agent_type"`
-	Background  bool   `json:"background"`
+	Description     string `json:"description"`
+	Prompt          string `json:"prompt"`
+	AgentType       string `json:"agent_type"`
+	Background      bool   `json:"background"`
+	RunInBackground bool   `json:"run_in_background"`
 }
 
 // agentToolSchema 是 Agent 工具的输入 schema。
@@ -27,19 +28,19 @@ var agentToolSchema = json.RawMessage(`{
   "properties": {
     "description": {
       "type": "string",
-      "description": "任务的一句话描述（3-5 个词），用于在任务列表中区分该子 Agent。"
+      "description": "A short (3-5 word) task description used to tell this agent apart in the task list."
     },
     "prompt": {
       "type": "string",
-      "description": "交给子 Agent 的完整任务说明。子 Agent 看不到当前对话，必须在 prompt 里交代背景、目标与期望输出。"
+      "description": "The complete task instructions for the sub-agent. The sub-agent cannot see this conversation: state the background, goal and expected output in the prompt."
     },
     "agent_type": {
       "type": "string",
-      "description": "子 Agent 类型；省略时使用通用子 Agent。可选值见工具描述中的列表。"
+      "description": "Sub-agent type; omit for the general-purpose sub-agent. Available types are listed in the tool description."
     },
-    "background": {
+    "run_in_background": {
       "type": "boolean",
-      "description": "为 true 时立即返回任务 ID，子 Agent 在后台运行，结果通过任务列表查询。"
+      "description": "Set true to run the sub-agent in the background: the call returns an agent ID immediately and you are notified when it completes. Monitor with TaskOutput, steer or continue it with SendMessage, stop it with TaskStop."
     }
   },
   "required": ["description", "prompt"],
@@ -63,9 +64,11 @@ func (t *agentTool) Name() string { return ToolName }
 // Description 返回工具说明，并列出当前可用的子 Agent 类型。
 func (t *agentTool) Description() string {
 	var b strings.Builder
-	b.WriteString("启动一个子 Agent 独立完成指定任务，并返回它的最终文本结果。")
-	b.WriteString("子 Agent 拥有独立会话历史、工具集与权限范围，看不到当前对话；")
-	b.WriteString("需要让它做研究、批量修改或独立复核时使用。")
+	b.WriteString("Launch a sub-agent that runs independently and returns its final text result. ")
+	b.WriteString("The sub-agent has its own conversation history, tool set and permission scope; it cannot see this dialogue. ")
+	b.WriteString("Use it for research, batch changes or independent review. ")
+	b.WriteString("Long or self-contained tasks accept run_in_background=true: you get an agent ID immediately and a ")
+	b.WriteString("task-notification when it finishes; steer or continue the agent later with SendMessage.")
 	types := t.mgr.Types()
 	if len(types) == 0 {
 		b.WriteString("当前没有自定义 agent_type，省略 agent_type 即可。")
@@ -102,21 +105,26 @@ func (t *agentTool) Run(ctx context.Context, input json.RawMessage, progress too
 	if strings.TrimSpace(in.Description) == "" {
 		return tool.Result{}, fmt.Errorf("%s: %w", ToolName, ErrEmptyDescription)
 	}
+	background := in.Background || in.RunInBackground
 
-	if progress != nil {
+	if !background && progress != nil {
 		progress(tool.Progress{Text: "正在运行子 Agent"})
 	}
 	res, err := t.mgr.Run(ctx, agent.SubagentRequest{
 		Description: in.Description,
 		Prompt:      in.Prompt,
 		AgentType:   in.AgentType,
-		Background:  in.Background,
+		Background:  background,
 	}, nil)
 	if err != nil {
 		return tool.Result{}, fmt.Errorf("%s: %w", ToolName, err)
 	}
-	if in.Background {
-		text := fmt.Sprintf("子 Agent 已在后台启动，任务 ID 为 %s。完成后通过任务列表查询结果。", res.ID)
+	if background {
+		text := fmt.Sprintf("Background agent launched successfully.\n"+
+			"agentId: %s (internal ID - do not mention to the user. Use SendMessage with to: '%s' to steer or continue this agent.)\n"+
+			"The agent is working in the background. You will be notified automatically when it completes; "+
+			"check progress before completion with TaskOutput(task_id=%q).",
+			res.ID, res.ID, res.ID)
 		return tool.Result{
 			Content: text,
 			Display: text,
@@ -128,7 +136,8 @@ func (t *agentTool) Run(ctx context.Context, input json.RawMessage, progress too
 	}
 	text := res.Text
 	if strings.TrimSpace(text) == "" {
-		text = "子 Agent 已完成，但没有返回文本结果。"
+		text = "(Sub-agent completed but returned no output.)"
 	}
-	return tool.Result{Content: text, Display: text, Meta: map[string]string{"taskId": res.ID}}, nil
+	text += fmt.Sprintf("\n\nagentId: %s (use SendMessage with to: '%s' to continue this agent)", res.ID, res.ID)
+	return tool.Result{Content: text, Display: res.Text, Meta: map[string]string{"taskId": res.ID}}, nil
 }

@@ -1,5 +1,41 @@
 export namespace app {
 	
+	export class BackgroundTaskDTO {
+	    id: string;
+	    kind: string;
+	    sessionId: string;
+	    description: string;
+	    command?: string;
+	    agentType?: string;
+	    status: string;
+	    startedAt: string;
+	    finishedAt?: string;
+	    exitCode?: number;
+	    error?: string;
+	    result?: string;
+	    outputFile?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BackgroundTaskDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.sessionId = source["sessionId"];
+	        this.description = source["description"];
+	        this.command = source["command"];
+	        this.agentType = source["agentType"];
+	        this.status = source["status"];
+	        this.startedAt = source["startedAt"];
+	        this.finishedAt = source["finishedAt"];
+	        this.exitCode = source["exitCode"];
+	        this.error = source["error"];
+	        this.result = source["result"];
+	        this.outputFile = source["outputFile"];
+	    }
+	}
 	export class BlockDTO {
 	    type: string;
 	    text?: string;

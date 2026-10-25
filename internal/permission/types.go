@@ -112,6 +112,10 @@ type ApprovalView struct {
 type Response struct {
 	// Option 取值：allow_once、allow_always、deny_once、deny_always。
 	Option string `json:"option"`
+	// UpdatedInput 是前端改写后的工具输入（JSON 对象）。
+	// 交互类工具（AskUserQuestion）用它在放行前把用户应答回填进输入；
+	// 为空表示保持原输入。仅 allow 类选项会使用它。
+	UpdatedInput json.RawMessage `json:"updatedInput,omitempty"`
 }
 
 // 审批选项常量。

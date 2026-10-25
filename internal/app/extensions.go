@@ -7,6 +7,7 @@ import (
 	"github.com/Baike12/b-desktop/internal/agent"
 	"github.com/Baike12/b-desktop/internal/mcp"
 	"github.com/Baike12/b-desktop/internal/subagent"
+	"github.com/Baike12/b-desktop/internal/task"
 	"github.com/Baike12/b-desktop/internal/telemetry"
 )
 
@@ -56,6 +57,14 @@ func (a *App) buildExtensions(workDir string) (agent.Extensions, error) {
 		ext.Subagent = manager
 	}
 
+	// 后台任务：TaskOutput / TaskStop / TaskList 三个查询与控制工具。
+	if reg, err := a.taskRegistryComponent(); err != nil {
+		reportExtensionError("tasks", err)
+	} else {
+		ext.Tools = append(ext.Tools,
+			task.NewTaskOutput(reg), task.NewTaskStop(reg), task.NewTaskList(reg))
+	}
+
 	// 用量追踪：模型调用指标落盘。
 	if sink, err := a.telemetryComponent(); err != nil {
 		reportExtensionError("telemetry", err)
@@ -72,7 +81,7 @@ func reportExtensionError(component string, err error) {
 }
 
 // closeExtensions 关闭并释放全部扩展组件。按依赖顺序执行：
-// 子 Agent（取消后台任务）→ MCP（结束服务器进程）→ 用量存储。
+// 子 Agent（取消后台任务）→ 后台任务注册表（杀后台进程）→ MCP（结束服务器进程）→ 用量存储。
 // 每个组件的 Close 都要求可重复调用；extData 在关闭前摘空，避免重复关闭。
 func (a *App) closeExtensions() {
 	a.extMu.Lock()
@@ -86,6 +95,11 @@ func (a *App) closeExtensions() {
 	for _, value := range values {
 		if manager, ok := value.(*subagent.Manager); ok {
 			_ = manager.Close()
+		}
+	}
+	for _, value := range values {
+		if reg, ok := value.(*task.Registry); ok {
+			_ = reg.Close()
 		}
 	}
 	for _, value := range values {

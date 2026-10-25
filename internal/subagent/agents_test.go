@@ -84,7 +84,7 @@ func TestToolsReturnsAgentTool(t *testing.T) {
 	dir := t.TempDir()
 	mgr := newTestManager(t, dir, filepath.Join(dir, "agents"), newFakeProvider(), "")
 	tools := mgr.Tools()
-	if len(tools) != 1 || tools[0].Name() != ToolName {
+	if len(tools) != 2 || tools[0].Name() != ToolName || tools[1].Name() != SendMessageToolName {
 		t.Fatalf("tools = %v", tools)
 	}
 }

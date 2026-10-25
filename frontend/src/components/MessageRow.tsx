@@ -77,6 +77,18 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }
 // 其余消息保持引用不变，因此长消息流里只有正在流式的那条会重渲染。
 export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem }) {
   if (item.kind === 'user') {
+    // 后台任务唤醒轮的 prompt 是 <task-notification>，不是用户输入：
+    // 渲染成居中的系统提示，不占用户气泡。
+    if (item.text.startsWith('<task-notification>')) {
+      const summary = /<summary>([\s\S]*?)<\/summary>/.exec(item.text)?.[1]
+      return (
+        <div className="flex justify-center">
+          <p className="max-w-[85%] border border-line bg-raised px-3 py-1 font-mono text-[11px] text-subtle">
+            {summary ? summary : item.text}
+          </p>
+        </div>
+      )
+    }
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%] border border-line bg-panel px-3.5 py-2.5">

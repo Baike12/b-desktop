@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Baike12/b-desktop/internal/task"
 	"github.com/Baike12/b-desktop/internal/tool"
 )
 
@@ -52,6 +53,10 @@ var bashSchema = json.RawMessage(`{
     "description": {
       "type": "string",
       "description": "Short human-readable description of what the command does."
+    },
+    "run_in_background": {
+      "type": "boolean",
+      "description": "Set true to run the command in the background: the call returns a task ID immediately, output goes to a file, completion is announced via a task-notification. Monitor with TaskOutput, stop with TaskStop."
     }
   }
 }`)
@@ -61,16 +66,26 @@ var bashSchema = json.RawMessage(`{
 // 命令按 argv 直接执行，或显式交给系统 shell 解释（Unix `/bin/sh -c`，
 // Windows `%COMSPEC% /d /s /c`）；任何参数都不会拼接进命令字符串。
 // stdout 与 stderr 分别捕获，各自最多保留 defaultBashOutputLimit 字节。
+// 注册了任务表（NewBashWithTasks）时支持 run_in_background 后台执行。
 type Bash struct {
 	root           string
 	outputLimit    int
 	defaultTimeout time.Duration
 	maxTimeout     time.Duration
+	sessionID      string
+	tasks          *task.Registry
 }
 
 // NewBash 创建以 root 为工作目录的 Bash 工具。
 // root 为空时使用进程当前目录。
 func NewBash(root string) tool.Tool {
+	return NewBashWithTasks(root, "", nil)
+}
+
+// NewBashWithTasks 创建支持后台执行的 Bash 工具：
+// tasks 为 nil 时 run_in_background 返回不可用错误，其余行为与 NewBash 一致。
+// sessionID 是发起调用的会话，用于把后台任务归属到正确的通知目标。
+func NewBashWithTasks(root, sessionID string, tasks *task.Registry) tool.Tool {
 	dir := root
 	if dir == "" {
 		dir = "."
@@ -83,6 +98,8 @@ func NewBash(root string) tool.Tool {
 		outputLimit:    defaultBashOutputLimit,
 		defaultTimeout: defaultBashTimeout,
 		maxTimeout:     maxBashTimeout,
+		sessionID:      sessionID,
+		tasks:          tasks,
 	}
 }
 
@@ -95,7 +112,9 @@ func (b *Bash) Description() string {
 		"Prefer the argv form when no shell features are needed; use command when pipes, redirects or shell syntax are required. " +
 		"stdout and stderr are captured separately and truncated to 30000 bytes each. " +
 		"Non-zero exit codes are reported in the result instead of failing the call. " +
-		"The command is killed together with its descendants on timeout or cancellation."
+		"The command is killed together with its descendants on timeout or cancellation. " +
+		"Long-running commands (dev servers, watchers, test suites) accept run_in_background=true: " +
+		"the call returns a task ID immediately and completion is announced to you later."
 }
 
 // InputSchema 返回 JSON Schema。
@@ -109,16 +128,18 @@ func (b *Bash) ConcurrencySafe(json.RawMessage) bool { return false }
 
 // bashInput 是 Bash 的输入。
 type bashInput struct {
-	Command     string   `json:"command"`
-	Argv        []string `json:"argv"`
-	TimeoutMS   int      `json:"timeout_ms"`
-	Description string   `json:"description"`
+	Command         string   `json:"command"`
+	Argv            []string `json:"argv"`
+	TimeoutMS       int      `json:"timeout_ms"`
+	Description     string   `json:"description"`
+	RunInBackground bool     `json:"run_in_background"`
 }
 
 // Run 执行命令并返回结果。
 //
 // 返回 error 只用于调用方取消；启动失败、超时、非零退出都转换成结构化 Result，
 // 不打断 Agent 循环。非零退出不是异常：退出码写进 Content 与 Meta，IsError 保持 false。
+// run_in_background 为 true 时命令交给任务表后台执行，立即返回任务 ID 与输出文件。
 func (b *Bash) Run(ctx context.Context, input json.RawMessage, progress tool.ProgressFunc) (tool.Result, error) {
 	var in bashInput
 	if err := json.Unmarshal(input, &in); err != nil {
@@ -129,6 +150,10 @@ func (b *Bash) Run(ctx context.Context, input json.RawMessage, progress tool.Pro
 	}
 	if len(in.Argv) == 0 && strings.TrimSpace(in.Command) == "" {
 		return tool.Result{IsError: true, Content: "invalid input: command or argv is required"}, nil
+	}
+
+	if in.RunInBackground {
+		return b.runBackground(&in), nil
 	}
 
 	timeout := b.timeout(in.TimeoutMS)
@@ -219,6 +244,39 @@ func (b *Bash) Run(ctx context.Context, input json.RawMessage, progress tool.Pro
 
 	res := b.result(exitCode(err), stdout, stderr, elapsed)
 	return res, nil
+}
+
+// runBackground 把命令交给任务表后台执行并立即返回。注册表未装配时
+// 返回不可用错误，模型会改用前台执行。
+func (b *Bash) runBackground(in *bashInput) tool.Result {
+	if b.tasks == nil {
+		return tool.Result{
+			IsError: true,
+			Content: "background execution is not available in this session; run the command in the foreground instead",
+		}
+	}
+	handle := b.tasks.StartBash(task.StartBashInput{
+		SessionID:   b.sessionID,
+		Description: in.Description,
+		Command:     in.Command,
+		Argv:        in.Argv,
+		Dir:         b.root,
+	})
+	if handle.Err() != nil {
+		return tool.Result{
+			IsError: true,
+			Content: fmt.Sprintf("failed to start background command: %v", handle.Err()),
+		}
+	}
+	content := fmt.Sprintf(
+		"Command running in background with ID: %s.\nOutput is being written to: %s\n"+
+			"You will be notified automatically when it completes; poll progress earlier with TaskOutput(task_id=%q, block=true).",
+		handle.TaskID(), handle.OutputFile(), handle.TaskID())
+	return tool.Result{
+		Content: content,
+		Display: content,
+		Meta:    map[string]string{"taskId": handle.TaskID(), "outputFile": handle.OutputFile(), "background": "true"},
+	}
 }
 
 // timeout 把 timeout_ms 归一化到 [defaultTimeout, maxTimeout]。

@@ -60,6 +60,23 @@ export interface AgentErrorView {
   status?: number
 }
 
+// TaskView 与 agent.TaskView 对应：一次后台任务状态变化。
+// kind 为 local_bash 时 command/exitCode/outputFile 有效，
+// 为 local_agent 时 agentType/result 有效。
+export interface TaskView {
+  taskId: string
+  kind: 'local_bash' | 'local_agent' | string
+  description?: string
+  command?: string
+  agentType?: string
+  status: string
+  exitCode?: number
+  error?: string
+  result?: string
+  outputFile?: string
+  summary?: string
+}
+
 export type AgentEventType =
   | 'turn_queued'
   | 'turn_start'
@@ -81,6 +98,7 @@ export type AgentEventType =
   | 'retry'
   | 'message_stop'
   | 'message_discard'
+  | 'task_update'
   | 'error'
   | 'turn_end'
 
@@ -115,4 +133,5 @@ export interface AgentEvent {
   retry?: RetryInfo
   error?: AgentErrorView
   stopReason?: StopReason | string
+  task?: TaskView
 }

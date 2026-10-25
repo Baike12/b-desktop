@@ -67,6 +67,12 @@ type SubagentTaskDTO struct {
 // Manager 实现 agent.SubagentRunner，并提供 Tools() 与 Close()。
 func (a *App) subagentComponent(workDir string) (*subagent.Manager, error) {
 	key := subagentStoreKeyPrefix + workDir
+	// 任务注册表必须在 extensionStore 之外解析：extensionStore 持 extMu
+	// 执行 init 回调，嵌套调用会对同一把锁重入死锁。
+	tasks, err := a.taskRegistryComponent()
+	if err != nil {
+		return nil, fmt.Errorf("app: subagent component: %w", err)
+	}
 	value, err := a.extensionStore(key, func() (any, error) {
 		dir, err := a.settingsDir()
 		if err != nil {
@@ -75,6 +81,7 @@ func (a *App) subagentComponent(workDir string) (*subagent.Manager, error) {
 		mgr, err := subagent.NewManager(subagent.Config{
 			WorkDir:   workDir,
 			AgentsDir: filepath.Join(dir, "agents"),
+			Tasks:     tasks,
 			Runtime: func(sessionID string) (subagent.Runtime, error) {
 				return a.subagentRuntime(sessionID, workDir)
 			},

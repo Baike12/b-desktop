@@ -59,6 +59,10 @@ type Config struct {
 	ThinkingEnabled bool
 	// ThinkingBudget 是扩展思考预算（token）；0 表示用 llm.DefaultThinkingBudget。
 	ThinkingBudget int
+	// Notifications 是会话级任务通知队列（后台命令/子 Agent 完成通知）。
+	// 队列由装配层持有并跨引擎重建存活；nil 表示不接收通知。
+	// 循环在工具结果回灌时 Drain，把通知作为文本块并入同一条 user 消息。
+	Notifications NotificationQueue
 	// Extensions 是可选的扩展集合：额外工具、钩子、上下文提供者、指标与子 Agent。
 	// Extensions.Tools 会在 NewEngine 中注册进 Tools，重名视为配置错误。
 	Extensions Extensions
@@ -127,6 +131,47 @@ type EventSink func(Event)
 // EventFunc 是 EventSink 的兼容别名（契约文档使用该名称）。
 type EventFunc = EventSink
 
+// NotificationQueue 是会话级任务通知队列。后台任务完成时装配层 Push 一条
+// <task-notification>；循环在工具结果回灌时 Drain 全部并注入下一次请求。
+// 实现必须并发安全：Push 来自任务 goroutine，Drain 来自 turn goroutine。
+type NotificationQueue interface {
+	// Push 追加一条通知文本。
+	Push(text string)
+	// Drain 取走全部待投递通知，按入队顺序返回；空队列返回 nil。
+	Drain() []string
+}
+
+// NotificationBuffer 是 NotificationQueue 的默认实现：互斥锁保护的字符串队列。
+type NotificationBuffer struct {
+	mu   sync.Mutex
+	text []string
+}
+
+// NewNotificationBuffer 创建空的通知队列。
+func NewNotificationBuffer() *NotificationBuffer { return &NotificationBuffer{} }
+
+// Push 追加一条通知文本；空文本被忽略。
+func (b *NotificationBuffer) Push(text string) {
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	b.mu.Lock()
+	b.text = append(b.text, text)
+	b.mu.Unlock()
+}
+
+// Drain 取走全部待投递通知；空队列返回 nil。
+func (b *NotificationBuffer) Drain() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if len(b.text) == 0 {
+		return nil
+	}
+	out := b.text
+	b.text = nil
+	return out
+}
+
 // Engine 是一个会话的运行时。并发契约：
 //   - runMu 用 TryLock 保证同一时刻只有一个 Run，第二个 Run 立即返回 ErrTurnRunning；
 //   - stateMu 保护 history、turnCancel、running 与压缩所需的时间/用量快照；
@@ -162,6 +207,14 @@ func NewEngine(cfg Config) (*Engine, error) {
 		}
 	}
 	return &Engine{cfg: cfg}, nil
+}
+
+// DrainNotifications 取走并返回全部待投递通知；未配置队列时返回 nil。
+func (e *Engine) DrainNotifications() []string {
+	if e.cfg.Notifications == nil {
+		return nil
+	}
+	return e.cfg.Notifications.Drain()
 }
 
 // Permissions 返回该引擎使用的权限引擎。
