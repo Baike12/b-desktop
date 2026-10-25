@@ -33,13 +33,25 @@ func (DefaultEstimator) EstimateString(s string) int {
 	return (ascii+3)/4 + nonASCII
 }
 
+// imageTokenEstimate 是单个图片内容块的 token 估算值。
+// Anthropic 按 (宽×高)/750 计费，1568px 图片最高约 3277 token；取 2000
+// 与参考实现一致，宁可高估，避免 auto-compact 触发过晚。
+const imageTokenEstimate = 2000
+
 // EstimateMessages 按默认字符比例估算消息 token 数：每条消息 +4，每个块 +6，
-// 再加上块内容本身的估算。
+// 再加上块内容本身的估算；图片块按固定常数计。
 func (DefaultEstimator) EstimateMessages(msgs []llm.Message) int {
 	total := 0
 	for _, m := range msgs {
 		total += 4
 		for _, b := range m.Blocks {
+			if b.Type == llm.BlockImage {
+				total += imageTokenEstimate
+				continue
+			}
+			if b.Type == llm.BlockToolResult {
+				total += imageTokenEstimate * len(b.Images)
+			}
 			total += 6 + DefaultEstimator{}.EstimateString(blockText(b))
 		}
 	}

@@ -39,10 +39,17 @@ export type AssistantItem = {
   discarded?: boolean
 }
 
+// UserImage 是随用户消息提交的一张 base64 图片。
+export type UserImage = {
+  mediaType: string
+  data: string
+}
+
 export type UserItem = {
   kind: 'user'
   id: string
   text: string
+  images?: UserImage[]
   timeMs: number
 }
 

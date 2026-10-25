@@ -857,7 +857,7 @@ const bindings = {
     return clone(info)
   },
 
-  SendMessage: async (sessionId: string, text: string) => {
+  SendMessage: async (sessionId: string, text: string, images?: { mediaType?: string; data: string }[]) => {
     const view = views.get(sessionId)
     const firstMessage = (view?.messages.length ?? 0) === 0
     const turnId = `turn_harness_${(turnSeq += 1)}`
@@ -868,7 +868,15 @@ const bindings = {
       view.messages.push({
         id: `${messageId}_user`,
         role: 'user',
-        blocks: [{ type: 'text', text }],
+        blocks: [
+          ...(text ? [{ type: 'text', text }] : []),
+          ...(images ?? []).map((img, index) => ({
+            type: 'image',
+            mediaType: img.mediaType ?? 'image/png',
+            data: img.data,
+            _index: index,
+          })),
+        ],
         timeMs: Date.now(),
       })
       view.messages.push({

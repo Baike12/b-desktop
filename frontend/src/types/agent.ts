@@ -30,6 +30,7 @@ export interface ToolResultView {
   isError: boolean
   truncated: boolean
   bytes: number
+  images?: { mediaType: string; data: string }[]
 }
 
 export interface Usage {

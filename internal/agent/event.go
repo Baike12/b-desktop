@@ -104,6 +104,8 @@ type ToolResultView struct {
 	IsError   bool   `json:"isError"`
 	Truncated bool   `json:"truncated"`
 	Bytes     int    `json:"bytes"`
+	// Images 是结果附带的图片（与 transcript 一致），前端渲染缩略图。
+	Images []llm.Image `json:"images,omitempty"`
 }
 
 // CompactView 是一次压缩的前端视图。Failed 为 true 时 Error 说明原因，

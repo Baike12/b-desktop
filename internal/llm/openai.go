@@ -70,9 +70,32 @@ type openAIStreamOpts struct {
 
 type openAIMessage struct {
 	Role       string           `json:"role"`
-	Content    string           `json:"content,omitempty"`
+	Content    any              `json:"content,omitempty"`
 	ToolCalls  []openAIToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string           `json:"tool_call_id,omitempty"`
+}
+
+// openAIContentPart 是多模态 content 数组的一项。Type 取 "text" 或 "image_url"，
+// 与 Chat Completions 的 content parts 约定一致。
+type openAIContentPart struct {
+	Type     string          `json:"type"`
+	Text     string          `json:"text,omitempty"`
+	ImageURL *openAIImageURL `json:"image_url,omitempty"`
+}
+
+type openAIImageURL struct {
+	URL string `json:"url"`
+}
+
+// openAIImagePart 构造一个 data URL 图片 part；空数据的图片被丢弃。
+func openAIImagePart(mediaType, data string) (openAIContentPart, bool) {
+	if mediaType == "" || data == "" {
+		return openAIContentPart{}, false
+	}
+	return openAIContentPart{
+		Type:     "image_url",
+		ImageURL: &openAIImageURL{URL: "data:" + mediaType + ";base64," + data},
+	}, true
 }
 
 type openAIToolCall struct {
@@ -156,10 +179,16 @@ func encodeOpenAIRequest(req Request) ([]byte, error) {
 			}
 			out.Messages = append(out.Messages, msg)
 		case RoleUser:
+			// 有图片时消息必须整体切换成 content parts 数组，text 与 image_url
+			// 按出现顺序排列；纯文本消息保持字符串形式，与旧请求体一致。
 			var text strings.Builder
+			var parts []openAIContentPart
 			flushText := func() {
 				if text.Len() > 0 {
-					out.Messages = append(out.Messages, openAIMessage{Role: "user", Content: text.String()})
+					if parts == nil {
+						parts = make([]openAIContentPart, 0, len(m.Blocks))
+					}
+					parts = append(parts, openAIContentPart{Type: "text", Text: text.String()})
 					text.Reset()
 				}
 			}
@@ -172,24 +201,58 @@ func encodeOpenAIRequest(req Request) ([]byte, error) {
 						}
 						text.WriteString(b.Text)
 					}
+				case BlockImage:
+					flushText()
+					if part, ok := openAIImagePart(b.MediaType, b.Data); ok {
+						if parts == nil {
+							parts = make([]openAIContentPart, 0, len(m.Blocks))
+						}
+						parts = append(parts, part)
+					}
 				case BlockToolResult:
 					// 工具结果按块顺序展开成独立的 tool 消息。
 					flushText()
 					content := b.Text
-					if content == "" {
+					if content == "" && len(b.Images) == 0 {
 						content = "<tool returned no output>"
 					}
-					out.Messages = append(out.Messages, openAIMessage{
+					msg := openAIMessage{
 						Role:       "tool",
 						Content:    content,
 						ToolCallID: b.ToolUseID,
-					})
+					}
+					if images := openAIImageParts(b.Images); len(images) > 0 {
+						msgParts := make([]openAIContentPart, 0, len(images)+1)
+						if content != "" {
+							msgParts = append(msgParts, openAIContentPart{Type: "text", Text: content})
+						}
+						msgParts = append(msgParts, images...)
+						msg.Content = msgParts
+					}
+					out.Messages = append(out.Messages, msg)
 				}
 			}
 			flushText()
+			// 纯文本消息保持字符串形式；出现过图片或文本被分段时用 parts 数组。
+			if len(parts) == 1 && parts[0].Type == "text" {
+				out.Messages = append(out.Messages, openAIMessage{Role: "user", Content: parts[0].Text})
+			} else if len(parts) > 0 {
+				out.Messages = append(out.Messages, openAIMessage{Role: "user", Content: parts})
+			}
 		}
 	}
 	return json.Marshal(out)
+}
+
+// openAIImageParts 把工具结果附带的图片批量转成 image_url part，跳过空数据。
+func openAIImageParts(images []Image) []openAIContentPart {
+	parts := make([]openAIContentPart, 0, len(images))
+	for _, img := range images {
+		if part, ok := openAIImagePart(img.MediaType, img.Data); ok {
+			parts = append(parts, part)
+		}
+	}
+	return parts
 }
 
 // openAIToolState 是单个工具调用的流式状态。

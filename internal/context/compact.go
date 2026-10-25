@@ -456,9 +456,12 @@ func MicroCompact(msgs []llm.Message, keepRecent int) (out []llm.Message, cleare
 				continue
 			}
 			if strings.TrimSpace(b.Text) == "" || b.Text == clearedToolResult {
-				continue
+				if len(b.Images) == 0 {
+					continue
+				}
 			}
 			b.Text = clearedToolResult
+			b.Images = nil
 			changed = true
 			cleared++
 		}
@@ -493,11 +496,11 @@ func (c *Compactor) AutoCompact(ctx stdctx.Context, msgs []llm.Message, trigger 
 		return CompactInfo{}, msgs, ErrNothingToCompact
 	}
 
-	summary, err := c.summarize(ctx, msgs, progress)
+	summary, err := c.summarize(ctx, stripImages(msgs), progress)
 	if err != nil && isContextOverflow(err) {
 		trimmed := trimOldestGroup(msgs)
 		if len(trimmed) < len(msgs) {
-			summary, err = c.summarize(ctx, trimmed, progress)
+			summary, err = c.summarize(ctx, stripImages(trimmed), progress)
 			if err == nil {
 				msgs = trimmed
 				tail = c.keepTail(msgs)
@@ -533,6 +536,50 @@ func (c *Compactor) summarize(ctx stdctx.Context, msgs []llm.Message, progress C
 		})
 	}
 	return c.summarizer.Summarize(ctx, msgs, SummaryInstruction)
+}
+
+// stripImages 返回去掉图片内容的消息副本：BlockImage 替换成 "[image]" 文本占位，
+// tool_result 附带的图片同样移除并在文本尾部补 "[image]"。摘要请求不需要
+// 看图（与参考实现一致），保留只会撑爆摘要调用的上下文。
+// 传入的切片不被修改；保留尾部（keepTail）仍使用原始消息。
+func stripImages(msgs []llm.Message) []llm.Message {
+	stripped := false
+	out := make([]llm.Message, len(msgs))
+	for i, m := range msgs {
+		hasImages := false
+		for _, b := range m.Blocks {
+			if b.Type == llm.BlockImage || len(b.Images) > 0 {
+				hasImages = true
+				break
+			}
+		}
+		if !hasImages {
+			out[i] = m
+			continue
+		}
+		stripped = true
+		clone := cloneMessage(m)
+		blocks := make([]llm.ContentBlock, 0, len(clone.Blocks))
+		for _, b := range clone.Blocks {
+			if b.Type == llm.BlockImage {
+				blocks = append(blocks, llm.ContentBlock{Type: llm.BlockText, Text: "[image]"})
+				continue
+			}
+			if len(b.Images) > 0 {
+				b.Images = nil
+				if b.Type == llm.BlockToolResult && !strings.Contains(b.Text, "[image]") {
+					b.Text = strings.TrimRight(b.Text, "\n") + "\n[image]"
+				}
+			}
+			blocks = append(blocks, b)
+		}
+		clone.Blocks = blocks
+		out[i] = clone
+	}
+	if !stripped {
+		return msgs
+	}
+	return out
 }
 
 // keepTail 按设计文档的保留策略取尾部：

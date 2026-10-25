@@ -93,7 +93,7 @@ func TestTaskCompletionQueuesWhileRunning(t *testing.T) {
 	app, collector := newTestApp(t, provider)
 	info := createTestSession(t, app)
 
-	if _, err := app.SendMessage(info.ID, "开始"); err != nil {
+	if _, err := app.SendMessage(info.ID, "开始", nil); err != nil {
 		t.Fatalf("SendMessage: %v", err)
 	}
 

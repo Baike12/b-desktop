@@ -102,7 +102,7 @@ export function SearchSessionFiles(arg1:string,arg2:string,arg3:string):Promise<
 
 export function SearchSessions(arg1:string,arg2:number):Promise<Array<app.SessionSearchResultDTO>>;
 
-export function SendMessage(arg1:string,arg2:string):Promise<app.SendMessageResult>;
+export function SendMessage(arg1:string,arg2:string,arg3:Array<app.ImageInput>):Promise<app.SendMessageResult>;
 
 export function SetPermissionMode(arg1:string,arg2:string):Promise<void>;
 

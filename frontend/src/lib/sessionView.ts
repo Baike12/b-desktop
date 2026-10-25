@@ -4,18 +4,23 @@ import type { AssistantBlock, ChatItem } from '../types/chat'
 
 // viewToItems 把 LoadSession 的历史消息转成消息流模型。
 // tool_result 消息在历史里是独立的 user 消息，这里按 toolUseId 回挂到工具卡片上，
-// 不再渲染成用户气泡。
+// 不再渲染成用户气泡；用户消息里的 image 块与 tool_result 附带图片转为可渲染数据。
 export function viewToItems(view: app.SessionViewDTO): ChatItem[] {
   const results = new Map<string, ToolResultView>()
   for (const message of view.messages) {
     for (const block of message.blocks) {
       if (block.type !== 'tool_result' || !block.toolUseId) continue
       const text = block.text ?? ''
+      const images = (block.images ?? []).map((img) => ({
+        mediaType: img.mediaType,
+        data: img.data,
+      }))
       results.set(block.toolUseId, {
         preview: text,
         isError: Boolean(block.isError),
         truncated: false,
         bytes: text.length,
+        images: images.length > 0 ? images : undefined,
       })
     }
   }
@@ -27,8 +32,17 @@ export function viewToItems(view: app.SessionViewDTO): ChatItem[] {
         .filter((block) => block.type === 'text')
         .map((block) => block.text ?? '')
         .join('\n')
-      if (text.trim() === '') continue
-      items.push({ kind: 'user', id: message.id, text, timeMs: message.timeMs })
+      const images = message.blocks
+        .filter((block) => block.type === 'image' && block.data)
+        .map((block) => ({ mediaType: block.mediaType ?? 'image/png', data: block.data ?? '' }))
+      if (text.trim() === '' && images.length === 0) continue
+      items.push({
+        kind: 'user',
+        id: message.id,
+        text,
+        images: images.length > 0 ? images : undefined,
+        timeMs: message.timeMs,
+      })
       continue
     }
     if (message.role !== 'assistant') continue

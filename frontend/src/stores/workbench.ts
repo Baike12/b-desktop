@@ -17,6 +17,7 @@ import { normalizePermissionMode } from '../lib/permission'
 import { reduceAgentEvents, type StreamState } from '../lib/reduceAgentEvents'
 import { viewToItems } from '../lib/sessionView'
 import type { AgentEvent, ApprovalView, PermissionMode, RetryInfo, Usage } from '../types/agent'
+import type { UserImage } from '../types/chat'
 import type { ChatItem } from '../types/chat'
 import { useAppStore } from './app'
 
@@ -98,7 +99,7 @@ export interface WorkbenchState {
   selectSession: (id: string) => Promise<void>
   newSession: (projectPath?: string) => Promise<void>
   openProject: () => Promise<void>
-  send: (prompt: string) => Promise<void>
+  send: (prompt: string, images?: UserImage[]) => Promise<void>
   cancel: () => Promise<void>
   approve: (requestId: string, option: string, updatedInput?: unknown) => Promise<void>
   setPermissionMode: (mode: PermissionMode) => Promise<void>
@@ -250,9 +251,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     }
   },
 
-  send: async (prompt) => {
+  send: async (prompt, images) => {
     const text = prompt.trim()
-    if (text === '' || get().running) return
+    const attachments = images ?? []
+    if ((text === '' && attachments.length === 0) || get().running) return
 
     let sessionId = get().activeId
     if (!sessionId) {
@@ -265,6 +267,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       kind: 'user',
       id: localId('user'),
       text,
+      images: attachments.length > 0 ? attachments : undefined,
       timeMs: Date.now(),
     }
     set((state) => ({
@@ -279,7 +282,11 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     }))
 
     try {
-      const result = await SendMessage(sessionId, text)
+      const result = await SendMessage(
+        sessionId,
+        text,
+        attachments.map((img) => ({ mediaType: img.mediaType, data: img.data })),
+      )
       if (get().activeId !== sessionId) return
       if (!result.running) set({ running: false })
       void get().refreshSessions()

@@ -126,7 +126,7 @@ func TestBuildExtensionsWiresComponents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
-	if _, err := app.SendMessage(info.ID, "hello"); err != nil {
+	if _, err := app.SendMessage(info.ID, "hello", nil); err != nil {
 		t.Fatalf("SendMessage: %v", err)
 	}
 	collector.waitFor(t, agent.EventTurnEnd, 3*time.Second)

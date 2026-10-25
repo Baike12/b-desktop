@@ -26,6 +26,20 @@ type SendMessageResult struct {
 	Running   bool   `json:"running"`
 }
 
+// ImageInput 是随用户消息提交的一张图片。Data 是裸 base64（也兼容 data URL）；
+// MediaType 可省略，后端按 magic bytes 重新判定。
+type ImageInput struct {
+	MediaType string `json:"mediaType,omitempty"`
+	Data      string `json:"data"`
+}
+
+// ImageDTO 是一张 base64 图片的前端视图，出现在 BlockDTO.Data（用户消息图片）
+// 或 BlockDTO.Images（工具结果图片）里。
+type ImageDTO struct {
+	MediaType string `json:"mediaType"`
+	Data      string `json:"data"`
+}
+
 // SessionInfoDTO 是会话列表项。UpdatedAtMS 是 Unix 毫秒。
 type SessionInfoDTO struct {
 	ID      string `json:"id"`
@@ -76,13 +90,16 @@ type MessageDTO struct {
 // Input 使用 any 而不是 json.RawMessage：Wails 的 TypeScript 生成器把 []byte
 // 映射成 number[]，而工具参数在线格式上是 JSON 对象。any 在运行期就是对象。
 type BlockDTO struct {
-	Type      string `json:"type"`
-	Text      string `json:"text,omitempty"`
-	Thinking  string `json:"thinking,omitempty"`
-	ToolUseID string `json:"toolUseId,omitempty"`
-	ToolName  string `json:"toolName,omitempty"`
-	Input     any    `json:"input,omitempty"`
-	IsError   bool   `json:"isError,omitempty"`
+	Type      string     `json:"type"`
+	Text      string     `json:"text,omitempty"`
+	Thinking  string     `json:"thinking,omitempty"`
+	ToolUseID string     `json:"toolUseId,omitempty"`
+	ToolName  string     `json:"toolName,omitempty"`
+	Input     any        `json:"input,omitempty"`
+	IsError   bool       `json:"isError,omitempty"`
+	MediaType string     `json:"mediaType,omitempty"`
+	Data      string     `json:"data,omitempty"`
+	Images    []ImageDTO `json:"images,omitempty"`
 }
 
 // UsageDTO 是 token 统计。
@@ -193,7 +210,7 @@ func toBlocksDTO(blocks []llm.ContentBlock) []BlockDTO {
 
 // toBlockDTO 转换一个内容块。非法工具参数按 nil 下发，不影响会话加载。
 func toBlockDTO(block llm.ContentBlock) BlockDTO {
-	return BlockDTO{
+	out := BlockDTO{
 		Type:      string(block.Type),
 		Text:      block.Text,
 		Thinking:  block.Thinking,
@@ -201,7 +218,13 @@ func toBlockDTO(block llm.ContentBlock) BlockDTO {
 		ToolName:  block.ToolName,
 		Input:     decodeJSONValue(block.Input),
 		IsError:   block.IsError,
+		MediaType: block.MediaType,
+		Data:      block.Data,
 	}
+	for _, img := range block.Images {
+		out.Images = append(out.Images, ImageDTO{MediaType: img.MediaType, Data: img.Data})
+	}
+	return out
 }
 
 // toUsageDTO 转换 token 统计。

@@ -241,7 +241,8 @@ func TestAnthropicRequestEncoding(t *testing.T) {
 	if body.Messages[0].Role != "user" || tr.Type != "tool_result" || tr.ToolUseID != "toolu_1" || !tr.IsError {
 		t.Fatalf("tool_result 编码不正确: %+v", tr)
 	}
-	if tr.Content != "<tool returned no output>" {
+	var placeholder string
+	if err := json.Unmarshal(tr.Content, &placeholder); err != nil || placeholder != "<tool returned no output>" {
 		t.Fatalf("空工具结果应填占位文本，得到 %q", tr.Content)
 	}
 	tu := body.Messages[1].Content[0]

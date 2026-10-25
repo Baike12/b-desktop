@@ -90,16 +90,70 @@ type anthropicMessage struct {
 }
 
 type anthropicBlock struct {
-	Type      string          `json:"type"`
-	Text      string          `json:"text,omitempty"`
-	Thinking  string          `json:"thinking,omitempty"`
-	Signature string          `json:"signature,omitempty"`
-	ID        string          `json:"id,omitempty"`
-	Name      string          `json:"name,omitempty"`
-	Input     json.RawMessage `json:"input,omitempty"`
-	ToolUseID string          `json:"tool_use_id,omitempty"`
-	Content   string          `json:"content,omitempty"`
-	IsError   bool            `json:"is_error,omitempty"`
+	Type      string                `json:"type"`
+	Text      string                `json:"text,omitempty"`
+	Thinking  string                `json:"thinking,omitempty"`
+	Signature string                `json:"signature,omitempty"`
+	ID        string                `json:"id,omitempty"`
+	Name      string                `json:"name,omitempty"`
+	Input     json.RawMessage       `json:"input,omitempty"`
+	ToolUseID string                `json:"tool_use_id,omitempty"`
+	Content   json.RawMessage       `json:"content,omitempty"`
+	IsError   bool                  `json:"is_error,omitempty"`
+	Source    *anthropicImageSource `json:"source,omitempty"`
+}
+
+// anthropicImageSource 是 Anthropic 图片块的 base64 来源描述。
+type anthropicImageSource struct {
+	Type      string `json:"type"`
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
+}
+
+// anthropicImageBlock 把统一图片字段编码成 Anthropic 的 image 块。
+// 空数据的图片直接丢弃：发出去只会换来 "image cannot be empty" 的 400。
+func anthropicImageBlock(mediaType, data string) (anthropicBlock, bool) {
+	if mediaType == "" || data == "" {
+		return anthropicBlock{}, false
+	}
+	return anthropicBlock{
+		Type: "image",
+		Source: &anthropicImageSource{
+			Type:      "base64",
+			MediaType: mediaType,
+			Data:      data,
+		},
+	}, true
+}
+
+// anthropicToolResultContent 编码 tool_result 的 content 字段：
+// 没有附属图片时保持字符串形式（与旧 transcript 兼容），有图片时
+// Anthropic 要求 content 是 text/image 块数组。
+func anthropicToolResultContent(text string, images []Image) json.RawMessage {
+	if len(images) == 0 {
+		raw, err := json.Marshal(text)
+		if err != nil {
+			return json.RawMessage(`"<tool returned no output>"`)
+		}
+		return raw
+	}
+	parts := make([]anthropicBlock, 0, len(images)+1)
+	if text != "" {
+		parts = append(parts, anthropicBlock{Type: "text", Text: text})
+	}
+	for _, img := range images {
+		if block, ok := anthropicImageBlock(img.MediaType, img.Data); ok {
+			parts = append(parts, block)
+		}
+	}
+	if len(parts) == 0 {
+		parts = append(parts, anthropicBlock{Type: "text", Text: "<tool returned no output>"})
+	}
+	raw, err := json.Marshal(parts)
+	if err != nil {
+		return json.RawMessage(`"<tool returned no output>"`)
+	}
+	return raw
 }
 
 type anthropicTool struct {
@@ -173,15 +227,19 @@ func encodeAnthropicRequest(req Request) ([]byte, error) {
 				})
 			case BlockToolResult:
 				content := b.Text
-				if content == "" {
+				if content == "" && len(b.Images) == 0 {
 					content = "<tool returned no output>"
 				}
 				blocks = append(blocks, anthropicBlock{
 					Type:      "tool_result",
 					ToolUseID: b.ToolUseID,
-					Content:   content,
+					Content:   anthropicToolResultContent(content, b.Images),
 					IsError:   b.IsError,
 				})
+			case BlockImage:
+				if block, ok := anthropicImageBlock(b.MediaType, b.Data); ok {
+					blocks = append(blocks, block)
+				}
 			}
 		}
 		if len(blocks) == 0 {

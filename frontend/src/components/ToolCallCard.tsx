@@ -230,6 +230,18 @@ export const ToolCallCard = memo(function ToolCallCard({ block }: { block: ToolB
                   </span>
                 )}
               </p>
+              {block.result.images && block.result.images.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {block.result.images.map((img, index) => (
+                    <img
+                      key={`${index}-${img.data.length}`}
+                      src={`data:${img.mediaType || 'image/png'};base64,${img.data}`}
+                      alt={`工具返回的图片 ${index + 1}`}
+                      className="max-h-48 rounded-md border border-line/80 object-contain"
+                    />
+                  ))}
+                </div>
+              )}
               <pre
                 className={
                   block.result.isError

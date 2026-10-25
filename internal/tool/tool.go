@@ -18,6 +18,13 @@ type Progress struct {
 // ProgressFunc 报告进度。实现必须非阻塞；ctx 取消后应尽快返回。
 type ProgressFunc func(Progress)
 
+// Image 是工具结果附带的一张 base64 图片（例如 Read 读取图片文件）。
+// 它与 Content 一起作为 tool_result 的内容回灌给模型。
+type Image struct {
+	MediaType string `json:"mediaType"`
+	Data      string `json:"data"`
+}
+
 // Result 是工具执行结果。Content 回灌给模型，Display 给 UI（为空则复用 Content）。
 type Result struct {
 	Content   string            `json:"content"`
@@ -25,6 +32,9 @@ type Result struct {
 	IsError   bool              `json:"isError,omitempty"`
 	Truncated bool              `json:"truncated,omitempty"`
 	Meta      map[string]string `json:"meta,omitempty"`
+	// Images 是结果附带的图片；Content 仍应写一句说明文字，方便不支持
+	// 图片的端点降级为纯文本。
+	Images []Image `json:"images,omitempty"`
 }
 
 // Tool 是一个可被模型调用的工具。实现必须是并发安全的：同一实例可能并行执行。

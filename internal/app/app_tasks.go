@@ -103,7 +103,7 @@ func (a *App) onTaskCompleted(t task.Task) {
 		rt.notifs.Push(text)
 		return
 	}
-	if _, err := a.SendMessage(t.SessionID, text); err != nil {
+	if _, err := a.SendMessage(t.SessionID, text, nil); err != nil {
 		// 会话刚被用户或另一条消息占用：转入队列，由运行中的轮次注入。
 		rt.notifs.Push(text)
 	}

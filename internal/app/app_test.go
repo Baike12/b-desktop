@@ -707,16 +707,16 @@ func TestSessionValidation(t *testing.T) {
 func TestSendMessageValidation(t *testing.T) {
 	app, _ := newTestApp(t, newFakeProvider())
 
-	if _, err := app.SendMessage("s1", "   "); !errors.Is(err, ErrEmptyPrompt) {
+	if _, err := app.SendMessage("s1", "   ", nil); !errors.Is(err, ErrEmptyPrompt) {
 		t.Fatalf("empty prompt error = %v", err)
 	}
-	if _, err := app.SendMessage("bad/id", "hi"); !errors.Is(err, session.ErrInvalidID) {
+	if _, err := app.SendMessage("bad/id", "hi", nil); !errors.Is(err, session.ErrInvalidID) {
 		t.Fatalf("invalid session id error = %v", err)
 	}
-	if _, err := app.SendMessage("missing-session", "hi"); !errors.Is(err, ErrSessionNotFound) {
+	if _, err := app.SendMessage("missing-session", "hi", nil); !errors.Is(err, ErrSessionNotFound) {
 		t.Fatalf("missing session error = %v", err)
 	}
-	if _, err := app.SendMessage("s1", strings.Repeat("x", maxPromptBytes+1)); !errors.Is(err, ErrPromptTooLong) {
+	if _, err := app.SendMessage("s1", strings.Repeat("x", maxPromptBytes+1), nil); !errors.Is(err, ErrPromptTooLong) {
 		t.Fatalf("long prompt error = %v", err)
 	}
 
@@ -747,7 +747,7 @@ func TestSendMessageRequiresModel(t *testing.T) {
 		t.Fatalf("NewWithDeps: %v", err)
 	}
 	info := createTestSession(t, app)
-	if _, err := app.SendMessage(info.ID, "hi"); !errors.Is(err, ErrModelNotConfigured) {
+	if _, err := app.SendMessage(info.ID, "hi", nil); !errors.Is(err, ErrModelNotConfigured) {
 		t.Fatalf("error = %v, want ErrModelNotConfigured", err)
 	}
 }
@@ -757,7 +757,7 @@ func TestSendMessageStreamsEvents(t *testing.T) {
 	app, collector := newTestApp(t, provider)
 	info := createTestSession(t, app)
 
-	result, err := app.SendMessage(info.ID, "hi")
+	result, err := app.SendMessage(info.ID, "hi", nil)
 	if err != nil {
 		t.Fatalf("SendMessage: %v", err)
 	}
@@ -849,7 +849,7 @@ func TestEngineLifecycleAndRebuild(t *testing.T) {
 
 	send := func() {
 		t.Helper()
-		if _, err := app.SendMessage(info.ID, "hi"); err != nil {
+		if _, err := app.SendMessage(info.ID, "hi", nil); err != nil {
 			t.Fatalf("SendMessage: %v", err)
 		}
 		collector.waitFor(t, agent.EventTurnEnd, 3*time.Second)
@@ -891,7 +891,7 @@ func TestShutdownCancelsRunningTurn(t *testing.T) {
 	app, collector := newTestApp(t, newFakeProvider(blocked))
 	info := createTestSession(t, app)
 
-	if _, err := app.SendMessage(info.ID, "hi"); err != nil {
+	if _, err := app.SendMessage(info.ID, "hi", nil); err != nil {
 		t.Fatalf("SendMessage: %v", err)
 	}
 	collector.waitFor(t, agent.EventTextDelta, 3*time.Second)
@@ -906,7 +906,7 @@ func TestShutdownCancelsRunningTurn(t *testing.T) {
 	if collector.count(agent.EventMessageDiscard) != 1 {
 		t.Fatalf("message_discard count = %d, want 1", collector.count(agent.EventMessageDiscard))
 	}
-	if _, err := app.SendMessage(info.ID, "hi"); !errors.Is(err, ErrClosed) {
+	if _, err := app.SendMessage(info.ID, "hi", nil); !errors.Is(err, ErrClosed) {
 		t.Fatalf("SendMessage after shutdown error = %v", err)
 	}
 	if _, err := app.ListSessions(); !errors.Is(err, ErrClosed) {

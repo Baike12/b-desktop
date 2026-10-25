@@ -3,26 +3,42 @@ package builtin
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"os"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/Baike12/b-desktop/internal/llm"
 	"github.com/Baike12/b-desktop/internal/tool"
 )
 
 const (
-	// maxReadFileSize 是 Read 允许读取的最大文件字节数。
+	// maxReadFileSize 是 Read 允许读取的最大文本文件字节数。
 	maxReadFileSize = 256 * 1024
+	// maxReadImageBytes 是图片文件允许读入的最大字节数：先读入再做格式
+	// 识别与缩放，超过则直接拒绝（缩放后仍超限的错误在 readImage 里给出）。
+	maxReadImageBytes = 8 << 20
 	// maxReadLines 是单次调用允许读取的最大行数。
 	maxReadLines = 2000
 	// maxReadTokens 是 Read 输出允许的最大估算 token 数。
 	maxReadTokens = 25000
 	// binaryProbeSize 是二进制探测的采样字节数（与 Grep 的跳过规则一致）。
 	binaryProbeSize = 512
+	// maxReadImageEdge 是图片回灌给模型前的最长边上限（供应商建议值）。
+	maxReadImageEdge = 1568
+	// maxReadImageRawBytes 是图片编码后的原始字节预算：base64 后约 4MB，
+	// 低于 5MB 的 API 硬限制留出余量。
+	maxReadImageRawBytes = 3 << 20
+	// maxReadImageScalePasses 是体积超预算时允许的额外缩小轮数。
+	maxReadImageScalePasses = 7
 )
 
 const readSchema = `{
@@ -76,7 +92,8 @@ func (t *readTool) Name() string { return "Read" }
 func (t *readTool) Description() string {
 	return "Reads a text file from the workspace. Relative paths are resolved against the workspace root; " +
 		"paths that escape the root (including through symlinks) are rejected. " +
-		"Files larger than 256KB, binary files (NUL bytes) and invalid UTF-8 are rejected. " +
+		"Image files (png, jpeg, gif, webp) are returned as viewable images, downscaled to fit the 1568px limit. " +
+		"Text files larger than 256KB, binary files (NUL bytes) and invalid UTF-8 are rejected. " +
 		"Output is line-numbered by default; use offset and limit to page through a file (limit max 2000 lines)."
 }
 
@@ -140,8 +157,8 @@ func (t *readTool) Run(ctx context.Context, input json.RawMessage, progress tool
 	if info.IsDir() {
 		return errorf("Read: %s is a directory", t.display(path)), nil
 	}
-	if info.Size() > maxReadFileSize {
-		return errorf("Read: %s is %d bytes, exceeding the %d byte limit", t.display(path), info.Size(), maxReadFileSize), nil
+	if info.Size() > maxReadImageBytes {
+		return errorf("Read: %s is %d bytes, exceeding the %d byte limit", t.display(path), info.Size(), maxReadImageBytes), nil
 	}
 
 	data, err := os.ReadFile(path)
@@ -149,6 +166,14 @@ func (t *readTool) Run(ctx context.Context, input json.RawMessage, progress tool
 		return errorf("Read: %s: %v", t.display(path), err), nil
 	}
 	// Stat 与 ReadFile 之间文件可能变大，按实际读到的字节数再校验一次。
+	if len(data) > maxReadImageBytes {
+		return errorf("Read: %s is %d bytes, exceeding the %d byte limit", t.display(path), len(data), maxReadImageBytes), nil
+	}
+	// 图片按 magic bytes 识别，走独立的读取路径：不受 256KB 文本上限约束，
+	// 但要缩放到协议建议的 1568px 内并控制编码后体积。
+	if mediaType := llm.SniffImageMediaType(data); mediaType != "" {
+		return t.readImage(path, mediaType, data), nil
+	}
 	if len(data) > maxReadFileSize {
 		return errorf("Read: %s is %d bytes, exceeding the %d byte limit", t.display(path), len(data), maxReadFileSize), nil
 	}
@@ -212,6 +237,81 @@ func (t *readTool) Run(ctx context.Context, input json.RawMessage, progress tool
 			"lines":       strconv.Itoa(written),
 		},
 	}, nil
+}
+
+// readImage 把图片文件转成可回灌给模型的图片结果。
+// png/jpeg/gif 用标准库解码并缩放到 1568px 内、PNG 重编码（供应商建议的
+// 上限，且让 token 开销可控）；体积超预算时按 0.85 逐轮缩小，最多 8 轮。
+// webp 无法用标准库解码，只在字节达标时原样透传。
+func (t *readTool) readImage(path, mediaType string, data []byte) tool.Result {
+	if mediaType == "image/webp" {
+		if len(data) > maxReadImageRawBytes {
+			return errorf("Read: %s is a %d byte webp image, exceeding the %d byte attach limit; convert it to png first", t.display(path), len(data), maxReadImageRawBytes)
+		}
+		return tool.Result{
+			Content: fmt.Sprintf("[Image: %s, image/webp]", t.display(path)),
+			Images:  []tool.Image{{MediaType: mediaType, Data: base64.StdEncoding.EncodeToString(data)}},
+			Meta:    map[string]string{"file_path": path, "media_type": mediaType},
+		}
+	}
+
+	var src image.Image
+	var err error
+	switch mediaType {
+	case "image/jpeg":
+		src, err = jpeg.Decode(bytes.NewReader(data))
+	case "image/gif":
+		src, err = gif.Decode(bytes.NewReader(data))
+	default:
+		src, err = png.Decode(bytes.NewReader(data))
+	}
+	if err != nil {
+		return errorf("Read: %s: undecodable %s image: %v", t.display(path), mediaType, err)
+	}
+
+	bounds := src.Bounds()
+	longest := max(bounds.Dx(), bounds.Dy())
+	scale := 1.0
+	if longest > maxReadImageEdge {
+		scale = float64(maxReadImageEdge) / float64(longest)
+	}
+	for pass := 0; ; pass++ {
+		out := scaleImage(src, scale)
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, out); err != nil {
+			return errorf("Read: %s: encode image: %v", t.display(path), err)
+		}
+		if buf.Len() <= maxReadImageRawBytes {
+			return tool.Result{
+				Content: fmt.Sprintf("[Image: %s, %dx%d, %s]", t.display(path), out.Bounds().Dx(), out.Bounds().Dy(), mediaType),
+				Images:  []tool.Image{{MediaType: mediaType, Data: base64.StdEncoding.EncodeToString(buf.Bytes())}},
+				Meta:    map[string]string{"file_path": path, "media_type": mediaType},
+			}
+		}
+		if pass == maxReadImageScalePasses {
+			return errorf("Read: %s: could not encode the image under the %d byte limit", t.display(path), maxReadImageRawBytes)
+		}
+		scale *= 0.85
+	}
+}
+
+// scaleImage 把 src 等比缩放 scale 倍（最近邻采样）；scale >= 1 时原样返回。
+func scaleImage(src image.Image, scale float64) image.Image {
+	if scale >= 1 {
+		return src
+	}
+	b := src.Bounds()
+	w := max(1, int(float64(b.Dx())*scale))
+	h := max(1, int(float64(b.Dy())*scale))
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		sy := b.Min.Y + y*b.Dy()/h
+		for x := 0; x < w; x++ {
+			sx := b.Min.X + x*b.Dx()/w
+			dst.Set(x, y, src.At(sx, sy))
+		}
+	}
+	return dst
 }
 
 // checkTextContent 判定内容是否是可按文本处理的 UTF-8。

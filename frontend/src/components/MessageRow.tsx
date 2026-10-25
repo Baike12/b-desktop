@@ -97,7 +97,21 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%] rounded-2xl rounded-br-md border border-accent/25 bg-accent-soft px-4 py-2.5 shadow-card">
-          <p className="whitespace-pre-wrap break-words text-[13px] leading-6 text-fg">{item.text}</p>
+          {item.images && item.images.length > 0 && (
+            <div className={`flex flex-wrap justify-end gap-2 ${item.text ? 'mb-2' : ''}`}>
+              {item.images.map((img, index) => (
+                <img
+                  key={`${index}-${img.data.length}`}
+                  src={`data:${img.mediaType || 'image/png'};base64,${img.data}`}
+                  alt={`随消息发送的图片 ${index + 1}`}
+                  className="max-h-48 rounded-md border border-line/80 object-contain"
+                />
+              ))}
+            </div>
+          )}
+          {item.text !== '' && (
+            <p className="whitespace-pre-wrap break-words text-[13px] leading-6 text-fg">{item.text}</p>
+          )}
         </div>
       </div>
     )

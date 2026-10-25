@@ -27,13 +27,15 @@ const (
 	BlockThinking   BlockType = "thinking"    // BlockThinking 是思考块，可带签名。
 	BlockToolUse    BlockType = "tool_use"    // BlockToolUse 是模型发起的工具调用。
 	BlockToolResult BlockType = "tool_result" // BlockToolResult 是工具结果。
+	BlockImage      BlockType = "image"       // BlockImage 是一张 base64 图片，只出现在用户消息里。
 )
 
 // ContentBlock 是 JSON 联合体：只使用与 Type 对应的字段，其余字段为零值。
 //   - BlockText：Text
 //   - BlockThinking：Thinking、Signature
 //   - BlockToolUse：ToolUseID、ToolName、Input
-//   - BlockToolResult：ToolUseID、Text、IsError
+//   - BlockToolResult：ToolUseID、Text、IsError、Images
+//   - BlockImage：MediaType、Data
 type ContentBlock struct {
 	Type      BlockType       `json:"type"`
 	Text      string          `json:"text,omitempty"`
@@ -43,6 +45,9 @@ type ContentBlock struct {
 	ToolName  string          `json:"toolName,omitempty"`
 	Input     json.RawMessage `json:"input,omitempty"`
 	IsError   bool            `json:"isError,omitempty"`
+	MediaType string          `json:"mediaType,omitempty"`
+	Data      string          `json:"data,omitempty"`
+	Images    []Image         `json:"images,omitempty"`
 }
 
 // StopReason 是模型停止原因，仅用于观测，不参与循环控制。

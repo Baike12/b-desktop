@@ -73,6 +73,10 @@ var (
 	ErrInvalidOption = errors.New("app: invalid approval option")
 	// ErrModelNotConfigured 表示未配置模型名，无法发起模型请求。
 	ErrModelNotConfigured = errors.New("app: model not configured")
+	// ErrTooManyImages 表示随消息提交的图片数量超过 llm.MaxImagesPerMessage。
+	ErrTooManyImages = errors.New("app: too many images")
+	// ErrInvalidImage 表示图片附件非法：格式不支持、base64 损坏或超过体积上限。
+	ErrInvalidImage = errors.New("app: invalid image")
 	// ErrInvalidProviderConfig 表示 Provider 配置非法。
 	ErrInvalidProviderConfig = errors.New("app: invalid provider config")
 	// ErrProjectDialogCanceled 表示用户取消了打开项目对话框。
@@ -874,13 +878,15 @@ func (a *App) LoadSession(sessionID string) (SessionViewDTO, error) {
 }
 
 // SendMessage 启动一轮用户输入并立即返回 turnID；输出通过 "agent:event" 推送。
+// images 是随消息提交的图片附件，可以为 nil；文本与图片不允许同时为空。
 // 同一会话同时只允许一轮：已有轮次运行时返回 ErrTurnRunning（不排队，不轮询）。
-func (a *App) SendMessage(sessionID, prompt string) (SendMessageResult, error) {
+func (a *App) SendMessage(sessionID, prompt string, images []ImageInput) (SendMessageResult, error) {
 	if err := session.ValidateID(sessionID); err != nil {
 		return SendMessageResult{}, fmt.Errorf("app: send message: %w", err)
 	}
-	if strings.TrimSpace(prompt) == "" {
-		return SendMessageResult{}, ErrEmptyPrompt
+	promptBlocks, err := a.validateMessageInput(prompt, images)
+	if err != nil {
+		return SendMessageResult{}, err
 	}
 	if len(prompt) > maxPromptBytes {
 		return SendMessageResult{}, ErrPromptTooLong
@@ -952,11 +958,14 @@ func (a *App) SendMessage(sessionID, prompt string) (SendMessageResult, error) {
 		// 后台任务完成通知若在轮次收尾后才到达，会留在 rt.notifs 里：
 		// 这里取走并以它们自动续跑（cc 的 target-continuation 语义），
 		// 直到没有遗留通知或本轮被用户取消。
+		// 图片只随首次提交进入 user 消息；通知续跑轮次不携带。
 		prompt := prompt
+		images := promptBlocks
 		for {
-			_, err := engine.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt}, func(ev agent.Event) {
+			_, err := engine.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt, Images: images}, func(ev agent.Event) {
 				a.emitter.Emit(base, ev)
 			})
+			images = nil
 			if err != nil || turnCtx.Err() != nil {
 				return
 			}
@@ -970,6 +979,30 @@ func (a *App) SendMessage(sessionID, prompt string) (SendMessageResult, error) {
 	}()
 
 	return SendMessageResult{SessionID: sessionID, TurnID: turnID, Running: true}, nil
+}
+
+// validateMessageInput 校验文本与图片附件，返回可直接放进 agent.Input.Images
+// 的图片块。文本与图片不允许同时为空；每张图片按 magic bytes 判定格式并
+// 重新归一化（media type 不可信），数量与单张体积受 llm 包约束。
+func (a *App) validateMessageInput(prompt string, images []ImageInput) ([]llm.ContentBlock, error) {
+	if strings.TrimSpace(prompt) == "" && len(images) == 0 {
+		return nil, ErrEmptyPrompt
+	}
+	if len(images) == 0 {
+		return nil, nil
+	}
+	if len(images) > llm.MaxImagesPerMessage {
+		return nil, fmt.Errorf("%w: %d images, max %d", ErrTooManyImages, len(images), llm.MaxImagesPerMessage)
+	}
+	blocks := make([]llm.ContentBlock, 0, len(images))
+	for i, img := range images {
+		mediaType, data, err := llm.NormalizeImageInput(img.MediaType, img.Data)
+		if err != nil {
+			return nil, fmt.Errorf("%w: image %d: %v", ErrInvalidImage, i+1, err)
+		}
+		blocks = append(blocks, llm.ImageBlock(mediaType, data))
+	}
+	return blocks, nil
 }
 
 // CancelTurn 取消指定会话进行中的轮次。没有进行中的轮次时是空操作。

@@ -83,10 +83,20 @@ func (t *turn) run() error {
 	t.emitEvent(EventTurnStart, nil)
 	t.notifySessionStart()
 
+	// 文本在前、图片在后（与参考实现的块顺序一致）；纯图片输入没有文本块。
+	blocks := make([]llm.ContentBlock, 0, 1+len(t.in.Images))
+	if t.in.Prompt != "" {
+		blocks = append(blocks, llm.ContentBlock{Type: llm.BlockText, Text: t.in.Prompt})
+	}
+	for _, img := range t.in.Images {
+		if img.Type == llm.BlockImage && img.Data != "" {
+			blocks = append(blocks, img)
+		}
+	}
 	userMsg := llm.Message{
 		ID:     e.cfg.NewID("msg"),
 		Role:   llm.RoleUser,
-		Blocks: []llm.ContentBlock{{Type: llm.BlockText, Text: t.in.Prompt}},
+		Blocks: blocks,
 		Time:   e.now(),
 	}
 	if err := t.appendMessage(userMsg); err != nil {
@@ -1341,19 +1351,27 @@ func (t *turn) finishToolExecution(calls []tool.Call, results []tool.Result, don
 }
 
 // toolResultMessage 把全部结果装进一条 user 消息，顺序与 tool_use 一致。
+// 结果附带的图片（例如 Read 读取的图片文件）挂进对应 tool_result 块，
+// 一个 tool_use 仍然只对应一个 tool_result。
 func toolResultMessage(calls []tool.Call, results []tool.Result, id string, at time.Time) llm.Message {
 	blocks := make([]llm.ContentBlock, len(calls))
 	for i, c := range calls {
 		text := results[i].Content
-		if text == "" {
+		if text == "" && len(results[i].Images) == 0 {
 			text = emptyToolOutput
 		}
-		blocks[i] = llm.ContentBlock{
+		block := llm.ContentBlock{
 			Type:      llm.BlockToolResult,
 			ToolUseID: c.ToolUseID,
 			Text:      text,
 			IsError:   results[i].IsError,
 		}
+		for _, img := range results[i].Images {
+			if img.MediaType != "" && img.Data != "" {
+				block.Images = append(block.Images, llm.Image{MediaType: img.MediaType, Data: img.Data})
+			}
+		}
+		blocks[i] = block
 	}
 	return llm.Message{ID: id, Role: llm.RoleUser, Blocks: blocks, Time: at}
 }
@@ -1522,6 +1540,11 @@ func (t *turn) emitToolResult(c tool.Call, res tool.Result, paths []string) {
 		IsError:   res.IsError,
 		Truncated: res.Truncated,
 		Bytes:     len(res.Content),
+	}
+	for _, img := range res.Images {
+		if img.MediaType != "" && img.Data != "" {
+			view.Images = append(view.Images, llm.Image{MediaType: img.MediaType, Data: img.Data})
+		}
 	}
 	t.emitEvent(EventToolResult, func(ev *Event) {
 		ev.ToolUseID = c.ToolUseID

@@ -56,7 +56,7 @@ func TestSendMessageAutoTitlesSession(t *testing.T) {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
-	if _, err := app.SendMessage(info.ID, "帮我修复登录页样式"); err != nil {
+	if _, err := app.SendMessage(info.ID, "帮我修复登录页样式", nil); err != nil {
 		t.Fatalf("SendMessage: %v", err)
 	}
 
@@ -83,7 +83,7 @@ func TestSendMessageAutoTitlesSession(t *testing.T) {
 
 	// 第二轮不再生成标题。
 	collector.waitFor(t, agent.EventTurnEnd, 3*time.Second)
-	if _, err := app.SendMessage(info.ID, "继续"); err != nil {
+	if _, err := app.SendMessage(info.ID, "继续", nil); err != nil {
 		t.Fatalf("SendMessage second: %v", err)
 	}
 	collector.waitFor(t, agent.EventTurnEnd, 3*time.Second)
@@ -100,7 +100,7 @@ func TestSessionTitleFallsBackWhenModelFails(t *testing.T) {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
-	if _, err := app.SendMessage(info.ID, "修复登录页样式\n补充说明"); err != nil {
+	if _, err := app.SendMessage(info.ID, "修复登录页样式\n补充说明", nil); err != nil {
 		t.Fatalf("SendMessage: %v", err)
 	}
 	dto := collector.waitForTitle(t, 3*time.Second)
