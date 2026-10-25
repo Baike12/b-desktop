@@ -381,8 +381,8 @@ func TestProjectSessionUsesProjectWorkDir(t *testing.T) {
 }
 
 func TestGreet(t *testing.T) {
-	got := New().Greet("ANC")
-	want := "Hello ANC, B Desktop is running."
+	got := New().Greet("BDESKTOP")
+	want := "Hello BDESKTOP, B Desktop is running."
 	if got != want {
 		t.Fatalf("Greet() = %q, want %q", got, want)
 	}
@@ -1016,7 +1016,7 @@ func TestSetPermissionModePersistsPerSession(t *testing.T) {
 }
 
 func TestLoadConfig(t *testing.T) {
-	env := map[string]string{"ANC_CONFIG": filepath.Join(t.TempDir(), "missing.json")}
+	env := map[string]string{"BDESKTOP_CONFIG": filepath.Join(t.TempDir(), "missing.json")}
 	cfg, err := LoadConfig(func(key string) string { return env[key] })
 	if err != nil {
 		t.Fatalf("LoadConfig defaults: %v", err)
@@ -1037,21 +1037,21 @@ func TestLoadConfig(t *testing.T) {
 		t.Fatalf("dirs must be absolute: %+v", cfg)
 	}
 
-	env["ANC_MAX_TURNS"] = "not-a-number"
+	env["BDESKTOP_MAX_TURNS"] = "not-a-number"
 	if _, err := LoadConfig(func(key string) string { return env[key] }); err == nil {
-		t.Fatal("invalid ANC_MAX_TURNS must fail")
+		t.Fatal("invalid BDESKTOP_MAX_TURNS must fail")
 	}
 
 	env = map[string]string{
-		"ANC_CONFIG":   filepath.Join(t.TempDir(), "missing.json"),
-		"ANC_PROVIDER": "bogus",
+		"BDESKTOP_CONFIG":   filepath.Join(t.TempDir(), "missing.json"),
+		"BDESKTOP_PROVIDER": "bogus",
 	}
 	if _, err := LoadConfig(func(key string) string { return env[key] }); !errors.Is(err, ErrInvalidProviderConfig) {
 		t.Fatalf("invalid provider error = %v", err)
 	}
 }
 
-// TestLoadConfigFromFile 验证配置文件生效，且 ANC_* 环境变量覆盖同名字段。
+// TestLoadConfigFromFile 验证配置文件生效，且 BDESKTOP_* 环境变量覆盖同名字段。
 func TestLoadConfigFromFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
@@ -1072,7 +1072,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	env := map[string]string{"ANC_CONFIG": path}
+	env := map[string]string{"BDESKTOP_CONFIG": path}
 	cfg, err := LoadConfig(func(key string) string { return env[key] })
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
@@ -1087,8 +1087,8 @@ func TestLoadConfigFromFile(t *testing.T) {
 		t.Fatalf("limits = %+v", cfg)
 	}
 
-	env["ANC_MODEL"] = "model-from-env"
-	env["ANC_MAX_TURNS"] = "9"
+	env["BDESKTOP_MODEL"] = "model-from-env"
+	env["BDESKTOP_MAX_TURNS"] = "9"
 	cfg, err = LoadConfig(func(key string) string { return env[key] })
 	if err != nil {
 		t.Fatalf("LoadConfig with env override: %v", err)
@@ -1108,7 +1108,7 @@ func TestLoadConfigInvalidFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"provider":`), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	env := map[string]string{"ANC_CONFIG": path}
+	env := map[string]string{"BDESKTOP_CONFIG": path}
 	cfg, err := LoadConfig(func(key string) string { return env[key] })
 	if err == nil {
 		t.Fatal("corrupt config must return an error")

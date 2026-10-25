@@ -190,25 +190,25 @@ overridden by an environment variable, which takes precedence over the file.
 
 | Config field | Env var | Default | Meaning |
 |---|---|---|---|
-| `provider` | `ANC_PROVIDER` | `anthropic` | Protocol: `anthropic` or `openai` |
-| `apiKey` | `ANC_API_KEY` | — | API key for the provider |
-| `baseUrl` | `ANC_BASE_URL` | — | API root |
-| `model` | `ANC_MODEL` | — | Model id |
-| `permissionMode` | `ANC_PERMISSION_MODE` | `default` | Initial permission mode |
-| `dataDir` | `ANC_DATA_DIR` | platform config dir | Session transcript storage |
-| `workDir` | `ANC_WORKDIR` | process CWD | Default working directory |
-| `contextWindow` | `ANC_CONTEXT_WINDOW` | `200000` | Context window size in tokens |
-| `maxOutputTokens` | `ANC_MAX_OUTPUT_TOKENS` | `8192` | Max output tokens per request |
-| `thinkingEnabled` | `ANC_THINKING_ENABLED` | `false` | Request extended thinking |
-| `thinkingBudget` | `ANC_THINKING_BUDGET` | provider default | Thinking budget in tokens |
-| `maxTurns` | `ANC_MAX_TURNS` | `100` | Max model calls per turn |
-| `maxToolConcurrency` | `ANC_MAX_TOOL_CONCURRENCY` | `10` | Parallel tool limit |
+| `provider` | `BDESKTOP_PROVIDER` | `anthropic` | Protocol: `anthropic` or `openai` |
+| `apiKey` | `BDESKTOP_API_KEY` | — | API key for the provider |
+| `baseUrl` | `BDESKTOP_BASE_URL` | — | API root |
+| `model` | `BDESKTOP_MODEL` | — | Model id |
+| `permissionMode` | `BDESKTOP_PERMISSION_MODE` | `default` | Initial permission mode |
+| `dataDir` | `BDESKTOP_DATA_DIR` | platform config dir | Session transcript storage |
+| `workDir` | `BDESKTOP_WORKDIR` | process CWD | Default working directory |
+| `contextWindow` | `BDESKTOP_CONTEXT_WINDOW` | `200000` | Context window size in tokens |
+| `maxOutputTokens` | `BDESKTOP_MAX_OUTPUT_TOKENS` | `8192` | Max output tokens per request |
+| `thinkingEnabled` | `BDESKTOP_THINKING_ENABLED` | `false` | Request extended thinking |
+| `thinkingBudget` | `BDESKTOP_THINKING_BUDGET` | provider default | Thinking budget in tokens |
+| `maxTurns` | `BDESKTOP_MAX_TURNS` | `100` | Max model calls per turn |
+| `maxToolConcurrency` | `BDESKTOP_MAX_TOOL_CONCURRENCY` | `10` | Parallel tool limit |
 
-`ANC_CONFIG` points at an alternative configuration file — handy for keeping several
+`BDESKTOP_CONFIG` points at an alternative configuration file — handy for keeping several
 profiles side by side:
 
 ```bash
-ANC_CONFIG=~/.b-desktop/work.json wails dev
+BDESKTOP_CONFIG=~/.b-desktop/work.json wails dev
 ```
 
 The Settings dialog writes the same file back, so you can configure the app from the UI

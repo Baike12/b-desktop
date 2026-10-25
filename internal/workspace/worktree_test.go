@@ -26,9 +26,9 @@ func runGitTest(t *testing.T, dir string, args ...string) string {
 	cmd.Env = append(os.Environ(),
 		"GIT_CONFIG_NOSYSTEM=1",
 		"GIT_CONFIG_GLOBAL="+filepath.Join(dir, ".gitconfig-none"),
-		"GIT_AUTHOR_NAME=anc",
+		"GIT_AUTHOR_NAME=bdesktop",
 		"GIT_AUTHOR_EMAIL=test@example.com",
-		"GIT_COMMITTER_NAME=anc",
+		"GIT_COMMITTER_NAME=bdesktop",
 		"GIT_COMMITTER_EMAIL=test@example.com",
 	)
 	out, err := cmd.CombinedOutput()

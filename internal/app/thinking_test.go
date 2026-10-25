@@ -10,9 +10,9 @@ import (
 // TestThinkingConfigFromEnv 验证扩展思考配置可通过环境变量开启。
 func TestThinkingConfigFromEnv(t *testing.T) {
 	env := map[string]string{
-		"ANC_CONFIG":           filepath.Join(t.TempDir(), "missing.json"),
-		"ANC_THINKING_ENABLED": "1",
-		"ANC_THINKING_BUDGET":  "4096",
+		"BDESKTOP_CONFIG":           filepath.Join(t.TempDir(), "missing.json"),
+		"BDESKTOP_THINKING_ENABLED": "1",
+		"BDESKTOP_THINKING_BUDGET":  "4096",
 	}
 	cfg, err := LoadConfig(func(key string) string { return env[key] })
 	if err != nil {
@@ -26,24 +26,24 @@ func TestThinkingConfigFromEnv(t *testing.T) {
 	}
 }
 
-// TestThinkingConfigDisabledByEnv 验证 ANC_THINKING_ENABLED=0 可关闭扩展思考。
+// TestThinkingConfigDisabledByEnv 验证 BDESKTOP_THINKING_ENABLED=0 可关闭扩展思考。
 func TestThinkingConfigDisabledByEnv(t *testing.T) {
 	env := map[string]string{
-		"ANC_CONFIG":           filepath.Join(t.TempDir(), "missing.json"),
-		"ANC_THINKING_ENABLED": "0",
+		"BDESKTOP_CONFIG":           filepath.Join(t.TempDir(), "missing.json"),
+		"BDESKTOP_THINKING_ENABLED": "0",
 	}
 	cfg, err := LoadConfig(func(key string) string { return env[key] })
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 	if cfg.ThinkingEnabled {
-		t.Fatal("ANC_THINKING_ENABLED=0 应关闭扩展思考")
+		t.Fatal("BDESKTOP_THINKING_ENABLED=0 应关闭扩展思考")
 	}
 }
 
 // TestThinkingBudgetDefaults 验证未配置预算时取默认值。
 func TestThinkingBudgetDefaults(t *testing.T) {
-	env := map[string]string{"ANC_CONFIG": filepath.Join(t.TempDir(), "missing.json")}
+	env := map[string]string{"BDESKTOP_CONFIG": filepath.Join(t.TempDir(), "missing.json")}
 	cfg, err := LoadConfig(func(key string) string { return env[key] })
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
@@ -56,8 +56,8 @@ func TestThinkingBudgetDefaults(t *testing.T) {
 // TestThinkingBudgetInvalid 验证负数预算被拒绝。
 func TestThinkingBudgetInvalid(t *testing.T) {
 	env := map[string]string{
-		"ANC_CONFIG":          filepath.Join(t.TempDir(), "missing.json"),
-		"ANC_THINKING_BUDGET": "-1",
+		"BDESKTOP_CONFIG":          filepath.Join(t.TempDir(), "missing.json"),
+		"BDESKTOP_THINKING_BUDGET": "-1",
 	}
 	if _, err := LoadConfig(func(key string) string { return env[key] }); !errors.Is(err, ErrInvalidProviderConfig) {
 		t.Fatalf("invalid thinking budget error = %v", err)
@@ -67,10 +67,10 @@ func TestThinkingBudgetInvalid(t *testing.T) {
 // TestThinkingDisabledWhenBudgetExceedsMaxTokens 验证预算不小于 max_tokens 时关闭扩展思考。
 func TestThinkingDisabledWhenBudgetExceedsMaxTokens(t *testing.T) {
 	env := map[string]string{
-		"ANC_CONFIG":            filepath.Join(t.TempDir(), "missing.json"),
-		"ANC_THINKING_ENABLED":  "1",
-		"ANC_THINKING_BUDGET":   "8192",
-		"ANC_MAX_OUTPUT_TOKENS": "8192",
+		"BDESKTOP_CONFIG":            filepath.Join(t.TempDir(), "missing.json"),
+		"BDESKTOP_THINKING_ENABLED":  "1",
+		"BDESKTOP_THINKING_BUDGET":   "8192",
+		"BDESKTOP_MAX_OUTPUT_TOKENS": "8192",
 	}
 	cfg, err := LoadConfig(func(key string) string { return env[key] })
 	if err != nil {

@@ -273,8 +273,8 @@ func saveConfigFile(path string, cfg Config) error {
 	return nil
 }
 
-// LoadConfig 先读 ~/.b-desktop/config.json，再用 ANC_* 环境变量覆盖（同名字段以环境变量为准）。
-// ANC_CONFIG 可以指定另一份配置文件；文件不存在时使用默认值。
+// LoadConfig 先读 ~/.b-desktop/config.json，再用 BDESKTOP_* 环境变量覆盖（同名字段以环境变量为准）。
+// BDESKTOP_CONFIG 可以指定另一份配置文件；文件不存在时使用默认值。
 // 返回的错误只表示配置文件不可读、数值或枚举非法；缺少 API Key 与 Model 不算配置错误，
 // 分别由 GetProviderConfig().HasAPIKey 与 SendMessage 报告。
 func LoadConfig(getenv Getenv) (Config, error) {
@@ -283,7 +283,7 @@ func LoadConfig(getenv Getenv) (Config, error) {
 	}
 
 	var errs []error
-	path := strings.TrimSpace(getenv("ANC_CONFIG"))
+	path := strings.TrimSpace(getenv("BDESKTOP_CONFIG"))
 	if path == "" {
 		p, err := defaultConfigPath()
 		if err != nil {
@@ -302,13 +302,13 @@ func LoadConfig(getenv Getenv) (Config, error) {
 			*dst = v
 		}
 	}
-	override("ANC_PROVIDER", &cfg.Provider)
-	override("ANC_API_KEY", &cfg.APIKey)
-	override("ANC_BASE_URL", &cfg.BaseURL)
-	override("ANC_MODEL", &cfg.Model)
-	override("ANC_PERMISSION_MODE", &cfg.PermissionMode)
-	override("ANC_DATA_DIR", &cfg.DataDir)
-	override("ANC_WORKDIR", &cfg.WorkDir)
+	override("BDESKTOP_PROVIDER", &cfg.Provider)
+	override("BDESKTOP_API_KEY", &cfg.APIKey)
+	override("BDESKTOP_BASE_URL", &cfg.BaseURL)
+	override("BDESKTOP_MODEL", &cfg.Model)
+	override("BDESKTOP_PERMISSION_MODE", &cfg.PermissionMode)
+	override("BDESKTOP_DATA_DIR", &cfg.DataDir)
+	override("BDESKTOP_WORKDIR", &cfg.WorkDir)
 
 	readInt := func(name string, dst *int) {
 		raw := strings.TrimSpace(getenv(name))
@@ -322,14 +322,14 @@ func LoadConfig(getenv Getenv) (Config, error) {
 		}
 		*dst = n
 	}
-	readInt("ANC_CONTEXT_WINDOW", &cfg.ContextWindow)
-	readInt("ANC_MAX_OUTPUT_TOKENS", &cfg.MaxOutputTokens)
-	readInt("ANC_THINKING_BUDGET", &cfg.ThinkingBudget)
-	readInt("ANC_MAX_TURNS", &cfg.MaxTurns)
-	readInt("ANC_MAX_TOOL_CONCURRENCY", &cfg.MaxToolConcurrency)
+	readInt("BDESKTOP_CONTEXT_WINDOW", &cfg.ContextWindow)
+	readInt("BDESKTOP_MAX_OUTPUT_TOKENS", &cfg.MaxOutputTokens)
+	readInt("BDESKTOP_THINKING_BUDGET", &cfg.ThinkingBudget)
+	readInt("BDESKTOP_MAX_TURNS", &cfg.MaxTurns)
+	readInt("BDESKTOP_MAX_TOOL_CONCURRENCY", &cfg.MaxToolConcurrency)
 
-	// ANC_THINKING_ENABLED 单独用布尔开关：值为 "0"/"false"/"off" 关闭，其余非空值打开。
-	if v := strings.TrimSpace(getenv("ANC_THINKING_ENABLED")); v != "" {
+	// BDESKTOP_THINKING_ENABLED 单独用布尔开关：值为 "0"/"false"/"off" 关闭，其余非空值打开。
+	if v := strings.TrimSpace(getenv("BDESKTOP_THINKING_ENABLED")); v != "" {
 		switch strings.ToLower(v) {
 		case "0", "false", "off", "no":
 			cfg.ThinkingEnabled = false
@@ -521,7 +521,7 @@ type App struct {
 	extData map[string]any
 }
 
-// New 创建生产用应用实例：读取 ~/.b-desktop/config.json，再用 ANC_* 环境变量覆盖；
+// New 创建生产用应用实例：读取 ~/.b-desktop/config.json，再用 BDESKTOP_* 环境变量覆盖；
 // 事件发送器为 runtime.EventsEmit。
 // 配置或存储初始化失败会记录在 initErr 中，由 GetProviderConfig / 绑定方法返回。
 func New() *App {

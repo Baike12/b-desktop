@@ -460,8 +460,8 @@ func (m *Manager) run(ctx context.Context, e Entry, payload any, cwd string) (ex
 	// 避免超时钩子把整个轮次拖住。
 	cmd.WaitDelay = time.Second
 	cmd.Env = append(os.Environ(),
-		"ANC_PROJECT_DIR="+m.workDirValue(),
-		"ANC_HOOK_EVENT="+string(e.Event),
+		"BDESKTOP_PROJECT_DIR="+m.workDirValue(),
+		"BDESKTOP_HOOK_EVENT="+string(e.Event),
 	)
 	cmd.Stdin = bytes.NewReader(append(data, '\n'))
 	var stdout, stderr bytes.Buffer

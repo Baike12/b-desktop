@@ -1414,17 +1414,17 @@ type ProviderFactory func(cfg Config, sessionID string) (llm.Provider, error)
 
 // Config 是应用级配置，由 LoadConfig 从环境变量读取。
 type Config struct {
-	Provider           string // ANC_PROVIDER，默认 "anthropic"
-	APIKey             string // ANC_API_KEY，可空（允许无密钥启动）
-	BaseURL            string // ANC_BASE_URL，空时用供应商默认地址
-	Model              string // ANC_MODEL，无默认值，缺失时 initErr 记录并在 StartTurn 报错
-	PermissionMode     string // ANC_PERMISSION_MODE，默认 "default"
-	DataDir            string // ANC_DATA_DIR，默认 <os.UserConfigDir()>/b-desktop
-	WorkDir            string // ANC_WORKDIR，默认进程启动时的 cwd
-	MaxTurns           int    // ANC_MAX_TURNS，默认 100；0 表示不限
-	ContextWindow      int    // ANC_CONTEXT_WINDOW，0 时取 llm.ModelInfoOf(Model).ContextWindow（本地模型必须显式设置）
-	MaxOutputTokens    int    // ANC_MAX_OUTPUT_TOKENS，默认 llm.ModelInfoOf(Model).MaxOutput
-	MaxToolConcurrency int    // ANC_MAX_TOOL_CONCURRENCY，默认 10
+	Provider           string // BDESKTOP_PROVIDER，默认 "anthropic"
+	APIKey             string // BDESKTOP_API_KEY，可空（允许无密钥启动）
+	BaseURL            string // BDESKTOP_BASE_URL，空时用供应商默认地址
+	Model              string // BDESKTOP_MODEL，无默认值，缺失时 initErr 记录并在 StartTurn 报错
+	PermissionMode     string // BDESKTOP_PERMISSION_MODE，默认 "default"
+	DataDir            string // BDESKTOP_DATA_DIR，默认 <os.UserConfigDir()>/b-desktop
+	WorkDir            string // BDESKTOP_WORKDIR，默认进程启动时的 cwd
+	MaxTurns           int    // BDESKTOP_MAX_TURNS，默认 100；0 表示不限
+	ContextWindow      int    // BDESKTOP_CONTEXT_WINDOW，0 时取 llm.ModelInfoOf(Model).ContextWindow（本地模型必须显式设置）
+	MaxOutputTokens    int    // BDESKTOP_MAX_OUTPUT_TOKENS，默认 llm.ModelInfoOf(Model).MaxOutput
+	MaxToolConcurrency int    // BDESKTOP_MAX_TOOL_CONCURRENCY，默认 10
 	ProviderFactory    ProviderFactory // nil 时用内置构造函数；测试必须注入
 }
 
@@ -1435,17 +1435,17 @@ func LoadConfig() (Config, error)
 
 | 变量 | 默认 | 缺失时行为 |
 |---|---|---|
-| `ANC_PROVIDER` | `anthropic` | 取默认 |
-| `ANC_API_KEY` | 空 | 允许启动；`StartTurn` 返回包装 `llm.ErrMissingAPIKey` 的错误 |
-| `ANC_BASE_URL` | 空 | 用供应商默认地址 |
-| `ANC_MODEL` | 空 | 允许启动；`GetConfig().InitError` 与 `StartTurn` 报「model 未配置」 |
-| `ANC_PERMISSION_MODE` | `default` | 非法值在启动时记入 `initErr` |
-| `ANC_DATA_DIR` | `<UserConfigDir>/b-desktop` | 取默认并创建 |
-| `ANC_WORKDIR` | 进程启动 cwd | 取默认 |
-| `ANC_MAX_TURNS` | 100 | 取默认；0 表示不限 |
-| `ANC_CONTEXT_WINDOW` | `ModelInfoOf(Model).ContextWindow`（未知模型 200000） | 本地模型必须显式设置；否则会被当成 200k，永不触发压缩（评审第 2 轮缺失项 1） |
-| `ANC_MAX_OUTPUT_TOKENS` | `ModelInfoOf(Model).MaxOutput` | 取默认 |
-| `ANC_MAX_TOOL_CONCURRENCY` | 10 | 取默认 |
+| `BDESKTOP_PROVIDER` | `anthropic` | 取默认 |
+| `BDESKTOP_API_KEY` | 空 | 允许启动；`StartTurn` 返回包装 `llm.ErrMissingAPIKey` 的错误 |
+| `BDESKTOP_BASE_URL` | 空 | 用供应商默认地址 |
+| `BDESKTOP_MODEL` | 空 | 允许启动；`GetConfig().InitError` 与 `StartTurn` 报「model 未配置」 |
+| `BDESKTOP_PERMISSION_MODE` | `default` | 非法值在启动时记入 `initErr` |
+| `BDESKTOP_DATA_DIR` | `<UserConfigDir>/b-desktop` | 取默认并创建 |
+| `BDESKTOP_WORKDIR` | 进程启动 cwd | 取默认 |
+| `BDESKTOP_MAX_TURNS` | 100 | 取默认；0 表示不限 |
+| `BDESKTOP_CONTEXT_WINDOW` | `ModelInfoOf(Model).ContextWindow`（未知模型 200000） | 本地模型必须显式设置；否则会被当成 200k，永不触发压缩（评审第 2 轮缺失项 1） |
+| `BDESKTOP_MAX_OUTPUT_TOKENS` | `ModelInfoOf(Model).MaxOutput` | 取默认 |
+| `BDESKTOP_MAX_TOOL_CONCURRENCY` | 10 | 取默认 |
 
 工作目录来源：新建会话时把 `Config.WorkDir` 写进 `session_meta.workDir`；恢复旧会话一律以 meta 为准，不再读环境变量。
 
@@ -2096,7 +2096,7 @@ Run(ctx, in, emit)
 ### 6.2 轮次上限
 
 - `Config.MaxTurns` 约束**模型调用轮数**，不是工具调用次数（cc.md:79-87）。
-- `0` 表示不限；`app` 默认 100（`ANC_MAX_TURNS` 可改）。参考实现中 codex/zed/zcode 的主循环没有轮次上限（codex.md:75、zed.md:113、zcode.md:53-57），这里按 `AGENTS.md` 保留该开关并在 UI 展示。
+- `0` 表示不限；`app` 默认 100（`BDESKTOP_MAX_TURNS` 可改）。参考实现中 codex/zed/zcode 的主循环没有轮次上限（codex.md:75、zed.md:113、zcode.md:53-57），这里按 `AGENTS.md` 保留该开关并在 UI 展示。
 - 超限时补发 `turn_end{max_turns}`；历史里已有全部工具结果，可以直接开始下一轮。
 
 ### 6.3 流式累积
@@ -2636,7 +2636,7 @@ func (p *Provider) Calls() []llm.Request
 | Bash 无沙箱 | 可执行任意命令 | 默认 ask；内置硬拒绝；进程组终止；文档明确不含沙箱 |
 | 长会话 transcript 过大 | 恢复变慢 | 压缩边界截断；50MB 读取上限 |
 | 工具 goroutine 卡在 ctx 不敏感的调用 | 取消后仍占用资源 | 取消时立即返回不等它；done 通道有缓冲，迟到结果被丢弃 |
-| 本地模型窗口未知 | 被当成 200k，永不压缩，首次请求就 400 | 必须设置 `ANC_CONTEXT_WINDOW`；`GetConfig` 在 ContextWindow 取默认值且模型未知时给出提示 |
+| 本地模型窗口未知 | 被当成 200k，永不压缩，首次请求就 400 | 必须设置 `BDESKTOP_CONTEXT_WINDOW`；`GetConfig` 在 ContextWindow 取默认值且模型未知时给出提示 |
 | 内置硬拒绝可被绕过 | 误以为有安全边界 | 文档明确它是纵深防御；真正的边界是权限模式与人工审批 |
 | 会话 Store 多实例 | 同文件多句柄、锁不互斥、fd 泄漏 | 进程内唯一 `a.store`，runtime 只引用 |
 | `internal/context` 与标准库同名 | 误导入 | 全仓统一别名 `sysctx` |
@@ -2757,7 +2757,7 @@ WithoutCancel err = <nil> value = events
 | 31 | Store 缺会话创建 / meta 写入 / mode 读取 | 增加 `CreateSession`、`Delete`、`ErrInvalidTranscript`；`Replay` 读取 mode | §2.4、§8.1、§8.3 |
 | 32 | Tool 契约缺 `checkPermissions` 与 block 映射 | 在 §11.3 显式记录为偏离及替代方案 | §11.3 |
 | 33 | App.Shutdown 无契约 | 定义取消轮次 → Flush → Close → 清表，且幂等 | §2.7、§6.6 |
-| 34 | 配置与默认值缺失 | §2.7 新增 `Config`/`LoadConfig` 与 `ANC_*` 变量表（含缺省值与缺失行为）；无密钥允许启动，`StartTurn` 返回错误 | §2.7 |
+| 34 | 配置与默认值缺失 | §2.7 新增 `Config`/`LoadConfig` 与 `BDESKTOP_*` 变量表（含缺省值与缺失行为）；无密钥允许启动，`StartTurn` 返回错误 | §2.7 |
 | 35 | Thinking 校验与未知模型能力 | 请求前校验 budget/temperature；未知模型 `SupportsTools=true` | §2.1、§4.1 |
 | 36 | 缺作废/回滚语义 | 同第 20 条；并明确本期不做模型 fallback | §4.3、§6.3 |
 | 37 | 装配冒烟与直连 EventsEmit 冲突 | 同第 15 条：`Sender` 注入 | §2.7、§9.3 |
@@ -2792,7 +2792,7 @@ WithoutCancel err = <nil> value = events
 | S14 | §11.1 编译顺序与依赖表矛盾 | 明确 W5→W1，并说明所有流都基于第 0 步骨架编译 | §11.1 |
 | S15 | agent 测试断言 seq，但 seq 由 app 分配 | agent 测试改为只断言顺序；seq 只在 app 测试中断言 | §9.3 |
 | S16 | Meta/Record.Meta 重复、50MB 尾部不从换行开始、40 字节切中文 | 给出 Meta→Record 映射表；尾部从首个 `\n` 后解析；标题按 `[]rune` 截断 40 字符 | §8.1、§2.7 |
-| M1 | 本地模型窗口无法覆盖 | 新增 `ANC_CONTEXT_WINDOW` 与 `Config.ContextWindow`，并说明未知模型的 200k 默认值风险 | §2.7 |
+| M1 | 本地模型窗口无法覆盖 | 新增 `BDESKTOP_CONTEXT_WINDOW` 与 `Config.ContextWindow`，并说明未知模型的 200k 默认值风险 | §2.7 |
 | M2 | 压缩失败没有进度终态 | 新增 `CompactPhaseFailed` 与 `CompactView.Failed/Error`；BeforeCall 用 defer 保证 Start 后必有 Done/Failed | §2.5、§7.5、§2.6 |
 | M3 | 前端无法枚举待审批 | 新增 `GetPendingApprovals(sessionID)` 与 `Broker.Pending(sessionID)` | §2.3、§2.7 |
 | M4 | AGENTS.md 偏离未闭合 | 第 0b 步强制同步修改 AGENTS.md；§11.3 标注 | §11.1、§11.3 |

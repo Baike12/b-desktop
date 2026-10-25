@@ -181,24 +181,24 @@ wails build              # 打当前平台，产物在 build/bin
 
 | 配置字段 | 环境变量 | 默认值 | 含义 |
 |---|---|---|---|
-| `provider` | `ANC_PROVIDER` | `anthropic` | 协议：`anthropic` 或 `openai` |
-| `apiKey` | `ANC_API_KEY` | — | API Key |
-| `baseUrl` | `ANC_BASE_URL` | — | API 根地址 |
-| `model` | `ANC_MODEL` | — | 模型 id |
-| `permissionMode` | `ANC_PERMISSION_MODE` | `default` | 初始权限模式 |
-| `dataDir` | `ANC_DATA_DIR` | 平台配置目录 | 会话 transcript 存放位置 |
-| `workDir` | `ANC_WORKDIR` | 进程 CWD | 默认工作目录 |
-| `contextWindow` | `ANC_CONTEXT_WINDOW` | `200000` | 上下文窗口（token） |
-| `maxOutputTokens` | `ANC_MAX_OUTPUT_TOKENS` | `8192` | 单次请求最大输出（token） |
-| `thinkingEnabled` | `ANC_THINKING_ENABLED` | `false` | 是否请求扩展思考 |
-| `thinkingBudget` | `ANC_THINKING_BUDGET` | 供应商默认 | 思考预算（token） |
-| `maxTurns` | `ANC_MAX_TURNS` | `100` | 单轮最大模型调用次数 |
-| `maxToolConcurrency` | `ANC_MAX_TOOL_CONCURRENCY` | `10` | 工具并发上限 |
+| `provider` | `BDESKTOP_PROVIDER` | `anthropic` | 协议：`anthropic` 或 `openai` |
+| `apiKey` | `BDESKTOP_API_KEY` | — | API Key |
+| `baseUrl` | `BDESKTOP_BASE_URL` | — | API 根地址 |
+| `model` | `BDESKTOP_MODEL` | — | 模型 id |
+| `permissionMode` | `BDESKTOP_PERMISSION_MODE` | `default` | 初始权限模式 |
+| `dataDir` | `BDESKTOP_DATA_DIR` | 平台配置目录 | 会话 transcript 存放位置 |
+| `workDir` | `BDESKTOP_WORKDIR` | 进程 CWD | 默认工作目录 |
+| `contextWindow` | `BDESKTOP_CONTEXT_WINDOW` | `200000` | 上下文窗口（token） |
+| `maxOutputTokens` | `BDESKTOP_MAX_OUTPUT_TOKENS` | `8192` | 单次请求最大输出（token） |
+| `thinkingEnabled` | `BDESKTOP_THINKING_ENABLED` | `false` | 是否请求扩展思考 |
+| `thinkingBudget` | `BDESKTOP_THINKING_BUDGET` | 供应商默认 | 思考预算（token） |
+| `maxTurns` | `BDESKTOP_MAX_TURNS` | `100` | 单轮最大模型调用次数 |
+| `maxToolConcurrency` | `BDESKTOP_MAX_TOOL_CONCURRENCY` | `10` | 工具并发上限 |
 
-`ANC_CONFIG` 可以指定另一份配置文件，方便并排放多套配置：
+`BDESKTOP_CONFIG` 可以指定另一份配置文件，方便并排放多套配置：
 
 ```bash
-ANC_CONFIG=~/.b-desktop/work.json wails dev
+BDESKTOP_CONFIG=~/.b-desktop/work.json wails dev
 ```
 
 设置页写回的是同一份文件，所以用界面配置或用 dotfile 配置都可行。
