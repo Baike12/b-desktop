@@ -1,5 +1,11 @@
 import { create } from 'zustand'
 import {
+  applyCharacter,
+  CHARACTER_STORAGE_KEY,
+  readStoredCharacter,
+  type CharacterId,
+} from '../lib/character'
+import {
   applyTheme,
   readStoredTheme,
   THEME_STORAGE_KEY,
@@ -106,7 +112,12 @@ function clampPreviewWidth(width: number): number {
   return Math.min(PREVIEW_PANE_MAX_WIDTH, Math.max(PREVIEW_PANE_MIN_WIDTH, Math.round(width)))
 }
 
+const initialCharacter = readStoredCharacter()
+// 挂载前先写 data-character，避免启动时先闪一帧噜噜的奶油黄。
+applyCharacter(initialCharacter)
+
 interface SettingsState {
+  character: CharacterId
   theme: ThemeMode
   open: boolean
   sidebarCollapsed: boolean
@@ -114,6 +125,7 @@ interface SettingsState {
   rightSidebarOpen: boolean
   rightSidebarWidth: number
   previewPaneWidth: number
+  setCharacter: (id: CharacterId) => void
   setTheme: (mode: ThemeMode) => void
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
@@ -130,6 +142,7 @@ interface SettingsState {
 
 // 设置只保存在本机 localStorage，不经过后端。
 export const useSettingsStore = create<SettingsState>((set, get) => ({
+  character: initialCharacter,
   theme: readStoredTheme(),
   open: false,
   sidebarCollapsed: readStoredSidebar(),
@@ -137,6 +150,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   rightSidebarOpen: readStoredRightSidebar(),
   rightSidebarWidth: readStoredRightWidth(),
   previewPaneWidth: readStoredPreviewWidth(),
+  setCharacter: (character) => {
+    try {
+      window.localStorage.setItem(CHARACTER_STORAGE_KEY, character)
+    } catch {
+      // 存储失败只影响下次启动的默认值，本次切换仍然生效。
+    }
+    applyCharacter(character)
+    set({ character })
+  },
   setTheme: (theme) => {
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme)

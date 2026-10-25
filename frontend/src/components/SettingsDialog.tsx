@@ -8,6 +8,8 @@ import {
   SetProviderConfig,
 } from '../../wailsjs/go/app/App'
 import type { app } from '../../wailsjs/go/models'
+import { CHARACTERS } from '../lib/character'
+import { MASCOTS } from '../lib/mascots'
 import type { ThemeMode } from '../lib/theme'
 import { useSettingsStore } from '../stores/settings'
 import { errorMessage, useWorkbenchStore } from '../stores/workbench'
@@ -67,7 +69,7 @@ const NAV_SECTIONS: readonly NavSection[] = [
   {
     title: '基础设置',
     items: [
-      { id: 'appearance', label: '外观', description: '主题与界面外观' },
+      { id: 'appearance', label: '外观', description: '角色、主题与界面外观' },
       { id: 'model', label: '模型设置', description: '供应商、模型与上下文窗口' },
     ],
   },
@@ -281,6 +283,8 @@ function NavIcon({ id }: { id: TabId }) {
 // SettingsDialog 是应用设置页：外观、模型、扩展能力、用量与权限规则。
 export default function SettingsDialog() {
   const open = useSettingsStore((state) => state.open)
+  const character = useSettingsStore((state) => state.character)
+  const setCharacter = useSettingsStore((state) => state.setCharacter)
   const theme = useSettingsStore((state) => state.theme)
   const setTheme = useSettingsStore((state) => state.setTheme)
   const closeSettings = useSettingsStore((state) => state.closeSettings)
@@ -611,6 +615,70 @@ export default function SettingsDialog() {
           <div className="mx-auto w-full max-w-4xl">
           {tab === 'appearance' && (
             <section role="tabpanel" aria-label="外观" data-testid="settings-appearance">
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
+                角色
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {CHARACTERS.map((item) => {
+                  const selected = item.id === character
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      data-testid={`settings-character-${item.id}`}
+                      onClick={() => setCharacter(item.id)}
+                      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ${ selected ? 'border-accent bg-accent-soft shadow-card' : 'border-line hover:border-line-strong hover:bg-hover' }`}
+                    >
+                      <span className="grid size-12 shrink-0 place-items-center rounded-lg border border-line bg-surface">
+                        <img
+                          src={MASCOTS[item.id].avatar}
+                          alt=""
+                          draggable={false}
+                          className="size-11 select-none object-contain"
+                        />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2 text-[13px] font-medium text-fg">
+                          {item.name}
+                          {selected && (
+                            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-accent-text">
+                              当前
+                            </span>
+                          )}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] text-subtle">{item.hint}</span>
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className={`grid size-4 shrink-0 place-items-center rounded-full border ${ selected ? 'border-accent bg-accent' : 'border-line-strong' }`}
+                      >
+                        {selected && (
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="size-2.5 text-on-accent"
+                          >
+                            <path d="m5 13 4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="mb-2 mt-6 flex items-center justify-between">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
+                  主题
+                </p>
+                <p className="text-[11px] text-subtle">角色与主题切换后立即生效</p>
+              </div>
               <div className="space-y-2">
                 {THEME_OPTIONS.map((option) => {
                   const selected = option.id === theme

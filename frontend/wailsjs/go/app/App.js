@@ -234,6 +234,10 @@ export function SendMessage(arg1, arg2, arg3) {
   return window['go']['app']['App']['SendMessage'](arg1, arg2, arg3);
 }
 
+export function SetDockIcon(arg1) {
+  return window['go']['app']['App']['SetDockIcon'](arg1);
+}
+
 export function SetPermissionMode(arg1, arg2) {
   return window['go']['app']['App']['SetPermissionMode'](arg1, arg2);
 }

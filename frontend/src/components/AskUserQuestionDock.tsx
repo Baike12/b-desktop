@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { characterName } from '../lib/character'
+import { useSettingsStore } from '../stores/settings'
 import { useWorkbenchStore } from '../stores/workbench'
 import { AskUserQuestionForm } from './AskUserQuestionForm'
 import type { AskQuestion, AskQuestionInput } from './AskUserQuestionForm'
@@ -10,6 +12,8 @@ import MascotPose from './MascotPose'
 export default function AskUserQuestionDock() {
   const approvals = useWorkbenchStore((state) => state.approvals)
   const approve = useWorkbenchStore((state) => state.approve)
+  const character = useSettingsStore((state) => state.character)
+  const mascotName = characterName(character)
 
   const ask = approvals.find((item) => item.toolName === 'AskUserQuestion')
   const questions = useMemo<AskQuestion[]>(() => {
@@ -30,12 +34,12 @@ export default function AskUserQuestionDock() {
     <div className="shrink-0 px-5 pt-2">
       <div
         role="dialog"
-        aria-label="噜噜需要你的决定"
+        aria-label={`${mascotName}需要你的决定`}
         className="mx-auto w-full max-w-[46rem] overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-pop"
       >
         <div className="flex items-center justify-between gap-3 border-b border-line/70 px-4 py-2.5">
           <div className="min-w-0">
-            <h2 className="text-[12px] font-medium text-fg">噜噜需要你的决定</h2>
+            <h2 className="text-[12px] font-medium text-fg">{mascotName}需要你的决定</h2>
             <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle">
               请回答以下问题
             </p>

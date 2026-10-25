@@ -2,7 +2,8 @@ import { memo, useState } from 'react'
 import { stringifyJSON, summarizeInput, truncate } from '../lib/format'
 import type { AssistantBlock, ToolStatus } from '../types/chat'
 import { DiffView } from './DiffView'
-import MascotPose, { mascotPoseForTool } from './MascotPose'
+import { mascotPoseForTool } from '../lib/mascots'
+import MascotPose from './MascotPose'
 
 type ToolBlock = Extract<AssistantBlock, { kind: 'tool' }>
 

@@ -123,6 +123,73 @@
   }
 }
 
+/* 奔奔挥手：底图已补平手部，手部图层绕腕关节旋转；底图单独淡出落地阴影。 */
+.mascot-benben-puppet {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mascot-benben-bob {
+  position: relative;
+  height: 100%;
+  aspect-ratio: 600 / 660;
+  transform-origin: 50% 94%;
+  animation: mascot-benben-bob 4.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+.mascot-benben-layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.mascot-benben-base {
+  -webkit-mask-image: linear-gradient(to bottom, #000 94%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 94%, transparent 100%);
+}
+
+.mascot-benben-hand {
+  position: absolute;
+  inset: 0;
+  transform-origin: var(--hand-x) var(--hand-y);
+  animation: mascot-benben-wave 1.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes mascot-benben-bob {
+  0%,
+  100% {
+    transform: rotate(-1.2deg) translateY(0);
+  }
+  50% {
+    transform: rotate(1.2deg) translateY(-1.4px);
+  }
+}
+
+@keyframes mascot-benben-wave {
+  0%,
+  100% {
+    transform: rotate(-16deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+/* 奔奔姿态素材底部带一点落地阴影，按角色淡出，避免深色主题露出浅色块。 */
+.mascot-pose[data-mascot-character='benben'] .mascot-pose-frame {
+  -webkit-mask-image: linear-gradient(to bottom, #000 94%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 94%, transparent 100%);
+}
+
 /* 工具与侧边栏里的全身姿态：整体呼吸摆动，眨眼帧定时叠在睁眼帧上。
    每张素材共用 7:8 画布，高度由使用处决定，宽度按比例推出。 */
 .mascot-pose {
@@ -199,6 +266,8 @@
   .mascot-head,
   .mascot-hand,
   .mascot-lid,
+  .mascot-benben-bob,
+  .mascot-benben-hand,
   .mascot-pose-bob,
   .mascot-pose-blink {
     animation: none;
@@ -352,6 +421,33 @@
   --hl-meta: #52525c;
   --hl-operator: #52525c;
   --scrollbar: #c8c8d0;
+}
+
+/* 角色色板：奔奔把噜噜的奶油黄换成雾灰，明暗两套各自保留对比度。 */
+:root[data-theme='dark'][data-character='benben'] {
+  --accent: #b8bdc3;
+  --accent-hover: #c8cdd2;
+  --accent-text: #cfd4d9;
+  --accent-soft: rgba(184, 189, 195, 0.16);
+  --on-accent: #191b1e;
+  --cta: #b3b9bf;
+  --cta-hover: #c3c9cf;
+  --on-cta: #16181b;
+  --rail-glow: rgba(184, 189, 195, 0.06);
+}
+
+:root[data-theme='light'][data-character='benben'] {
+  --accent: #b0b5ba;
+  --accent-hover: #a1a6ac;
+  --accent-text: #5c6167;
+  --accent-soft: #eef0f2;
+  --on-accent: #1c1e21;
+  --cta: #d8dbde;
+  --cta-hover: #ccd0d4;
+  --on-cta: #24262a;
+  --rail-glow: rgba(154, 160, 166, 0.12);
+  --shadow-soft: rgba(20, 22, 26, 0.06);
+  --shadow-deep: rgba(20, 22, 26, 0.18);
 }
 
 html,

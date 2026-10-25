@@ -1,18 +1,69 @@
+import type { CSSProperties } from 'react'
 import bodyUrl from '../assets/mascot-body.png'
 import headUrl from '../assets/mascot-head.png'
 import handUrl from '../assets/mascot-hand.png'
 import cuffUrl from '../assets/mascot-cuff.png'
 import lidLeftUrl from '../assets/mascot-lid-left.png'
 import lidRightUrl from '../assets/mascot-lid-right.png'
+import { characterName } from '../lib/character'
+import { MASCOTS } from '../lib/mascots'
+import { useSettingsStore } from '../stores/settings'
 
 type MascotStageProps = {
   className?: string
 }
 
-// 定稿图分层骨骼动画：手随头部一起点头、绕腕关节摆动，眼睛定时眨，接缝处用袖口补层遮住。
+// 欢迎页吉祥物：噜噜沿用分层骨骼（手绕腕关节摆动），
+// 奔奔拆成「补平手部的底图 + 手部图层」，复用同一套腕部挥手节奏。
 export default function MascotStage({ className = '' }: MascotStageProps) {
+  const character = useSettingsStore((state) => state.character)
+
+  if (character === 'benben') {
+    const stage = MASCOTS.benben.stage
+    if (stage) {
+      return (
+        <div
+          className={`relative select-none ${className}`}
+          role="img"
+          aria-label={characterName(character)}
+        >
+          <div className="mascot-benben-puppet">
+            <div className="mascot-benben-bob">
+              <img
+                src={stage.base}
+                alt=""
+                draggable={false}
+                className="mascot-benben-layer mascot-benben-base"
+              />
+              <span
+                className="mascot-benben-hand"
+                style={
+                  {
+                    '--hand-x': `${stage.pivotX}%`,
+                    '--hand-y': `${stage.pivotY}%`,
+                  } as CSSProperties
+                }
+              >
+                <img
+                  src={stage.hand}
+                  alt=""
+                  draggable={false}
+                  className="mascot-benben-layer"
+                />
+              </span>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  }
+
   return (
-    <div className={`relative select-none ${className}`} role="img" aria-label="水豚噜噜">
+    <div
+      className={`relative select-none ${className}`}
+      role="img"
+      aria-label={characterName(character)}
+    >
       <div className="mascot-puppet">
         <div className="mascot-frame">
           <img src={bodyUrl} alt="" draggable={false} className="mascot-layer" />

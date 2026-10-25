@@ -16,6 +16,7 @@ import TodoPanel from './components/TodoPanel'
 import WorkspaceView from './components/WorkspaceView'
 import { useAgentEvents } from './hooks/useAgentEvents'
 import { useSessionTitleEvents } from './hooks/useSessionTitleEvents'
+import { syncDockIcon } from './lib/dockIcon'
 import { applyTheme } from './lib/theme'
 import { useSettingsStore } from './stores/settings'
 import { useTerminalStore } from './stores/terminal'
@@ -30,7 +31,9 @@ export default function App() {
   const items = useWorkbenchStore((state) => state.items)
   const loading = useWorkbenchStore((state) => state.loading)
   const activePanel = useWorkbenchStore((state) => state.activePanel)
+  const character = useSettingsStore((state) => state.character)
   const theme = useSettingsStore((state) => state.theme)
+  const openSettings = useSettingsStore((state) => state.openSettings)
   const rightSidebarOpen = useSettingsStore((state) => state.rightSidebarOpen)
 
   // 没有消息时输入框悬浮在内容区中央；出现第一条消息后落回底部。
@@ -39,6 +42,23 @@ export default function App() {
   useEffect(() => {
     void init()
   }, [init])
+
+  // Dock 图标跟随角色；首次挂载时把本机保存的角色同步给原生窗口。
+  useEffect(() => {
+    syncDockIcon(character)
+  }, [character])
+
+  // 全局设置快捷键：macOS 用 ⌘,，Windows/Linux 用 Ctrl+,。
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return
+      if (event.key !== ',' && event.code !== 'Comma') return
+      event.preventDefault()
+      openSettings()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [openSettings])
 
   // 跟随系统时监听外观变化；固定主题下不需要监听。
   useEffect(() => {

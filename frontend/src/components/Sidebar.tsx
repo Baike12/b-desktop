@@ -523,7 +523,7 @@ export default function Sidebar() {
           persistSidebarWidth()
         }}
         title="拖动调整宽度，双击恢复默认"
-        className="resize-handle absolute inset-y-0 -right-1 z-20 w-2 cursor-col-resize"
+        className="resize-handle absolute inset-y-0 -right-3 z-20 w-2 cursor-col-resize"
       />
 
       {/* macOS 隐藏标题栏后红绿灯浮在左上角，顶部留出安全区并作为拖动区域。 */}

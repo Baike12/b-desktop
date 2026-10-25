@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from '../App'
 import '../style.css'
 import { applyTheme, readStoredTheme, type ThemeMode } from '../lib/theme'
+import type { CharacterId } from '../lib/character'
 import { useSettingsStore } from '../stores/settings'
 import { usePreviewStore } from '../stores/preview'
 import { useWorkbenchStore } from '../stores/workbench'
@@ -656,6 +657,9 @@ function emitEvent(event: Dict): void {
   })
 }
 
+// Dock 图标切换由原生层执行；harness 记录调用参数供断言。
+const dockIconCalls: string[] = []
+
 const bindings = {
   Greet: (name: string) => `Hello ${name}, B Desktop is running.`,
 
@@ -686,6 +690,10 @@ const bindings = {
   },
 
   GetProviderConfig: async () => clone(providerConfig),
+
+  SetDockIcon: async (character: string) => {
+    dockIconCalls.push(character)
+  },
 
   SetProviderConfig: async (input: {
     provider: string
@@ -1455,6 +1463,7 @@ const api = {
   closePreview: () => usePreviewStore.setState({ active: null }),
   openChanges: () => usePreviewStore.getState().openChanges(),
   setTheme: (mode: ThemeMode) => useSettingsStore.getState().setTheme(mode),
+  setCharacter: (id: CharacterId) => useSettingsStore.getState().setCharacter(id),
   setPermissionMode: (mode: PermissionMode) => useWorkbenchStore.getState().setPermissionMode(mode),
 
   /** 一次取回所有可断言的 DOM/状态指标。 */
@@ -1462,6 +1471,8 @@ const api = {
     const markdown = document.querySelector('[data-testid="markdown"]')
     return {
       theme: document.documentElement.dataset.theme ?? null,
+      character: document.documentElement.dataset.character ?? null,
+      dockIconCalls: [...dockIconCalls],
       settingsOpen: document.querySelector('#settings-title') !== null,
       settingsText: textOf('[role="dialog"][aria-labelledby="settings-title"]'),
       usage: textOf('[data-testid="usage"]'),
