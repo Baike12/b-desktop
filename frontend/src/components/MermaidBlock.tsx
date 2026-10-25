@@ -1,11 +1,18 @@
-import { useContext, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
 import type { MermaidConfig } from 'mermaid'
 import { MarkdownStreamingContext } from './markdownStreaming'
 
 let renderSeq = 0
 
-const ZOOM_MIN = 0.4
+const ZOOM_MIN = 0.2
 const ZOOM_MAX = 8
 const ZOOM_STEP = 1.25
 
@@ -13,21 +20,17 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function ExpandIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-3.5"
-      aria-hidden="true"
-    >
-      <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />
-    </svg>
-  )
+// parseViewBox 取出 SVG 的逻辑尺寸。全屏预览按 1:1 渲染，
+// 让 viewBox 的一个单位等于一个 CSS 像素，图表字号因此与正文一致。
+function parseViewBox(svg: string): { width: number; height: number } | null {
+  const value = /viewBox="([^"]+)"/.exec(svg)?.[1]
+  if (!value) return null
+  const parts = value.trim().split(/[\s,]+/).map(Number)
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) return null
+  const width = parts[2]
+  const height = parts[3]
+  if (width <= 0 || height <= 0) return null
+  return { width, height }
 }
 
 function CloseIcon() {
@@ -239,7 +242,7 @@ interface MermaidBlockProps {
 // - 流式期间只显示源码，文本结束后才解析；
 // - 主题切换后按新配色重绘；
 // - 解析失败时回退到源码并展示原因，不打断整条消息；
-// - 图表本体不带外框，点击任意位置进入可缩放/拖动的预览。
+// - 图表外套一层用于分隔的卡片框，点击任意位置进入可缩放/拖动的预览。
 export function MermaidBlock({ code }: MermaidBlockProps) {
   const streaming = useContext(MarkdownStreamingContext)
   const [svg, setSvg] = useState('')
@@ -258,7 +261,11 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
     originY: number
   } | null>(null)
 
+  // 全屏预览按 SVG 的逻辑尺寸渲染，scale=1 时字号就是正文的 13px。
+  const diagramSize = useMemo(() => parseViewBox(svg), [svg])
+
   const openViewer = () => {
+    if (!svg) return
     setView({ scale: 1, x: 0, y: 0 })
     setExpanded(true)
   }
@@ -355,13 +362,18 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
-    event.currentTarget.setPointerCapture(event.pointerId)
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       originX: view.x,
       originY: view.y,
+    }
+    // 指针捕获在合成事件下可能失败；拖动状态已经记录，仍可依赖事件冒泡继续。
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // 忽略捕获失败，不影响本次拖动。
     }
   }
 
@@ -416,38 +428,31 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
   return (
     <figure
       data-testid="mermaid"
-      aria-label="Mermaid 图表"
-      className="group relative my-3 overflow-x-auto"
-    >
-      {svg ? (
-        <>
-          <div
-            role="button"
-            tabIndex={0}
-            data-testid="mermaid-canvas"
-            aria-label="放大 Mermaid 图表"
-            title="点击放大"
-            onClick={openViewer}
-            onKeyDown={(event) => {
+      role={svg ? 'button' : undefined}
+      tabIndex={svg ? 0 : undefined}
+      aria-label={svg ? '放大 Mermaid 图表' : 'Mermaid 图表'}
+      title={svg ? '点击放大' : undefined}
+      onClick={svg ? openViewer : undefined}
+      onKeyDown={
+        svg
+          ? (event) => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
                 openViewer()
               }
-            }}
-            className="mermaid-svg cursor-zoom-in select-none rounded-lg outline-offset-4 focus-visible:outline-2 focus-visible:outline-accent"
-            dangerouslySetInnerHTML={{ __html: svg }}
-          />
-          <button
-            type="button"
-            data-testid="mermaid-expand"
-            aria-label="放大图表"
-            title="放大图表"
-            onClick={openViewer}
-            className="absolute right-2 top-2 z-10 cursor-pointer rounded-lg border border-line bg-surface/90 p-1.5 text-muted opacity-70 shadow-card backdrop-blur transition hover:bg-hover hover:text-fg hover:opacity-100 focus:opacity-100"
-          >
-            <ExpandIcon />
-          </button>
-        </>
+            }
+          : undefined
+      }
+      className={`my-3 overflow-x-auto rounded-xl border border-line bg-panel p-3 transition-colors${
+        svg ? ' cursor-zoom-in hover:border-line-strong' : ''
+      }`}
+    >
+      {svg ? (
+        <div
+          data-testid="mermaid-canvas"
+          className="mermaid-svg select-none"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
       ) : (
         <p className="py-2 text-center text-[11px] text-subtle">
           {loading ? '正在渲染图表…' : ''}
@@ -463,6 +468,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
             aria-modal="true"
             aria-label="Mermaid 图表全屏预览"
             className="fixed inset-0 z-[100] flex flex-col bg-surface"
+            onClick={(event) => event.stopPropagation()}
           >
             <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line/70 px-5">
               <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-fg">
@@ -529,11 +535,14 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
               className="relative min-h-0 flex-1 cursor-grab touch-none select-none overflow-hidden active:cursor-grabbing"
             >
               <div
-                className="absolute inset-0 origin-center"
+                className="absolute inset-0 flex origin-center items-center justify-center"
                 style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
               >
                 <div
-                  className="mermaid-fullscreen h-full w-full"
+                  className={diagramSize ? 'mermaid-fullscreen' : 'mermaid-fullscreen h-full w-full'}
+                  style={
+                    diagramSize ? { width: diagramSize.width, height: diagramSize.height } : undefined
+                  }
                   dangerouslySetInnerHTML={{ __html: svg }}
                 />
               </div>

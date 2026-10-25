@@ -646,7 +646,8 @@ body {
   margin: 0 auto;
 }
 
-/* 全屏预览：覆盖 mermaid 写在 svg 上的 max-width，缩放到整个可视区域。 */
+/* 全屏预览：容器按 SVG 逻辑尺寸渲染，这里覆盖 mermaid 写在 svg 上的 max-width，
+   让一个 viewBox 单位等于一个 CSS 像素，图表字号与正文一致。 */
 .mermaid-fullscreen svg {
   width: 100% !important;
   height: 100% !important;

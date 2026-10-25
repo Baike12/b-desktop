@@ -47,7 +47,7 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 ## 已验证的基线
 
 - Markdown：`headings` / `codeBlocks` / `tables` / `inlineCode` / `links` 均大于 0，代码块含高亮 token。
-- Mermaid：合法代码块渲染为 `[data-testid="mermaid"] .mermaid-svg > svg`（`mermaidSvgs === 1`），非法代码块回退为 `mermaid-error`（`mermaidErrors === 1`）；流式期间只出现 `mermaid-streaming` 占位、不产生 SVG，结束后才渲染；切换明暗主题会按新配色重绘。点击 `mermaid-expand` 后 `mermaidFullscreen === true` 且 SVG 填满整个应用，按 Esc 关闭并恢复页面滚动。
+- Mermaid：合法代码块渲染为 `[data-testid="mermaid"] .mermaid-svg > svg`（`mermaidSvgs === 1`），非法代码块回退为 `mermaid-error`（`mermaidErrors === 1`）；流式期间只出现 `mermaid-streaming` 占位、不产生 SVG，结束后才渲染；切换明暗主题会按新配色重绘。点击图表任意位置后 `mermaidFullscreen === true`，图表按 SVG 逻辑尺寸（1:1）渲染、字号与正文一致，支持滚轮缩放、拖动平移与双击复位，按 Esc 关闭并恢复页面滚动。
 - 输入框位置：新会话 `welcome === true` 且 `heroComposer === true`，卡片中心与内容区中心偏差小于 10px；`send()` 后 `welcome === false`，输入框贴底。
 - 模型与上下文：模型名只在输入框内（`headerText` 不含模型），`modelContext` 形如 `deepseek-flash32.4k/128k`，`contextTokens` 来自会话最后一次调用；`enterHintPresent === false`。
 - 设置页：打开后回填 `settingsModelValue` / `settingsContextValue`；修改并保存后 `model`、`contextWindow`、`modelContext` 同步更新。
