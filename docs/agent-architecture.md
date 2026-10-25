@@ -104,7 +104,7 @@ app        → agent, llm, tool, tool/builtin, permission, session, context
 
 | 文件 | 职责（一句话） |
 |---|---|
-| `system.go` | `Builder`：环境信息、`AGENTS.md`/`CLAUDE.md`、git 状态、工具清单、日期。 |
+| `prompt.go` | `Builder`：环境信息、`AGENTS.md`、git 状态、工具清单、`<tool-use>` 专用工具优先约定、日期。 |
 | `tokens.go` | token 估算（中英文分别按字符类折算）。 |
 | `budget.go` | `Budget`：有效窗口、自动压缩阈值（含下限钳制）、阻塞线、状态判定。 |
 | `compact.go` | `Compactor`：`BeforeCall`、`MicroCompact`、`AutoCompact`、摘要提示词、进度回调。 |
@@ -2285,12 +2285,18 @@ App.Shutdown(ctx):
      git 不可用或超时（默认 2s）时整段省略，不报错
 5. <tools>
      每行 "- Name: Description"；完整 schema 通过 API 的 tools 字段下发
-6. Config.SystemExtra
+6. <tool-use>
+     专用工具优先：读取用 Read（不用 cat/head/tail/sed）、修改用 Edit（不用 sed/awk）、
+     写文件用 Write（不用 heredoc/echo 重定向）、查找用 Glob（不用 find/ls）、
+     搜索用 Grep（不用 grep/rg）；Bash 只用于系统命令。
+     仅在工具池同时存在 Bash 与至少一个专用工具时输出，逐条按实际可用工具生成
+7. Config.SystemExtra
 ```
 
 缓存（评审第 23 条）：
 
-- 静态层（第 1、2、3、5、6 段）以 `(cwd, 指令文件 mtime+size, 工具名列表, 日期)` 为键缓存；文件变化或日期翻转才重算。
+- 静态层（第 1、2、3、5、7 段）以 `(cwd, 指令文件 mtime+size, 工具名列表, 日期)` 为键缓存；文件变化或日期翻转才重算。
+- 第 6 段 `tool-use` 每次 `System` 由传入的工具规格即时生成，不参与缓存。
 - 动态层（第 4 段 git）每次 `System` 重新获取，但同一 turn 内复用：`agent.Run` 在每轮开始时调用 `Builder.BeginTurn()`，它只失效动态层，**不**清空静态缓存。
 - `Invalidate()` 只在切换工作目录/模型时调用。
 

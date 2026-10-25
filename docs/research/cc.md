@@ -496,6 +496,20 @@ checkPermissions  → allow（交给通用权限系统再判）
 - 超时：默认 2 分钟、最大 10 分钟，可用 `BASH_DEFAULT_TIMEOUT_MS` / `BASH_MAX_TIMEOUT_MS` 覆盖（`utils/timeouts.ts:2-3`、`12-39`；使用点 `BashTool.tsx:860`）。
 - 进度：`call` 里消费 shell 异步生成器，每个进度块调用一次 `onProgress`，带上 `output/fullOutput/elapsedTimeSeconds/totalLines/totalBytes/taskId/timeoutMs`（`BashTool.tsx:646-679`）。
 
+### 8.4 专用工具优先（Read/Edit/Write/Glob/Grep 而非 Bash）
+
+cc 用两处独立文案把文件读写与搜索从 Bash 引导到专用工具：
+
+1. **系统提示段** `# Using your tools`（`constants/prompts.ts:269-310`，在 `prompts.ts:569` 拼入系统提示）：
+   - `Do NOT use the Bash to run commands when a relevant dedicated tool is provided. Using dedicated tools allows the user to better understand and review your work. This is CRITICAL to assisting the user`
+   - 逐条映射：Read 代替 cat/head/tail/sed；Edit 代替 sed/awk；Write 代替 heredoc/echo 重定向；Glob 代替 find/ls；Grep 代替 grep/rg；Bash 只保留系统命令。
+   - 按 `enabledTools` 裁剪：REPL 模式整段跳过，未提供 Glob/Grep 时不提示它们（`prompts.ts:281-299`）。
+2. **Bash 工具描述**（`tools/BashTool/prompt.ts:287-289`、`362`）：
+   - `IMPORTANT: Avoid using this tool to run cat/head/tail/sed/awk/echo commands, unless explicitly instructed or after you have verified that a dedicated tool cannot accomplish your task.`
+   - 理由写明：专用工具让用户更容易审阅调用并授权。
+
+b-desktop 对应实现：`internal/context/prompt.go` 的 `toolUseSection`（`<tool-use>` 段，按工具池裁剪）与 `internal/tool/builtin/bash.go` 的 `Description`。
+
 ---
 
 ## 9. 模型请求、重试与错误

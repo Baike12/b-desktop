@@ -33,6 +33,7 @@ const (
 	SectionProject = "project-instructions" // SectionProject 是项目指令段。
 	SectionGit     = "git"                  // SectionGit 是 git 状态段。
 	SectionTools   = "tools"                // SectionTools 是工具清单段。
+	SectionToolUse = "tool-use"             // SectionToolUse 是专用工具优先约定段。
 )
 
 // identityText 是系统提示第一段：身份与行为约定（固定文案，中文）。
@@ -116,13 +117,14 @@ func (b *Builder) Invalidate() {
 }
 
 // System 返回完整系统提示，按设计文档的顺序拼接：
-// 身份 → env → project-instructions → git → tools → SystemExtra。
+// 身份 → env → project-instructions → git → tools → tool-use → SystemExtra。
 // git 不可用或超时时省略该段，不返回错误。
 func (b *Builder) System(ctx stdctx.Context, tools []tool.Spec) (string, error) {
 	parts := []string{
 		b.staticSection(),
 		b.gitSection(ctx),
 		toolsSection(tools),
+		toolUseSection(tools),
 	}
 	if extra := strings.TrimSpace(b.opts.SystemExtra); extra != "" {
 		parts = append(parts, extra)
@@ -213,6 +215,49 @@ func toolsSection(tools []tool.Spec) string {
 		sb.WriteString("- " + t.Name + ": " + desc + "\n")
 	}
 	sb.WriteString("</" + SectionTools + ">")
+	return sb.String()
+}
+
+// toolUseSection 生成「专用工具优先」约定，对应 cc 的 "Using your tools" 段。
+// 只有同时存在 Bash 与至少一个专用文件工具时才输出：子 Agent 的工具池可能被裁剪，
+// 不能提示它调用不存在的工具。逐条按实际可用工具生成。
+func toolUseSection(tools []tool.Spec) string {
+	available := make(map[string]bool, len(tools))
+	for _, t := range tools {
+		available[t.Name] = true
+	}
+	if !available["Bash"] {
+		return ""
+	}
+
+	items := make([]string, 0, 6)
+	if available["Read"] {
+		items = append(items, "- 读取文件用 Read，不要用 cat、head、tail、sed")
+	}
+	if available["Edit"] {
+		items = append(items, "- 修改文件用 Edit，不要用 sed、awk")
+	}
+	if available["Write"] {
+		items = append(items, "- 新建或整体覆盖文件用 Write，不要用 heredoc 或 echo 重定向")
+	}
+	if available["Glob"] {
+		items = append(items, "- 按文件名查找用 Glob，不要用 find 或 ls")
+	}
+	if available["Grep"] {
+		items = append(items, "- 搜索文件内容用 Grep，不要用 grep 或 rg")
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	items = append(items, "- Bash 只用于系统命令和必须由 shell 执行的操作；专用工具无法完成时才退回 Bash")
+
+	var sb strings.Builder
+	sb.WriteString("<" + SectionToolUse + ">\n")
+	sb.WriteString("有专用工具时不要用 Bash 完成同样的操作。专用工具让用户能直接审阅每一次读写和搜索，这是协作的关键：\n")
+	for _, item := range items {
+		sb.WriteString(item + "\n")
+	}
+	sb.WriteString("</" + SectionToolUse + ">")
 	return sb.String()
 }
 

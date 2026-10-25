@@ -239,8 +239,15 @@ func TestBashFlags(t *testing.T) {
 	if !json.Valid(b.InputSchema()) {
 		t.Fatal("InputSchema is not valid JSON")
 	}
-	if b.Description() == "" {
+	desc := b.Description()
+	if desc == "" {
 		t.Fatal("Description is empty")
+	}
+	// 与 cc 的 Bash 工具描述一致：明确把读、写、搜索引导到专用工具。
+	for _, want := range []string{"IMPORTANT", "Use Read, Edit, Write, Glob and Grep instead", "cat", "sed"} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("Description missing %q:\n%s", want, desc)
+		}
 	}
 }
 

@@ -302,6 +302,64 @@ func TestGitStatusTruncated(t *testing.T) {
 	}
 }
 
+// TestSystemToolUseGuidance 断言「专用工具优先」段按实际工具集生成。
+// 依据 cc 的 getUsingYourToolsSection：只提示确实可用的工具，且没有 Bash 时不出现该段。
+func TestSystemToolUseGuidance(t *testing.T) {
+	newBuilder := func() *Builder {
+		return NewBuilder(Options{
+			WorkDir:  t.TempDir(),
+			Now:      fixedNow,
+			ReadFile: func(string) ([]byte, error) { return nil, os.ErrNotExist },
+			RunGit:   func(stdctx.Context, string, ...string) ([]byte, error) { return nil, errors.New("no git") },
+		})
+	}
+
+	full := []tool.Spec{
+		{Name: "Read"}, {Name: "Write"}, {Name: "Edit"},
+		{Name: "Glob"}, {Name: "Grep"}, {Name: "Bash"},
+	}
+	got, err := newBuilder().System(stdctx.Background(), full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"<tool-use>",
+		"有专用工具时不要用 Bash 完成同样的操作",
+		"读取文件用 Read，不要用 cat、head、tail、sed",
+		"修改文件用 Edit，不要用 sed、awk",
+		"新建或整体覆盖文件用 Write，不要用 heredoc 或 echo 重定向",
+		"按文件名查找用 Glob，不要用 find 或 ls",
+		"搜索文件内容用 Grep，不要用 grep 或 rg",
+		"Bash 只用于系统命令",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("系统提示缺少 %q\n%s", want, got)
+		}
+	}
+	assertOrder(t, got, "<tools>", "<tool-use>")
+
+	// 工具池没有 Bash：不输出该段。
+	noBash, err := newBuilder().System(stdctx.Background(), []tool.Spec{{Name: "Read"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(noBash, "<tool-use>") {
+		t.Fatalf("没有 Bash 时不应输出 tool-use 段\n%s", noBash)
+	}
+
+	// 只有 Bash 与 Write：只提示 Write，不提不存在的 Read。
+	partial, err := newBuilder().System(stdctx.Background(), []tool.Spec{{Name: "Bash"}, {Name: "Write"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(partial, "新建或整体覆盖文件用 Write") {
+		t.Fatalf("应包含 Write 提示\n%s", partial)
+	}
+	if strings.Contains(partial, "读取文件用 Read") {
+		t.Fatalf("不应提示不存在的 Read\n%s", partial)
+	}
+}
+
 func assertOrder(t *testing.T, s string, markers ...string) {
 	t.Helper()
 	last := -1

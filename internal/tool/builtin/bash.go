@@ -109,6 +109,9 @@ func (b *Bash) Name() string { return "Bash" }
 // Description 返回给模型看的说明。
 func (b *Bash) Description() string {
 	return "Execute a command in the session working directory. " +
+		"IMPORTANT: do not use this tool for reading files (cat, head, tail, sed), editing files (sed, awk), " +
+		"writing files (heredoc or echo redirection), listing files (ls, find), or searching file contents (grep, rg). " +
+		"Use Read, Edit, Write, Glob and Grep instead: dedicated tools give the user a reviewable record of every operation. " +
 		"Prefer the argv form when no shell features are needed; use command when pipes, redirects or shell syntax are required. " +
 		"stdout and stderr are captured separately and truncated to 30000 bytes each. " +
 		"Non-zero exit codes are reported in the result instead of failing the call. " +
