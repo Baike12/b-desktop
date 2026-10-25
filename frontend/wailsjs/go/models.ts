@@ -158,6 +158,22 @@ export namespace app {
 		    return a;
 		}
 	}
+	export class CompactResultDTO {
+	    preTokens: number;
+	    postTokens: number;
+	    summary?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CompactResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.preTokens = source["preTokens"];
+	        this.postTokens = source["postTokens"];
+	        this.summary = source["summary"];
+	    }
+	}
 	export class CreateSessionInput {
 	    sessionId?: string;
 	    title?: string;
@@ -1035,6 +1051,24 @@ export namespace app {
 	        this.name = source["name"];
 	        this.description = source["description"];
 	        this.content = source["content"];
+	    }
+	}
+	export class SlashCommandDTO {
+	    name: string;
+	    description: string;
+	    argumentHint: string;
+	    source: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SlashCommandDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.argumentHint = source["argumentHint"];
+	        this.source = source["source"];
 	    }
 	}
 	export class SubagentTaskDTO {

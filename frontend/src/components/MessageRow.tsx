@@ -97,6 +97,25 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%] rounded-2xl rounded-br-md border border-accent/25 bg-accent-soft px-4 py-2.5 shadow-card">
+          {item.attachments && item.attachments.length > 0 && (
+            <div
+              data-testid="user-attachments"
+              className={`flex flex-wrap justify-end gap-1 ${item.text || item.images?.length ? 'mb-2' : ''}`}
+            >
+              {item.attachments.map((mention, index) => (
+                <span
+                  key={`${mention.kind}-${mention.label}-${index}`}
+                  title={mention.label}
+                  className="max-w-56 truncate rounded-xs border border-accent/25 bg-panel/70 px-1.5 py-0.5 font-mono text-[10px] text-muted"
+                >
+                  <span className="text-accent-text">
+                    {mention.kind === 'command' ? '/' : '@'}
+                  </span>
+                  {mention.kind === 'command' ? mention.label.slice(1) : mention.label}
+                </span>
+              ))}
+            </div>
+          )}
           {item.images && item.images.length > 0 && (
             <div className={`flex flex-wrap justify-end gap-2 ${item.text ? 'mb-2' : ''}`}>
               {item.images.map((img, index) => (

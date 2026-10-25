@@ -83,10 +83,16 @@ func (t *turn) run() error {
 	t.emitEvent(EventTurnStart, nil)
 	t.notifySessionStart()
 
-	// 文本在前、图片在后（与参考实现的块顺序一致）；纯图片输入没有文本块。
-	blocks := make([]llm.ContentBlock, 0, 1+len(t.in.Images))
+	// 块顺序与参考实现一致：用户文本 → 附件内容（@ 引用、命令展开）→ 图片；
+	// 纯附件或纯图片输入没有文本块。
+	blocks := make([]llm.ContentBlock, 0, 1+len(t.in.Attachments)+len(t.in.Images))
 	if t.in.Prompt != "" {
 		blocks = append(blocks, llm.ContentBlock{Type: llm.BlockText, Text: t.in.Prompt})
+	}
+	for _, block := range t.in.Attachments {
+		if (block.Type == llm.BlockText && block.Text != "") || (block.Type == llm.BlockImage && block.Data != "") {
+			blocks = append(blocks, block)
+		}
 	}
 	for _, img := range t.in.Images {
 		if img.Type == llm.BlockImage && img.Data != "" {

@@ -45,11 +45,19 @@ export type UserImage = {
   data: string
 }
 
+// UserMention 是用户消息里一个 @ 引用或 / 命令的展示摘要：
+// 后端把引用内容展开成 system-reminder 附件块，前端只渲染文件名/命令名。
+export type UserMention = {
+  kind: 'file' | 'directory' | 'command'
+  label: string
+}
+
 export type UserItem = {
   kind: 'user'
   id: string
   text: string
   images?: UserImage[]
+  attachments?: UserMention[]
   timeMs: number
 }
 

@@ -1158,6 +1158,41 @@ const bindings = {
 
   ListSkills: async () => clone(fakeSkills),
   ReloadSkills: async () => clone(fakeSkills),
+  ListSlashCommands: async (_workDir: string) => [
+    { name: 'compact', description: '压缩当前会话上下文，生成摘要并保留最近消息', argumentHint: '', source: 'builtin' },
+    ...fakeSkills.map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      argumentHint: '',
+      source: 'skill',
+    })),
+  ],
+  CompactSession: async (sessionId: string) => {
+    const view = views.get(sessionId)
+    if (!view || view.messages.length === 0) {
+      throw new Error('app: compact session: context: nothing to compact')
+    }
+    emitEvent({ type: 'compact_start', sessionId })
+    const summary = {
+      id: `msg_harness_${(msgSeq += 1)}_summary`,
+      role: 'user' as const,
+      blocks: [
+        {
+          type: 'text',
+          text: 'The conversation was compacted. Summary:\n（此前对话的摘要：工作台会话进行中，已确认 @ 引用与 / 命令可用。）',
+        },
+      ],
+      timeMs: Date.now(),
+    }
+    view.messages = [summary, ...view.messages.slice(-2)]
+    const result = { preTokens: 12800, postTokens: 4200 }
+    emitEvent({
+      type: 'compact_end',
+      sessionId,
+      compact: { trigger: 'manual', ...result },
+    })
+    return { ...result }
+  },
   GetSkillDetail: async (name: string) => {
     const skill = fakeSkills.find((item) => item.name === name)
     if (!skill) throw new Error(`skill not found: ${name}`)

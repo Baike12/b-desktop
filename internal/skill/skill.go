@@ -58,6 +58,8 @@ type Skill struct {
 	Name string
 	// Description 是技能用途描述，来自 frontmatter 的 description。
 	Description string
+	// ArgumentHint 是 / 命令面板展示的参数提示，来自 frontmatter 的 argument-hint。
+	ArgumentHint string
 	// Path 是 SKILL.md 的绝对路径。
 	Path string
 	// Source 是来源标识：user 或 project。
@@ -149,7 +151,7 @@ func scanDir(dir, source string, into map[string]Skill) error {
 			// 子目录没有 SKILL.md 是常态；其他读取错误也不该让整个清单失效。
 			continue
 		}
-		name, description, _ := parseFrontmatter(string(data))
+		name, description, argumentHint, _ := parseFrontmatter(string(data))
 		if strings.TrimSpace(name) == "" {
 			name = entry.Name()
 		}
@@ -164,10 +166,11 @@ func scanDir(dir, source string, into map[string]Skill) error {
 			}
 		}
 		into[name] = Skill{
-			Name:        name,
-			Description: strings.TrimSpace(description),
-			Path:        path,
-			Source:      source,
+			Name:         name,
+			Description:  strings.TrimSpace(description),
+			ArgumentHint: strings.TrimSpace(argumentHint),
+			Path:         path,
+			Source:       source,
 		}
 	}
 	return nil
@@ -210,7 +213,7 @@ func (l *Loader) Body(ctx context.Context, name string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("skill: read %s: %w", s.Path, err)
 	}
-	_, _, body := parseFrontmatter(string(data))
+	_, _, _, body := parseFrontmatter(string(data))
 	return strings.TrimSpace(body), nil
 }
 
@@ -242,13 +245,13 @@ func (l *Loader) ExtraContext(ctx context.Context, sessionID, workDir, prompt st
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// parseFrontmatter 解析文件开头的 --- 块，只识别 name 与 description 两行。
+// parseFrontmatter 解析文件开头的 --- 块，识别 name、description 与 argument-hint。
 // 返回解析到的字段、正文以及是否找到 frontmatter。
-func parseFrontmatter(content string) (name, description, body string) {
+func parseFrontmatter(content string) (name, description, argumentHint, body string) {
 	content = strings.TrimPrefix(content, "\ufeff")
 	lines := strings.Split(content, "\n")
 	if len(lines) == 0 || strings.TrimSpace(strings.TrimSuffix(lines[0], "\r")) != "---" {
-		return "", inlineDescription(content), content
+		return "", inlineDescription(content), "", content
 	}
 	end := -1
 	for i := 1; i < len(lines); i++ {
@@ -259,7 +262,7 @@ func parseFrontmatter(content string) (name, description, body string) {
 	}
 	if end < 0 {
 		// frontmatter 未闭合：按无 frontmatter 处理，避免吞掉正文。
-		return "", inlineDescription(strings.Join(lines[1:], "\n")), content
+		return "", inlineDescription(strings.Join(lines[1:], "\n")), "", content
 	}
 	rest := lines[end+1:]
 	for _, line := range lines[1:end] {
@@ -273,13 +276,15 @@ func parseFrontmatter(content string) (name, description, body string) {
 			name = unquote(strings.TrimSpace(value))
 		case "description":
 			description = unquote(strings.TrimSpace(value))
+		case "argument-hint":
+			argumentHint = unquote(strings.TrimSpace(value))
 		}
 	}
 	body = strings.Join(rest, "\n")
 	if strings.TrimSpace(description) == "" {
 		description = inlineDescription(body)
 	}
-	return name, description, body
+	return name, description, argumentHint, body
 }
 
 // inlineDescription 从正文第一段非标题文本提取描述，作为 frontmatter 缺失时的兜底。

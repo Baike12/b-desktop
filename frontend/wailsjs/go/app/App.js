@@ -22,6 +22,10 @@ export function CancelTurn(arg1) {
   return window['go']['app']['App']['CancelTurn'](arg1);
 }
 
+export function CompactSession(arg1) {
+  return window['go']['app']['App']['CompactSession'](arg1);
+}
+
 export function CreateProjectWorktree(arg1, arg2, arg3) {
   return window['go']['app']['App']['CreateProjectWorktree'](arg1, arg2, arg3);
 }
@@ -132,6 +136,10 @@ export function ListSessions() {
 
 export function ListSkills() {
   return window['go']['app']['App']['ListSkills']();
+}
+
+export function ListSlashCommands(arg1) {
+  return window['go']['app']['App']['ListSlashCommands'](arg1);
 }
 
 export function ListSubagentTasks() {

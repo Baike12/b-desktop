@@ -1,10 +1,12 @@
 import type { app } from '../../wailsjs/go/models'
+import { parseUserAttachmentBlock } from './mentions'
 import type { ToolResultView } from '../types/agent'
-import type { AssistantBlock, ChatItem } from '../types/chat'
+import type { AssistantBlock, ChatItem, UserMention } from '../types/chat'
 
 // viewToItems 把 LoadSession 的历史消息转成消息流模型。
 // tool_result 消息在历史里是独立的 user 消息，这里按 toolUseId 回挂到工具卡片上，
-// 不再渲染成用户气泡；用户消息里的 image 块与 tool_result 附带图片转为可渲染数据。
+// 不再渲染成用户气泡；用户消息里的 image 块与 tool_result 附带图片转为可渲染数据；
+// system-reminder 附件块（@ 引用、/ 命令展开）转成摘要 chip，不渲染全文。
 export function viewToItems(view: app.SessionViewDTO): ChatItem[] {
   const results = new Map<string, ToolResultView>()
   for (const message of view.messages) {
@@ -28,10 +30,15 @@ export function viewToItems(view: app.SessionViewDTO): ChatItem[] {
   const items: ChatItem[] = []
   for (const message of view.messages) {
     if (message.role === 'user') {
-      const text = message.blocks
-        .filter((block) => block.type === 'text')
-        .map((block) => block.text ?? '')
-        .join('\n')
+      const attachments: UserMention[] = []
+      const textParts: string[] = []
+      for (const block of message.blocks) {
+        if (block.type !== 'text') continue
+        const mention = parseUserAttachmentBlock(block.text ?? '')
+        if (mention) attachments.push(mention)
+        else textParts.push(block.text ?? '')
+      }
+      const text = textParts.join('\n')
       const images = message.blocks
         .filter((block) => block.type === 'image' && block.data)
         .map((block) => ({ mediaType: block.mediaType ?? 'image/png', data: block.data ?? '' }))
@@ -41,6 +48,7 @@ export function viewToItems(view: app.SessionViewDTO): ChatItem[] {
         id: message.id,
         text,
         images: images.length > 0 ? images : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
         timeMs: message.timeMs,
       })
       continue

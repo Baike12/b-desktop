@@ -904,6 +904,14 @@ func (a *App) SendMessage(sessionID, prompt string, images []ImageInput) (SendMe
 		return SendMessageResult{}, ErrModelNotConfigured
 	}
 
+	// @ 引用与 / 命令在这里展开成附件块：用户原文保留，内容追加在其后，
+	// 与参考实现的 attachment 消息组装一致。展开失败不阻断发送。
+	workDir := rt.workDirSnapshot()
+	attachments := a.expandAtMentions(workDir, prompt)
+	if commandBlocks := a.expandSlashCommand(workDir, prompt); len(commandBlocks) > 0 {
+		attachments = append(commandBlocks, attachments...)
+	}
+
 	rt.mu.Lock()
 	if rt.closed {
 		rt.mu.Unlock()
@@ -958,14 +966,16 @@ func (a *App) SendMessage(sessionID, prompt string, images []ImageInput) (SendMe
 		// 后台任务完成通知若在轮次收尾后才到达，会留在 rt.notifs 里：
 		// 这里取走并以它们自动续跑（cc 的 target-continuation 语义），
 		// 直到没有遗留通知或本轮被用户取消。
-		// 图片只随首次提交进入 user 消息；通知续跑轮次不携带。
+		// 图片与附件块只随首次提交进入 user 消息；通知续跑轮次不携带。
 		prompt := prompt
-		images := promptBlocks
+		promptBlocks := promptBlocks
+		attachments := attachments
 		for {
-			_, err := engine.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt, Images: images}, func(ev agent.Event) {
+			_, err := engine.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt, Attachments: attachments, Images: promptBlocks}, func(ev agent.Event) {
 				a.emitter.Emit(base, ev)
 			})
-			images = nil
+			attachments = nil
+			promptBlocks = nil
 			if err != nil || turnCtx.Err() != nil {
 				return
 			}

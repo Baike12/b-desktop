@@ -452,6 +452,8 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
               `上下文已压缩：${ev.compact.preTokens} → ${ev.compact.postTokens} tokens`,
               timeMs,
             )
+            // 压缩后的上下文规模以压缩结果为准（无新请求时没有 usage 事件）。
+            contextTokens = ev.compact.postTokens
           }
         }
         break

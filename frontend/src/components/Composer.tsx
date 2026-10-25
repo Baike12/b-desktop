@@ -1,10 +1,34 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ListSlashCommands, SearchSessionFiles } from '../../wailsjs/go/app/App'
+import type { app } from '../../wailsjs/go/models'
 import { formatTokens } from '../lib/format'
 import { imageDataUrl, prepareImageFile } from '../lib/image'
 import { useAppStore } from '../stores/app'
 import { useWorkbenchStore } from '../stores/workbench'
 import type { UserImage } from '../types/chat'
 import PermissionModeSelect from './PermissionModeSelect'
+
+// 补全面板的候选：@ 文件路径或 / 命令。
+type SuggestCandidate =
+  | { kind: 'file'; path: string }
+  | { kind: 'command'; name: string; description: string; argumentHint: string; source: string }
+
+// SuggestTrigger 是当前激活的补全触发器：start 是触发字符（@ 或 /）在文本中的下标。
+type SuggestTrigger = { mode: 'at' | 'slash'; start: number; query: string }
+
+const MAX_SUGGESTIONS = 20
+const FILE_SEARCH_DEBOUNCE_MS = 120
+
+// detectTrigger 检测光标前是否处于补全上下文：@ 后的路径 token（支持中文紧邻），
+// 或文本开头的 / 命令 token。与参考实现的触发规则一致。
+function detectTrigger(value: string, caret: number): SuggestTrigger | null {
+  const before = value.slice(0, caret)
+  const at = /(?:^|[\s\p{Script=Han}])@([^\s]*)$/u.exec(before)
+  if (at) return { mode: 'at', start: caret - at[1].length - 1, query: at[1] }
+  const slash = /^\/([^\s]*)$/.exec(before)
+  if (slash) return { mode: 'slash', start: 0, query: slash[1] }
+  return null
+}
 
 // ModelContextMeter 显示当前模型与上下文占用：已用 / 窗口上限。
 function ModelContextMeter() {
@@ -92,6 +116,18 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
   const [imageError, setImageError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // 补全面板状态。
+  const [suggest, setSuggest] = useState<SuggestTrigger | null>(null)
+  const [fileCandidates, setFileCandidates] = useState<string[]>([])
+  const [commands, setCommands] = useState<app.SlashCommandDTO[]>([])
+  const [selected, setSelected] = useState(0)
+  // dismissedRef 记录 Esc 关闭时的触发签名：同一 token 不再自动弹回，
+  // 输入变化后才能重新打开（与参考实现的 Esc 语义一致）。
+  const dismissedRef = useRef<string | null>(null)
+  // pendingCaret 是候选写回后的光标位置，在文本更新后应用。
+  const pendingCaret = useRef<number | null>(null)
 
   const status = useAppStore((state) => state.status)
   const running = useWorkbenchStore((state) => state.running)
@@ -100,6 +136,8 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
   const retry = useWorkbenchStore((state) => state.retry)
   const notice = useWorkbenchStore((state) => state.notice)
   const stopReason = useWorkbenchStore((state) => state.stopReason)
+  const activeId = useWorkbenchStore((state) => state.activeId)
+  const workDir = useWorkbenchStore((state) => state.workDir)
   const send = useWorkbenchStore((state) => state.send)
   const cancel = useWorkbenchStore((state) => state.cancel)
 
@@ -107,6 +145,67 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
   const canSend =
     status === 'ready' && !running && !loading && (text.trim() !== '' || images.length > 0)
   const hasStatus = compacting || retry !== null || notice !== null
+
+  const candidates = useMemo<SuggestCandidate[]>(() => {
+    if (!suggest) return []
+    if (suggest.mode === 'at') {
+      return fileCandidates.slice(0, MAX_SUGGESTIONS).map((path) => ({ kind: 'file', path }))
+    }
+    const query = suggest.query.toLowerCase()
+    return commands
+      .filter((command) => command.name.toLowerCase().includes(query))
+      .slice(0, MAX_SUGGESTIONS)
+      .map((command) => ({ kind: 'command', ...command }))
+  }, [suggest, fileCandidates, commands])
+
+  useEffect(() => {
+    if (selected >= candidates.length) setSelected(0)
+  }, [candidates.length, selected])
+
+  // @ 模式下的文件候选：防抖搜索工作区文件。
+  useEffect(() => {
+    if (suggest?.mode !== 'at' || !activeId || suggest.query.trim() === '') {
+      setFileCandidates([])
+      return
+    }
+    let cancelled = false
+    const handle = setTimeout(async () => {
+      try {
+        const paths = await SearchSessionFiles(activeId, workDir, suggest.query)
+        if (!cancelled) setFileCandidates(paths)
+      } catch {
+        if (!cancelled) setFileCandidates([])
+      }
+    }, FILE_SEARCH_DEBOUNCE_MS)
+    return () => {
+      cancelled = true
+      clearTimeout(handle)
+    }
+  }, [suggest, activeId, workDir])
+
+  // / 模式打开时加载一次命令清单（内置命令 + 当前工作目录的技能）。
+  useEffect(() => {
+    if (suggest?.mode !== 'slash') return
+    let cancelled = false
+    ListSlashCommands(workDir)
+      .then((list) => {
+        if (!cancelled) setCommands(list)
+      })
+      .catch(() => {
+        if (!cancelled) setCommands([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [suggest?.mode, workDir])
+
+  // 文本更新后把光标移到候选写回的位置。
+  useEffect(() => {
+    if (pendingCaret.current === null) return
+    const position = pendingCaret.current
+    pendingCaret.current = null
+    textareaRef.current?.setSelectionRange(position, position)
+  }, [text])
 
   // addImageFiles 压缩并追加图片；单张失败不阻塞其余图片。
   const addImageFiles = async (files: Iterable<File | Blob>) => {
@@ -140,7 +239,84 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
     setImages([])
     setImageNames([])
     setImageError(null)
+    setSuggest(null)
     void send(value, pending)
+  }
+
+  // handleChange 在文本变化后重新检测补全触发器；
+  // Esc 关闭后的同一触发签名不再弹回，输入变化后恢复。
+  const handleChange = (value: string) => {
+    setText(value)
+    const caret = textareaRef.current?.selectionStart ?? value.length
+    const trigger = detectTrigger(value, caret)
+    if (!trigger) {
+      setSuggest(null)
+      return
+    }
+    const signature = `${trigger.mode}:${trigger.query}`
+    if (dismissedRef.current !== null && dismissedRef.current !== signature) {
+      dismissedRef.current = null
+    }
+    if (dismissedRef.current === signature) {
+      setSuggest(null)
+      return
+    }
+    setSuggest(trigger)
+    setSelected(0)
+  }
+
+  // applySuggestion 把选中候选写回输入框：替换 @query 或 /query token 并补一个空格。
+  const applySuggestion = (candidate: SuggestCandidate) => {
+    if (!suggest || !textareaRef.current) return
+    const caret = textareaRef.current.selectionStart ?? text.length
+    const replacement =
+      candidate.kind === 'file'
+        ? `@${candidate.path} `
+        : `/${candidate.name} `
+    const next = text.slice(0, suggest.start) + replacement + text.slice(caret)
+    dismissedRef.current = null
+    pendingCaret.current = suggest.start + replacement.length
+    setText(next)
+    setSuggest(null)
+    textareaRef.current.focus()
+  }
+
+  const closeSuggest = () => {
+    if (suggest) dismissedRef.current = `${suggest.mode}:${suggest.query}`
+    setSuggest(null)
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (suggest && candidates.length > 0) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        setSelected((prev) => (prev + 1) % candidates.length)
+        return
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        setSelected((prev) => (prev - 1 + candidates.length) % candidates.length)
+        return
+      }
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        event.preventDefault()
+        applySuggestion(candidates[selected]!)
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeSuggest()
+        return
+      }
+    } else if (event.key === 'Escape' && suggest) {
+      event.preventDefault()
+      closeSuggest()
+      return
+    }
+    if (event.key !== 'Enter' || event.shiftKey) return
+    if (event.nativeEvent.isComposing) return
+    event.preventDefault()
+    submit()
   }
 
   return (
@@ -192,15 +368,66 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
               ))}
             </div>
           )}
+          {suggest && (
+            <div
+              data-testid="composer-suggest"
+              className="mx-3 mt-3 overflow-hidden rounded-lg border border-line bg-raised"
+            >
+              {candidates.length === 0 ? (
+                <p className="px-3 py-2 font-mono text-[10px] text-subtle">
+                  {suggest.mode === 'at'
+                    ? '输入关键字搜索工作区文件，Tab 跳过候选'
+                    : '没有匹配的命令或技能'}
+                </p>
+              ) : (
+                <ul className="max-h-52 overflow-auto py-1">
+                  {candidates.map((candidate, index) => {
+                    const active = index === selected
+                    const label =
+                      candidate.kind === 'file' ? `@${candidate.path}` : `/${candidate.name}`
+                    return (
+                      <li key={label}>
+                        <button
+                          type="button"
+                          data-testid={`suggest-item-${index}`}
+                          onMouseDown={(event) => {
+                            event.preventDefault()
+                            applySuggestion(candidate)
+                          }}
+                          onMouseEnter={() => setSelected(index)}
+                          className={`flex w-full cursor-pointer items-baseline gap-2 px-3 py-1.5 text-left transition ${
+                            active
+                              ? 'border-y border-line bg-surface shadow-card'
+                              : 'border-y border-transparent'
+                          }`}
+                        >
+                          <span className="shrink-0 font-mono text-[11px] text-accent-text">
+                            {suggest.mode === 'at' ? '@' : '/'}
+                          </span>
+                          <span className="min-w-0 truncate font-mono text-[11px] text-fg">
+                            {candidate.kind === 'file' ? candidate.path : candidate.name}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-[11px] text-subtle">
+                            {candidate.kind === 'command'
+                              ? `${candidate.description}${candidate.argumentHint ? ` ${candidate.argumentHint}` : ''}${candidate.source === 'builtin' ? ' · 本地' : ''}`
+                              : ''}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <p className="border-t border-line/70 bg-panel/60 px-3 py-1 font-mono text-[10px] text-subtle">
+                ↑↓ 选择 · Enter/Tab 确认 · Esc 关闭
+              </p>
+            </div>
+          )}
           <textarea
+            ref={textareaRef}
             value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter' || event.shiftKey) return
-              if (event.nativeEvent.isComposing) return
-              event.preventDefault()
-              submit()
-            }}
+            onChange={(event) => handleChange(event.target.value)}
+            onKeyDown={handleKeyDown}
             onPaste={(event) => {
               const files = Array.from(event.clipboardData.files ?? [])
               if (files.some((file) => file.type.startsWith('image/'))) {
@@ -210,7 +437,9 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
             }}
             rows={3}
             disabled={status !== 'ready'}
-            placeholder={status === 'ready' ? '输入消息，可粘贴或拖入图片' : '后端未连接'}
+            placeholder={
+              status === 'ready' ? '输入消息，@ 引用文件，/ 调用命令，可粘贴图片' : '后端未连接'
+            }
             className="composer-input w-full resize-none rounded-t-2xl bg-transparent px-4 py-3 text-sm leading-6 text-fg outline-none placeholder:text-subtle disabled:cursor-not-allowed"
           />
           <div className="@container flex items-center justify-between gap-3 border-t border-line/70 px-3 py-2">

@@ -12,6 +12,8 @@ export function CancelSubagentTask(arg1:string):Promise<void>;
 
 export function CancelTurn(arg1:string):Promise<void>;
 
+export function CompactSession(arg1:string):Promise<app.CompactResultDTO>;
+
 export function CreateProjectWorktree(arg1:string,arg2:string,arg3:string):Promise<app.WorktreeDTO>;
 
 export function CreateSession(arg1:app.CreateSessionInput):Promise<app.SessionInfoDTO>;
@@ -67,6 +69,8 @@ export function ListSessionFiles(arg1:string,arg2:string,arg3:string):Promise<ap
 export function ListSessions():Promise<Array<app.SessionInfoDTO>>;
 
 export function ListSkills():Promise<Array<app.SkillDTO>>;
+
+export function ListSlashCommands(arg1:string):Promise<Array<app.SlashCommandDTO>>;
 
 export function ListSubagentTasks():Promise<Array<app.SubagentTaskDTO>>;
 

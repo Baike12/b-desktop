@@ -108,12 +108,15 @@ func (c Config) Validate() error {
 }
 
 // Input 是一轮输入。TurnID 由调用方预先生成，便于绑定层立即返回给前端。
-// Images 是随本轮提交的图片（Type 必须为 llm.BlockImage 且已过校验），
-// 依次排在 Prompt 文本块之后进入 user 消息；两者都允许为空但不同时为空。
+// Attachments 是随本轮提交的附件块（system-reminder 包裹的文件引用内容、
+// 命令展开正文等），按给定顺序排在 Prompt 文本块之后；Images 是已过校验的
+// 图片块（Type 必须为 llm.BlockImage），排在附件块之后。三者都允许为空，
+// 但文本与附件、图片不能同时为空。
 type Input struct {
-	TurnID string
-	Prompt string
-	Images []llm.ContentBlock
+	TurnID      string
+	Prompt      string
+	Attachments []llm.ContentBlock
+	Images      []llm.ContentBlock
 }
 
 // Result 是一轮调用的结果。模型与工具错误不会以 error 返回，而是体现在 StopReason/Err。

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import {
   ApproveTool,
   CancelTurn,
+  CompactSession,
   CreateSession,
   GetProviderConfig,
   ListProjects,
@@ -13,6 +14,7 @@ import {
 } from '../../wailsjs/go/app/App'
 import type { app } from '../../wailsjs/go/models'
 import { addUsage, emptyUsage } from '../lib/format'
+import { parseUserMentions } from '../lib/mentions'
 import { normalizePermissionMode } from '../lib/permission'
 import { reduceAgentEvents, type StreamState } from '../lib/reduceAgentEvents'
 import { viewToItems } from '../lib/sessionView'
@@ -100,6 +102,8 @@ export interface WorkbenchState {
   newSession: (projectPath?: string) => Promise<void>
   openProject: () => Promise<void>
   send: (prompt: string, images?: UserImage[]) => Promise<void>
+  // compact 手动压缩当前会话上下文（用户输入 /compact 时由 send 拦截调用）。
+  compact: () => Promise<void>
   cancel: () => Promise<void>
   approve: (requestId: string, option: string, updatedInput?: unknown) => Promise<void>
   setPermissionMode: (mode: PermissionMode) => Promise<void>
@@ -263,11 +267,19 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       if (!sessionId) return
     }
 
+    // /compact 是内置本地命令：不进入模型消息，直接触发手动压缩。
+    if (/^\/compact(?:\s|$)/.test(text)) {
+      await get().compact()
+      return
+    }
+
+    const mentions = parseUserMentions(text)
     const userItem: ChatItem = {
       kind: 'user',
       id: localId('user'),
       text,
       images: attachments.length > 0 ? attachments : undefined,
+      attachments: mentions.length > 0 ? mentions : undefined,
       timeMs: Date.now(),
     }
     set((state) => ({
@@ -298,6 +310,20 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         error: message,
         items: withSystemError(state.items, message),
       }))
+    }
+  },
+
+  compact: async () => {
+    const sessionId = get().activeId
+    if (!sessionId || get().running) return
+    set({ notice: '压缩中…', error: null })
+    try {
+      await CompactSession(sessionId)
+      // 压缩结果由 compact_start/compact_end 事件流推送：结束时会推系统消息。
+    } catch (err) {
+      set({ error: errorMessage(err) })
+    } finally {
+      if (get().notice === '压缩中…') set({ notice: null })
     }
   },
 
