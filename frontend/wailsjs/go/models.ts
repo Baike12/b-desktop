@@ -533,6 +533,11 @@ export namespace app {
 	    description: string;
 	    type: string;
 	    fileName: string;
+	    scope: string;
+	    keywords: string[];
+	    importance: number;
+	    status: string;
+	    createdAtMs: number;
 	    updatedAtMs: number;
 	
 	    static createFrom(source: any = {}) {
@@ -545,7 +550,102 @@ export namespace app {
 	        this.description = source["description"];
 	        this.type = source["type"];
 	        this.fileName = source["fileName"];
+	        this.scope = source["scope"];
+	        this.keywords = source["keywords"];
+	        this.importance = source["importance"];
+	        this.status = source["status"];
+	        this.createdAtMs = source["createdAtMs"];
 	        this.updatedAtMs = source["updatedAtMs"];
+	    }
+	}
+	export class MemoryDetailDTO {
+	    name: string;
+	    description: string;
+	    type: string;
+	    fileName: string;
+	    scope: string;
+	    keywords: string[];
+	    importance: number;
+	    status: string;
+	    createdAtMs: number;
+	    updatedAtMs: number;
+	    body: string;
+	    sources: string[];
+	    accessCount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MemoryDetailDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.type = source["type"];
+	        this.fileName = source["fileName"];
+	        this.scope = source["scope"];
+	        this.keywords = source["keywords"];
+	        this.importance = source["importance"];
+	        this.status = source["status"];
+	        this.createdAtMs = source["createdAtMs"];
+	        this.updatedAtMs = source["updatedAtMs"];
+	        this.body = source["body"];
+	        this.sources = source["sources"];
+	        this.accessCount = source["accessCount"];
+	    }
+	}
+	export class MemorySaveInput {
+	    scope: string;
+	    workDir: string;
+	    name: string;
+	    description: string;
+	    type: string;
+	    keywords: string[];
+	    importance: number;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MemorySaveInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.scope = source["scope"];
+	        this.workDir = source["workDir"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.type = source["type"];
+	        this.keywords = source["keywords"];
+	        this.importance = source["importance"];
+	        this.content = source["content"];
+	    }
+	}
+	export class MemoryUpdateInput {
+	    scope: string;
+	    workDir: string;
+	    fileName: string;
+	    name: string;
+	    description: string;
+	    type: string;
+	    keywords: string[];
+	    importance: number;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MemoryUpdateInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.scope = source["scope"];
+	        this.workDir = source["workDir"];
+	        this.fileName = source["fileName"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.type = source["type"];
+	        this.keywords = source["keywords"];
+	        this.importance = source["importance"];
+	        this.content = source["content"];
 	    }
 	}
 	export class MessageDTO {
@@ -704,6 +804,7 @@ export namespace app {
 	    permissionMode: string;
 	    workDir: string;
 	    initError?: string;
+	    memoryAutoExtract: boolean;
 	    supportsImages: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -724,6 +825,7 @@ export namespace app {
 	        this.permissionMode = source["permissionMode"];
 	        this.workDir = source["workDir"];
 	        this.initError = source["initError"];
+	        this.memoryAutoExtract = source["memoryAutoExtract"];
 	        this.supportsImages = source["supportsImages"];
 	    }
 	}
@@ -736,6 +838,7 @@ export namespace app {
 	    maxOutputTokens?: number;
 	    thinkingEnabled: boolean;
 	    thinkingBudget?: number;
+	    memoryAutoExtract?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProviderConfigInput(source);
@@ -751,6 +854,7 @@ export namespace app {
 	        this.maxOutputTokens = source["maxOutputTokens"];
 	        this.thinkingEnabled = source["thinkingEnabled"];
 	        this.thinkingBudget = source["thinkingBudget"];
+	        this.memoryAutoExtract = source["memoryAutoExtract"];
 	    }
 	}
 	export class RequestTraceDTO {

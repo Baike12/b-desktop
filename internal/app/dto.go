@@ -128,6 +128,8 @@ type ProviderConfigDTO struct {
 	PermissionMode  string `json:"permissionMode"`
 	WorkDir         string `json:"workDir"`
 	InitError       string `json:"initError,omitempty"`
+	// MemoryAutoExtract 表示轮末自动记忆抽取是否开启。
+	MemoryAutoExtract bool `json:"memoryAutoExtract"`
 	// SupportsImages 报告当前模型是否接受图像输入（llm.ModelInfoOf 判定），
 	// 前端据此禁用图片附件入口。
 	SupportsImages bool `json:"supportsImages"`
@@ -145,6 +147,8 @@ type ProviderConfigInput struct {
 	// ThinkingEnabled 打开扩展思考；ThinkingBudget 是思考预算（token），0 表示用默认值。
 	ThinkingEnabled bool `json:"thinkingEnabled"`
 	ThinkingBudget  int  `json:"thinkingBudget,omitempty"`
+	// MemoryAutoExtract 是轮末自动记忆抽取开关；nil 表示保持现有值。
+	MemoryAutoExtract *bool `json:"memoryAutoExtract,omitempty"`
 }
 
 // toProjectDTO 转换项目列表项。
@@ -270,6 +274,7 @@ func toProviderConfigDTO(cfg Config, initErr error) ProviderConfigDTO {
 		PermissionMode:  cfg.PermissionMode,
 		WorkDir:         cfg.WorkDir,
 	}
+	out.MemoryAutoExtract = cfg.MemoryAutoExtract
 	if initErr != nil {
 		out.InitError = initErr.Error()
 	}

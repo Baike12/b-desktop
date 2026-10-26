@@ -61,6 +61,8 @@ type turn struct {
 	// modelFailures 是本轮内模型请求的连续失败次数；一次成功调用后归零。
 	// 达到 maxModelFailureRetries+1 时本轮以 StopError 结束。
 	modelFailures int
+	// toolNames 是本轮调用过的工具名（去重保序），TurnInfo 使用。
+	toolNames []string
 }
 
 // callOutcome 是一次模型调用之后的循环走向。
@@ -1227,6 +1229,7 @@ func (t *turn) executeTools(calls []tool.Call) error {
 	paths := make([][]string, n)
 
 	for i, c := range calls {
+		t.recordToolName(c.Name)
 		plan := t.precheck(c)
 		resolved[i] = plan.tool
 		paths[i] = plan.paths
@@ -1434,6 +1437,16 @@ func groupBatches(calls []tool.Call, runnable, safe []bool, limit int) []tool.Ba
 	return batches
 }
 
+// recordToolName 记录本轮调用过的工具名（去重保序），供 TurnInfo 汇总。
+func (t *turn) recordToolName(name string) {
+	for _, existing := range t.toolNames {
+		if existing == name {
+			return
+		}
+	}
+	t.toolNames = append(t.toolNames, name)
+}
+
 // appendRecord 在脱离取消的 persistCtx 下追加一条记录。
 func (t *turn) appendRecord(rec session.Record) error {
 	rec.SessionID = t.engine.cfg.SessionID
@@ -1521,6 +1534,20 @@ func (t *turn) finish() {
 		ev.ContextTokens = contextTokens
 		ev.Text = text
 	})
+	// 轮末观察者（可选）：只在正常完成时通知；实现契约要求立即返回。
+	if stopReason == StopCompleted {
+		if observer, ok := t.engine.cfg.Extensions.Hooks.(TurnObserver); ok && observer != nil {
+			observer.TurnComplete(TurnInfo{
+				SessionID:  t.engine.cfg.SessionID,
+				TurnID:     t.in.TurnID,
+				WorkDir:    t.engine.cfg.WorkDir,
+				Prompt:     t.in.Prompt,
+				FinalText:  text,
+				ToolNames:  t.toolNames,
+				StopReason: stopReason,
+			})
+		}
+	}
 }
 
 // emitEvent 构造并发射一个事件；只在 turn goroutine 调用。

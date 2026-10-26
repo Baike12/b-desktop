@@ -362,3 +362,105 @@ func TestSessionStartHookErrorDoesNotInterrupt(t *testing.T) {
 		t.Fatalf("missing hook error view: %v", eventTypes(rec.snapshot()))
 	}
 }
+
+// turnObserverFunc 把函数适配成 TurnObserver。
+type turnObserverFunc func(TurnInfo)
+
+// TurnComplete 实现 TurnObserver。
+func (f turnObserverFunc) TurnComplete(info TurnInfo) { f(info) }
+
+// hooksPlusObserver 是带 TurnObserver 的最小 Hooks 实现，供测试注入。
+type hooksPlusObserver struct {
+	obs TurnObserver
+}
+
+// SessionStart 实现Hooks：空操作。
+func (h hooksPlusObserver) SessionStart(context.Context, string, string) error { return nil }
+
+// UserPromptSubmit 实现 Hooks：不追加文本。
+func (h hooksPlusObserver) UserPromptSubmit(context.Context, string, string) (string, error) {
+	return "", nil
+}
+
+// PreToolUse 实现 Hooks：不改变判定。
+func (h hooksPlusObserver) PreToolUse(context.Context, ToolEvent) (permission.Effect, string, error) {
+	return permission.EffectAllow, "", nil
+}
+
+// PostToolUse 实现 Hooks：空操作。
+func (h hooksPlusObserver) PostToolUse(context.Context, ToolEvent, tool.Result) {}
+
+// TurnComplete 转发给观察者。
+func (h hooksPlusObserver) TurnComplete(info TurnInfo) { h.obs.TurnComplete(info) }
+
+func TestTurnObserverFiresOnlyOnCompleted(t *testing.T) {
+	cases := []struct {
+		name      string
+		reason    StopReason
+		wantCalls int
+	}{
+		{name: "completed", reason: StopCompleted, wantCalls: 1},
+		{name: "canceled", reason: StopCanceled, wantCalls: 0},
+		{name: "error", reason: StopError, wantCalls: 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var mu sync.Mutex
+			calls := 0
+			hooks := hooksPlusObserver{obs: turnObserverFunc(func(TurnInfo) {
+				mu.Lock()
+				calls++
+				mu.Unlock()
+			})}
+			engine := &Engine{cfg: Config{SessionID: "s1", Now: fixedNow, Extensions: Extensions{Hooks: hooks}}}
+			tr := &turn{engine: engine, ctx: context.Background(), emit: func(Event) {}}
+			tr.end(tc.reason, "")
+			tr.finish()
+			mu.Lock()
+			defer mu.Unlock()
+			if calls != tc.wantCalls {
+				t.Fatalf("calls = %d, want %d", calls, tc.wantCalls)
+			}
+		})
+	}
+}
+
+func TestTurnObserverReceivesTurnSummary(t *testing.T) {
+	read := newFakeTool("Read", true, true)
+	var mu sync.Mutex
+	var got TurnInfo
+	h := newHarness(t, harnessOptions{
+		steps: []fakeStep{
+			toolUseStep("m1", plannedCall{id: "t1", name: "Read", input: `{}`}),
+			textStep("m3", "all finished"),
+		},
+		tools: []tool.Tool{read},
+		extensions: Extensions{
+			Hooks: hooksPlusObserver{obs: turnObserverFunc(func(info TurnInfo) {
+				mu.Lock()
+				got = info
+				mu.Unlock()
+			})},
+		},
+	})
+	if _, err := h.engine.Run(context.Background(), Input{TurnID: "t1", Prompt: "read a.txt"}, newRecorder().sink); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if got.Prompt != "read a.txt" {
+		t.Fatalf("prompt = %q", got.Prompt)
+	}
+	if got.FinalText != "all finished" {
+		t.Fatalf("finalText = %q", got.FinalText)
+	}
+	if len(got.ToolNames) != 1 || got.ToolNames[0] != "Read" {
+		t.Fatalf("toolNames = %v", got.ToolNames)
+	}
+	if got.SessionID == "" || got.TurnID == "" {
+		t.Fatalf("ids = %+v", got)
+	}
+	if got.StopReason != StopCompleted {
+		t.Fatalf("stopReason = %s", got.StopReason)
+	}
+}

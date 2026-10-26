@@ -30,6 +30,8 @@ export function DeleteHook(arg1:string,arg2:string,arg3:string,arg4:string,arg5:
 
 export function DeleteMCPServer(arg1:string):Promise<void>;
 
+export function DeleteMemory(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function DeleteSessionFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DeleteSkill(arg1:string):Promise<void>;
@@ -56,7 +58,7 @@ export function ListMcpServers():Promise<Array<app.MCPServerDTO>>;
 
 export function ListMcpTools():Promise<Array<app.MCPToolDTO>>;
 
-export function ListMemories():Promise<Array<app.MemoryDTO>>;
+export function ListMemories(arg1:string,arg2:string):Promise<Array<app.MemoryDTO>>;
 
 export function ListModelPresets():Promise<Array<app.ModelPresetDTO>>;
 
@@ -90,6 +92,8 @@ export function MoveSessionFile(arg1:string,arg2:string,arg3:string,arg4:string)
 
 export function OpenProject():Promise<app.ProjectDTO>;
 
+export function ReadMemory(arg1:string,arg2:string,arg3:string):Promise<app.MemoryDetailDTO>;
+
 export function ReadSessionFile(arg1:string,arg2:string,arg3:string):Promise<app.FileContentDTO>;
 
 export function ReadSessionImage(arg1:string,arg2:string,arg3:string):Promise<app.FileImageDTO>;
@@ -112,6 +116,8 @@ export function SaveHook(arg1:string,arg2:app.HookInput):Promise<Array<app.HookD
 
 export function SaveMCPServer(arg1:app.MCPServerInput):Promise<void>;
 
+export function SaveMemory(arg1:app.MemorySaveInput):Promise<app.MemoryDetailDTO>;
+
 export function SearchSessionFiles(arg1:string,arg2:string,arg3:string):Promise<Array<string>>;
 
 export function SearchSessions(arg1:string,arg2:number):Promise<Array<app.SessionSearchResultDTO>>;
@@ -133,6 +139,8 @@ export function TerminalResize(arg1:string,arg2:number,arg3:number):Promise<void
 export function TerminalWrite(arg1:string,arg2:string):Promise<void>;
 
 export function UnstageSessionFiles(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
+
+export function UpdateMemory(arg1:app.MemoryUpdateInput):Promise<app.MemoryDetailDTO>;
 
 export function UpdateSkill(arg1:app.SkillInput):Promise<app.SkillDetailDTO>;
 

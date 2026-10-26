@@ -58,6 +58,10 @@ export function DeleteMCPServer(arg1) {
   return window['go']['app']['App']['DeleteMCPServer'](arg1);
 }
 
+export function DeleteMemory(arg1, arg2, arg3) {
+  return window['go']['app']['App']['DeleteMemory'](arg1, arg2, arg3);
+}
+
 export function DeleteSessionFile(arg1, arg2, arg3) {
   return window['go']['app']['App']['DeleteSessionFile'](arg1, arg2, arg3);
 }
@@ -110,8 +114,8 @@ export function ListMcpTools() {
   return window['go']['app']['App']['ListMcpTools']();
 }
 
-export function ListMemories() {
-  return window['go']['app']['App']['ListMemories']();
+export function ListMemories(arg1, arg2) {
+  return window['go']['app']['App']['ListMemories'](arg1, arg2);
 }
 
 export function ListModelPresets() {
@@ -178,6 +182,10 @@ export function OpenProject() {
   return window['go']['app']['App']['OpenProject']();
 }
 
+export function ReadMemory(arg1, arg2, arg3) {
+  return window['go']['app']['App']['ReadMemory'](arg1, arg2, arg3);
+}
+
 export function ReadSessionFile(arg1, arg2, arg3) {
   return window['go']['app']['App']['ReadSessionFile'](arg1, arg2, arg3);
 }
@@ -222,6 +230,10 @@ export function SaveMCPServer(arg1) {
   return window['go']['app']['App']['SaveMCPServer'](arg1);
 }
 
+export function SaveMemory(arg1) {
+  return window['go']['app']['App']['SaveMemory'](arg1);
+}
+
 export function SearchSessionFiles(arg1, arg2, arg3) {
   return window['go']['app']['App']['SearchSessionFiles'](arg1, arg2, arg3);
 }
@@ -264,6 +276,10 @@ export function TerminalWrite(arg1, arg2) {
 
 export function UnstageSessionFiles(arg1, arg2, arg3) {
   return window['go']['app']['App']['UnstageSessionFiles'](arg1, arg2, arg3);
+}
+
+export function UpdateMemory(arg1) {
+  return window['go']['app']['App']['UpdateMemory'](arg1);
 }
 
 export function UpdateSkill(arg1) {

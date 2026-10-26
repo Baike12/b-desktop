@@ -95,7 +95,7 @@ func TestBuildExtensionsWiresComponents(t *testing.T) {
 	app.Startup(ctx)
 	defer app.Shutdown(ctx)
 
-	ext, err := app.buildExtensions(cfg.WorkDir)
+	ext, err := app.buildExtensions(cfg.WorkDir, nil, cfg, 0)
 	if err != nil {
 		t.Fatalf("buildExtensions: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestStartupAndShutdownClosesExtensions(t *testing.T) {
 	ctx := context.Background()
 	app.Startup(ctx)
 
-	if _, err := app.buildExtensions(cfg.WorkDir); err != nil {
+	if _, err := app.buildExtensions(cfg.WorkDir, nil, cfg, 0); err != nil {
 		t.Fatalf("buildExtensions: %v", err)
 	}
 
@@ -189,7 +189,7 @@ func TestBuildExtensionsSkipsBrokenComponent(t *testing.T) {
 	// 预置错误类型，让 memoryComponent 的类型断言失败。
 	app.extData = map[string]any{"memory": "not-a-memory-store"}
 
-	ext, err := app.buildExtensions(cfg.WorkDir)
+	ext, err := app.buildExtensions(cfg.WorkDir, nil, cfg, 0)
 	if err != nil {
 		t.Fatalf("buildExtensions: %v", err)
 	}

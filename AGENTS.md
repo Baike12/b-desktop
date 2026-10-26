@@ -142,7 +142,7 @@ internal/tool/           Tool 契约、注册表与内置工具（规划）
 internal/permission/     权限模式、规则与审批（规划）
 internal/llm/            模型 Provider 与流式客户端（规划）
 internal/context/        系统提示、token 预算、压缩（规划）
-internal/memory/         记忆扫描与召回（规划）
+internal/memory/         文件型长期记忆：MEMORY.md 索引、双层作用域、召回打分、Memory 工具、轮末抽取（docs/memory.md）
 internal/skill/          SKILL.md 加载与执行（规划）
 internal/mcp/            MCP 客户端与传输（规划）
 internal/subagent/       SubAgent / Teams（规划）

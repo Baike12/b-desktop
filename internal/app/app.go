@@ -22,6 +22,7 @@ import (
 
 	"github.com/Baike12/b-desktop/internal/agent"
 	"github.com/Baike12/b-desktop/internal/llm"
+	"github.com/Baike12/b-desktop/internal/memory"
 	"github.com/Baike12/b-desktop/internal/permission"
 	"github.com/Baike12/b-desktop/internal/project"
 	"github.com/Baike12/b-desktop/internal/session"
@@ -36,6 +37,9 @@ const (
 	// EventNameSessionTitle 是会话标题更新事件名。标题由首轮消息异步生成，
 	// 前端收到后只更新对应列表项，不重新加载会话。
 	EventNameSessionTitle = "session:title"
+	// EventNameMemoryChanged 是记忆库变更事件名。轮末自动抽取或绑定方法
+	// 改动记忆后推送，前端据此刷新记忆列表。
+	EventNameMemoryChanged = "memory:changed"
 	// shutdownTimeout 是 Shutdown 等待进行中轮次退出的上限。
 	shutdownTimeout = 3 * time.Second
 	// maxPromptBytes 是单条用户输入的字节上限，防止前端误传超大文本。
@@ -131,6 +135,8 @@ type Config struct {
 	ThinkingBudget     int
 	MaxTurns           int // 单轮最大模型调用次数，0 取默认 100
 	MaxToolConcurrency int // 工具并发上限，0 取默认 10
+	// MemoryAutoExtract 打开轮末自动记忆抽取；loadConfigFile 缺省时置 true。
+	MemoryAutoExtract bool
 	// ConfigPath 是配置文件路径，供设置页保存后回写；空表示不落盘（测试注入）。
 	ConfigPath string
 }
@@ -154,6 +160,8 @@ type fileConfig struct {
 	ThinkingBudget     int    `json:"thinkingBudget"`
 	MaxTurns           int    `json:"maxTurns"`
 	MaxToolConcurrency int    `json:"maxToolConcurrency"`
+	// MemoryAutoExtract 用指针区分「未配置」与 false：未配置默认开启。
+	MemoryAutoExtract *bool `json:"memoryAutoExtract"`
 }
 
 // defaultConfigPath 返回 ~/.b-desktop/config.json。
@@ -179,7 +187,8 @@ func (a *App) settingsDir() (string, error) {
 	return dir, nil
 }
 
-// loadConfigFile 读取 JSON 配置文件；文件不存在时返回空配置，不视为错误。
+// loadConfigFile 读取 JSON 配置文件；文件不存在时返回带默认开关的空配置，
+// 不视为错误。
 func loadConfigFile(path string) (Config, error) {
 	if path == "" {
 		return Config{}, nil
@@ -187,7 +196,9 @@ func loadConfigFile(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return Config{}, nil
+			// 首次启动没有配置文件：记忆抽取默认开启，与其他默认值一起
+			// 由 normalized() 补齐其余字段。
+			return Config{MemoryAutoExtract: true}, nil
 		}
 		return Config{}, fmt.Errorf("app: read config %s: %w", path, err)
 	}
@@ -209,6 +220,7 @@ func loadConfigFile(path string) (Config, error) {
 		ThinkingBudget:     raw.ThinkingBudget,
 		MaxTurns:           raw.MaxTurns,
 		MaxToolConcurrency: raw.MaxToolConcurrency,
+		MemoryAutoExtract:  raw.MemoryAutoExtract == nil || *raw.MemoryAutoExtract,
 	}, nil
 }
 
@@ -232,6 +244,7 @@ func saveConfigFile(path string, cfg Config) error {
 		ThinkingBudget:     cfg.ThinkingBudget,
 		MaxTurns:           cfg.MaxTurns,
 		MaxToolConcurrency: cfg.MaxToolConcurrency,
+		MemoryAutoExtract:  &cfg.MemoryAutoExtract,
 	}
 	data, err := json.MarshalIndent(raw, "", "  ")
 	if err != nil {
@@ -537,6 +550,10 @@ type App struct {
 	// extMu 保护 extData：扩展组件（skills / memory / mcp / …）按 key 惰性创建并复用。
 	extMu   sync.Mutex
 	extData map[string]any
+	// extractMu 保护 extractor：轮末自动记忆抽取器按配置代换代换，跨会话共享。
+	extractor    *memory.Extractor
+	extractorGen int64
+	extractMu    sync.Mutex
 }
 
 // New 创建生产用应用实例：读取 ~/.b-desktop/config.json，再用 BDESKTOP_* 环境变量覆盖；
@@ -651,6 +668,13 @@ func (a *App) Shutdown(ctx context.Context) {
 	done := make(chan struct{})
 	go func() {
 		a.turns.Wait()
+		// 轮次退出后再等轮末记忆抽取收尾；同一超时兜底，避免拖慢退出。
+		a.extractMu.Lock()
+		extractor := a.extractor
+		a.extractMu.Unlock()
+		if extractor != nil {
+			extractor.Wait()
+		}
 		close(done)
 	}()
 	timer := time.NewTimer(shutdownTimeout)
@@ -1339,7 +1363,7 @@ func (a *App) ensureEngineLocked(rt *sessionRuntime, cfg Config, gen int64) (*ag
 		_ = rt.engine.Close()
 		rt.engine = nil
 	}
-	engine, err := a.buildEngine(rt, cfg)
+	engine, err := a.buildEngine(rt, cfg, gen)
 	if err != nil {
 		return nil, err
 	}
@@ -1349,7 +1373,9 @@ func (a *App) ensureEngineLocked(rt *sessionRuntime, cfg Config, gen int64) (*ag
 }
 
 // buildEngine 按会话元信息与当前配置装配引擎，并从 transcript 恢复历史。
-func (a *App) buildEngine(rt *sessionRuntime, cfg Config) (*agent.Engine, error) {
+// buildEngine 按会话元信息与当前配置装配引擎，并从 transcript 恢复历史。
+// gen 是配置代数，供记忆抽取器判断是否需要随设置重建。
+func (a *App) buildEngine(rt *sessionRuntime, cfg Config, gen int64) (*agent.Engine, error) {
 	store, _, err := a.sessionStore()
 	if err != nil {
 		return nil, err
@@ -1389,7 +1415,7 @@ func (a *App) buildEngine(rt *sessionRuntime, cfg Config) (*agent.Engine, error)
 		return nil, fmt.Errorf("app: wire session %q: %w", rt.id, err)
 	}
 
-	extensions, err := a.buildExtensions(workDir)
+	extensions, err := a.buildExtensions(workDir, provider, cfg, gen)
 	if err != nil {
 		return nil, fmt.Errorf("app: extensions session %q: %w", rt.id, err)
 	}
@@ -1538,6 +1564,10 @@ func (in ProviderConfigInput) apply(current Config) (Config, error) {
 	// 用户调大 max_tokens 后重新打开即可。
 	if next.ThinkingEnabled && next.ThinkingBudget >= next.MaxOutputTokens {
 		next.ThinkingEnabled = false
+	}
+	// 记忆抽取开关：nil 表示保持现有值。
+	if in.MemoryAutoExtract != nil {
+		next.MemoryAutoExtract = *in.MemoryAutoExtract
 	}
 	return next, nil
 }

@@ -15,6 +15,7 @@ import { useSettingsStore } from '../stores/settings'
 import { errorMessage, useWorkbenchStore } from '../stores/workbench'
 import ModelPresetPicker from './ModelPresetPicker'
 import McpSettings from './McpSettings'
+import MemorySettings from './MemorySettings'
 import SkillSettings from './SkillSettings'
 import SubagentSettings from './SubagentSettings'
 import HookSettings from './HookSettings'
@@ -55,7 +56,7 @@ const PROVIDERS = [
 ] as const
 
 interface NavItem {
-  id: 'appearance' | 'model' | 'mcp' | 'skills' | 'subagents' | 'hooks' | 'usage' | 'rules'
+  id: 'appearance' | 'model' | 'memory' | 'mcp' | 'skills' | 'subagents' | 'hooks' | 'usage' | 'rules'
   label: string
   description: string
 }
@@ -78,6 +79,7 @@ const NAV_SECTIONS: readonly NavSection[] = [
     items: [
       { id: 'mcp', label: 'MCP 服务器', description: '配置 stdio 服务器并加载远端工具' },
       { id: 'skills', label: '技能', description: '管理 SKILL.md 与项目级技能' },
+      { id: 'memory', label: '记忆', description: '长期记忆库与轮末自动沉淀' },
       { id: 'subagents', label: '子 Agent', description: '子 Agent 类型与后台任务' },
       { id: 'hooks', label: '钩子', description: '在 Agent 生命周期事件中运行命令' },
     ],
@@ -1111,6 +1113,7 @@ export default function SettingsDialog() {
 
           {tab === 'mcp' && <McpSettings />}
           {tab === 'skills' && <SkillSettings />}
+          {tab === 'memory' && <MemorySettings />}
           {tab === 'subagents' && <SubagentSettings />}
           {tab === 'hooks' && <HookSettings />}
           {tab === 'usage' && <UsagePanel showHeader={false} />}

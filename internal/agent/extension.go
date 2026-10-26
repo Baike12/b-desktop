@@ -41,6 +41,32 @@ type ContextProvider interface {
 	ExtraContext(ctx context.Context, sessionID, workDir, prompt string) string
 }
 
+// TurnInfo 是一轮正常完成后的摘要，供 TurnObserver 做轮末处理
+// （例如记忆自动抽取）。
+type TurnInfo struct {
+	// SessionID 与 TurnID 标识产生这轮的会话与轮次。
+	SessionID string
+	TurnID    string
+	// WorkDir 是会话工作目录。
+	WorkDir string
+	// Prompt 是本轮用户输入原文。
+	Prompt string
+	// FinalText 是助手最终的文本回复。
+	FinalText string
+	// ToolNames 是本轮调用过的工具名，去重保序。
+	ToolNames []string
+	// StopReason 是结束原因；观察者只在 StopCompleted 时被调用。
+	StopReason StopReason
+}
+
+// TurnObserver 是 Hooks 的可选扩展能力：每轮以 StopCompleted 结束后
+// 收到一次通知。通过类型断言从 Hooks 实现上获取；未实现则不启用。
+// 实现必须立即返回（异步处理自行开 goroutine），不得阻塞循环，
+// 也不得回调 Engine。
+type TurnObserver interface {
+	TurnComplete(info TurnInfo)
+}
+
 // RequestMetric 是一次模型调用（一次 Stream 请求）的观测记录。
 type RequestMetric struct {
 	SessionID  string

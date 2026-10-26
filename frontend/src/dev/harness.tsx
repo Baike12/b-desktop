@@ -283,6 +283,56 @@ let providerConfig: Dict = {
   maxOutputTokens: 8192,
   permissionMode: 'default',
   workDir: '/tmp/bdesk-harness',
+  memoryAutoExtract: true,
+}
+
+// 假记忆库：与后端 internal/memory 的条目字段一致。
+interface FakeMemory {
+  dirKey: string
+  name: string
+  description: string
+  type: string
+  fileName: string
+  scope: string
+  keywords: string[]
+  importance: number
+  status: string
+  createdAtMs: number
+  updatedAtMs: number
+  body: string
+  sources: string[]
+  accessCount: number
+}
+
+const fakeMemories: FakeMemory[] = [
+  {
+    dirKey: 'user',
+    name: '提交前确认',
+    description: '用户要求 git 提交前展示 diff',
+    type: 'feedback',
+    fileName: '提交前确认.md',
+    scope: 'user',
+    keywords: ['git', '提交'],
+    importance: 8,
+    status: 'active',
+    createdAtMs: NOW - 7_200_000,
+    updatedAtMs: NOW - 3_600_000,
+    body: 'git 提交前必须先展示完整 diff 并获得确认，不要自动提交。',
+    sources: ['turn:1'],
+    accessCount: 2,
+  },
+]
+
+let memoryFileSeq = 1
+
+function slugify(name: string): string {
+  const base = name.trim().toLowerCase().replace(/[^\p{L}\p{N}_-]+/gu, '-')
+  return (base.replace(/^-+|-+$/g, '') || 'memory') + '.md'
+}
+
+// memoryDirKey 计算作用域目录键：用户级共享一个键，项目级按工作目录区分。
+function memoryDirKey(scope: string, workDir: string): string {
+  return scope === 'project' ? 'project:' + (workDir || '') : 'user'
 }
 
 // ---------------- 工作台面板假数据 ----------------
@@ -702,6 +752,9 @@ const bindings = {
     apiKey?: string
     contextWindow?: number
     maxOutputTokens?: number
+    thinkingEnabled?: boolean
+    thinkingBudget?: number
+    memoryAutoExtract?: boolean
   }) => {
     providerConfig = {
       ...providerConfig,
@@ -712,7 +765,142 @@ const bindings = {
       maxOutputTokens: input.maxOutputTokens ?? providerConfig.maxOutputTokens,
       hasApiKey: Boolean(input.apiKey) || providerConfig.hasApiKey,
       apiKeyMasked: input.apiKey ? '****test' : providerConfig.apiKeyMasked,
+      memoryAutoExtract: input.memoryAutoExtract ?? providerConfig.memoryAutoExtract,
     }
+  },
+
+  ListMemories: async (scope: string, workDir: string) => {
+    const dir = memoryDirKey(scope, workDir)
+    return clone(
+      fakeMemories
+        .filter((mem) => mem.status === 'active' && mem.dirKey === dir)
+        .sort((a, b) => b.updatedAtMs - a.updatedAtMs),
+    )
+  },
+
+  ReadMemory: async (scope: string, workDir: string, fileName: string) => {
+    const dir = memoryDirKey(scope, workDir)
+    const mem = fakeMemories.find((item) => item.fileName === fileName && item.dirKey === dir)
+    if (!mem) throw new Error(`memory not found: ${fileName}`)
+    return {
+      name: mem.name,
+      description: mem.description,
+      type: mem.type,
+      fileName: mem.fileName,
+      scope: mem.scope,
+      keywords: [...mem.keywords],
+      importance: mem.importance,
+      status: mem.status,
+      createdAtMs: mem.createdAtMs,
+      updatedAtMs: mem.updatedAtMs,
+      body: mem.body,
+      sources: [...mem.sources],
+      accessCount: mem.accessCount,
+    }
+  },
+
+  SaveMemory: async (input: {
+    scope: string
+    workDir: string
+    name: string
+    description?: string
+    type?: string
+    keywords?: string[]
+    importance?: number
+    content: string
+  }) => {
+    const trimmed = input.content.trim()
+    const dirKey = memoryDirKey(input.scope, input.workDir)
+    const duplicate = fakeMemories.find((mem) => mem.body === trimmed && mem.status === 'active' && mem.dirKey === dirKey)
+    if (duplicate) throw new Error('memory already exists')
+    const now = Date.now()
+    const mem: FakeMemory = {
+      dirKey,
+      name: input.name,
+      description: input.description ?? trimmed.split('\n')[0] ?? '',
+      type: input.type || 'project',
+      fileName: slugify(input.name),
+      scope: input.scope === 'project' ? 'project' : 'user',
+      keywords: [...(input.keywords ?? [])],
+      importance: input.importance ?? 5,
+      status: 'active',
+      createdAtMs: now,
+      updatedAtMs: now,
+      body: trimmed,
+      sources: [],
+      accessCount: 0,
+    }
+    while (fakeMemories.some((item) => item.dirKey === mem.dirKey && item.fileName === mem.fileName)) {
+      memoryFileSeq += 1
+      mem.fileName = mem.fileName.replace(/\.md$/, `-${memoryFileSeq}.md`)
+    }
+    fakeMemories.unshift(mem)
+    return {
+      name: mem.name,
+      description: mem.description,
+      type: mem.type,
+      fileName: mem.fileName,
+      scope: mem.scope,
+      keywords: [...mem.keywords],
+      importance: mem.importance,
+      status: mem.status,
+      createdAtMs: mem.createdAtMs,
+      updatedAtMs: mem.updatedAtMs,
+    }
+  },
+
+  UpdateMemory: async (input: {
+    scope: string
+    workDir: string
+    fileName: string
+    name?: string
+    description?: string
+    type?: string
+    keywords?: string[]
+    importance?: number
+    content?: string
+  }) => {
+    const dir = memoryDirKey(input.scope, input.workDir)
+    const mem = fakeMemories.find((item) => item.fileName === input.fileName && item.dirKey === dir)
+    if (!mem) throw new Error(`memory not found: ${input.fileName}`)
+    const nextBody = input.content?.trim()
+    if (nextBody && nextBody !== mem.body) {
+      mem.body = nextBody
+      mem.updatedAtMs = Date.now()
+    }
+    if (input.name && input.name !== mem.name) {
+      mem.name = input.name
+      mem.updatedAtMs = Date.now()
+    }
+    if (input.description !== undefined && input.description !== mem.description) {
+      mem.description = input.description
+      mem.updatedAtMs = Date.now()
+    }
+    if (input.type && input.type !== mem.type) mem.type = input.type
+    if (input.keywords && JSON.stringify(input.keywords) !== JSON.stringify(mem.keywords)) {
+      mem.keywords = [...input.keywords]
+      mem.updatedAtMs = Date.now()
+    }
+    if (input.importance && input.importance !== mem.importance) mem.importance = input.importance
+    return {
+      name: mem.name,
+      description: mem.description,
+      type: mem.type,
+      fileName: mem.fileName,
+      scope: mem.scope,
+      keywords: [...mem.keywords],
+      importance: mem.importance,
+      status: mem.status,
+      createdAtMs: mem.createdAtMs,
+      updatedAtMs: mem.updatedAtMs,
+    }
+  },
+
+  DeleteMemory: async (scope: string, workDir: string, fileName: string) => {
+    const dir = memoryDirKey(scope, workDir)
+    const mem = fakeMemories.find((item) => item.fileName === fileName && item.dirKey === dir)
+    if (!mem) throw new Error(`memory not found: ${fileName}`)
+    mem.status = 'archived'
   },
 
   LoadSession: async (id: string) => {
@@ -1444,6 +1632,15 @@ const api = {
   emit: (events: AgentEvent | AgentEvent[]) => {
     for (const event of Array.isArray(events) ? events : [events]) emitRaw(AGENT_EVENT, event)
   },
+
+  /** 注入 memory:changed 事件（模拟轮末自动抽取完成的通知）。 */
+  emitMemoryChanged: (payload: Record<string, unknown>) => emitRaw('memory:changed', payload),
+
+  /** 读取 harness 假记忆库（含归档条目），供断言使用。 */
+  memories: () => clone(fakeMemories),
+
+  /** 读取当前自动抽取开关。 */
+  memoryAutoExtract: () => providerConfig.memoryAutoExtract === true,
 
   /** 走真实 SendMessage → 模拟流式回复。 */
   send: async (text: string) => {
