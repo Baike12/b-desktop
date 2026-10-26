@@ -806,6 +806,121 @@ func (s *FileStore) scanInfo(ctx context.Context, id, path string) (Info, bool, 
 	return info, true, nil
 }
 
+// forkTitleSuffix 是分叉会话的默认标题后缀。
+const forkTitleSuffix = " (fork)"
+
+// ForkSession 把 srcID 的 transcript 快照复制为新会话（契约见 types.go）。
+// FileStore 实现：持源会话锁读取一致性快照，再经 CreateSession + Append 写入，
+// 复制中途失败时删除新会话文件。
+func (s *FileStore) ForkSession(ctx context.Context, srcID string, dst Meta) (Info, error) {
+	if err := ValidateID(srcID); err != nil {
+		return Info{}, err
+	}
+	if err := ValidateID(dst.ID); err != nil {
+		return Info{}, err
+	}
+	if dst.ID == srcID {
+		return Info{}, fmt.Errorf("%w: fork target equals source: %s", ErrSessionExists, srcID)
+	}
+	if s.isClosed() {
+		return Info{}, errStoreClosed
+	}
+
+	// 持源会话锁读取快照：与 Append / Load 串行，复制到的是某一时刻的完整
+	// transcript。loadRecords 不再自行加锁，避免互斥锁重入。
+	srcLock := s.lockFor(srcID)
+	srcLock.Lock()
+	srcPath, err := s.pathOf(srcID)
+	if err != nil {
+		srcLock.Unlock()
+		return Info{}, err
+	}
+	f, err := os.Open(srcPath)
+	if err != nil {
+		srcLock.Unlock()
+		if errors.Is(err, fs.ErrNotExist) {
+			return Info{}, fmt.Errorf("%w: %s", ErrSessionNotFound, srcID)
+		}
+		return Info{}, fmt.Errorf("session: open %s: %w", srcPath, err)
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		srcLock.Unlock()
+		return Info{}, fmt.Errorf("session: stat %s: %w", srcPath, err)
+	}
+	recs, loadErr := s.loadRecords(ctx, srcID, srcPath, f, st.Size())
+	srcLock.Unlock()
+	// 损坏行按 Load 语义跳过：recs 仍包含可用的记录，继续复制。
+	if loadErr != nil && !errors.Is(loadErr, ErrCorruptLines) {
+		if errors.Is(loadErr, ErrSessionNotFound) {
+			return Info{}, loadErr
+		}
+		return Info{}, loadErr
+	}
+	if len(recs) == 0 || recs[0].Type != RecordSessionMeta {
+		return Info{}, fmt.Errorf("%w: %s: missing session_meta", ErrInvalidTranscript, srcID)
+	}
+	if err := ctx.Err(); err != nil {
+		return Info{}, fmt.Errorf("session: fork %s: %w", dst.ID, err)
+	}
+
+	dstMeta := forkMetaOf(recs[0], dst, s.nowTime())
+	lastAt := dstMeta.CreatedAt
+	messages := 0
+	for _, rec := range recs[1:] {
+		if rec.Type == RecordMessage {
+			messages++
+		}
+		if rec.Time.After(lastAt) {
+			lastAt = rec.Time
+		}
+	}
+
+	if err := s.CreateSession(ctx, dstMeta); err != nil {
+		return Info{}, fmt.Errorf("session: fork %s: %w", dst.ID, err)
+	}
+	for _, rec := range recs[1:] {
+		rec.SessionID = dst.ID
+		if err := s.Append(ctx, rec); err != nil {
+			_ = s.Delete(ctx, dst.ID)
+			return Info{}, fmt.Errorf("session: fork %s: %w", dst.ID, err)
+		}
+	}
+	return Info{
+		ID:        dst.ID,
+		Title:     dstMeta.Title,
+		WorkDir:   dstMeta.WorkDir,
+		Messages:  messages,
+		UpdatedAt: lastAt,
+	}, nil
+}
+
+// forkMetaOf 从源 meta 记录与调用方传入的 dst 派生新会话元信息：
+// dst 显式给定的字段优先，空字段从源值派生（标题追加 fork 后缀）。
+func forkMetaOf(src Record, dst Meta, now time.Time) Meta {
+	out := Meta{
+		ID:        dst.ID,
+		CreatedAt: dst.CreatedAt,
+	}
+	if out.CreatedAt.IsZero() {
+		out.CreatedAt = now
+	}
+	out.Title = strings.TrimSpace(dst.Title)
+	if out.Title == "" {
+		out.Title = strings.TrimSpace(src.Meta["title"]) + forkTitleSuffix
+	}
+	out.WorkDir = strings.TrimSpace(dst.WorkDir)
+	if out.WorkDir == "" {
+		out.WorkDir = src.Meta["workDir"]
+	}
+	out.Model = strings.TrimSpace(dst.Model)
+	if out.Model == "" {
+		out.Model = src.Meta["model"]
+	}
+	return out
+}
+
 // Delete 删除一个会话文件并关闭其写入句柄。
 func (s *FileStore) Delete(ctx context.Context, sessionID string) error {
 	_ = ctx
@@ -1019,6 +1134,72 @@ func (m *MemStore) List(ctx context.Context) ([]Info, error) {
 		return infos[i].UpdatedAt.After(infos[j].UpdatedAt)
 	})
 	return infos, nil
+}
+
+// ForkSession 把 srcID 的记录快照复制为新会话（契约见 types.go）。
+func (m *MemStore) ForkSession(ctx context.Context, srcID string, dst Meta) (Info, error) {
+	if err := ValidateID(srcID); err != nil {
+		return Info{}, err
+	}
+	if err := ValidateID(dst.ID); err != nil {
+		return Info{}, err
+	}
+	if dst.ID == srcID {
+		return Info{}, fmt.Errorf("%w: fork target equals source: %s", ErrSessionExists, srcID)
+	}
+
+	m.mu.RLock()
+	if m.closed {
+		m.mu.RUnlock()
+		return Info{}, errStoreClosed
+	}
+	srcRecs, ok := m.sessions[srcID]
+	if !ok {
+		m.mu.RUnlock()
+		return Info{}, fmt.Errorf("%w: %s", ErrSessionNotFound, srcID)
+	}
+	snapshot := make([]Record, len(srcRecs))
+	for i, r := range srcRecs {
+		snapshot[i] = cloneRecord(r)
+	}
+	m.mu.RUnlock()
+
+	if len(snapshot) == 0 || snapshot[0].Type != RecordSessionMeta {
+		return Info{}, fmt.Errorf("%w: %s: missing session_meta", ErrInvalidTranscript, srcID)
+	}
+	if err := ctx.Err(); err != nil {
+		return Info{}, fmt.Errorf("session: fork %s: %w", dst.ID, err)
+	}
+
+	dstMeta := forkMetaOf(snapshot[0], dst, m.now())
+	lastAt := dstMeta.CreatedAt
+	messages := 0
+	for _, rec := range snapshot[1:] {
+		if rec.Type == RecordMessage {
+			messages++
+		}
+		if rec.Time.After(lastAt) {
+			lastAt = rec.Time
+		}
+	}
+
+	if err := m.CreateSession(ctx, dstMeta); err != nil {
+		return Info{}, fmt.Errorf("session: fork %s: %w", dst.ID, err)
+	}
+	for _, rec := range snapshot[1:] {
+		rec.SessionID = dst.ID
+		if err := m.Append(ctx, rec); err != nil {
+			_ = m.Delete(ctx, dst.ID)
+			return Info{}, fmt.Errorf("session: fork %s: %w", dst.ID, err)
+		}
+	}
+	return Info{
+		ID:        dst.ID,
+		Title:     dstMeta.Title,
+		WorkDir:   dstMeta.WorkDir,
+		Messages:  messages,
+		UpdatedAt: lastAt,
+	}, nil
 }
 
 // Delete 删除一个会话。

@@ -78,6 +78,10 @@ export function ExportSession(arg1, arg2) {
   return window['go']['app']['App']['ExportSession'](arg1, arg2);
 }
 
+export function ForkSession(arg1) {
+  return window['go']['app']['App']['ForkSession'](arg1);
+}
+
 export function GetProviderConfig() {
   return window['go']['app']['App']['GetProviderConfig']();
 }

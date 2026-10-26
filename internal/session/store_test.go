@@ -645,3 +645,121 @@ func TestMemStore(t *testing.T) {
 		t.Fatalf("Load after delete = %v, want ErrSessionNotFound", err)
 	}
 }
+
+// TestForkSessionCopiesTranscript 验证 FileStore 的分叉：新会话拥有与源一致的
+// 消息序列（SessionID 改写）、标题追加后缀、损坏会话回滚、源会话不受影响。
+func TestForkSessionCopiesTranscript(t *testing.T) {
+	for name, makeStore := range map[string]func(t *testing.T) Store{
+		"file": func(t *testing.T) Store { return testFileStore(t) },
+		"mem":  func(t *testing.T) Store { return NewMemStore() },
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := makeStore(t)
+			ctx := context.Background()
+			src := testMeta("src", "修复登录", testTime)
+			mustCreate(t, s, src)
+			mustAppend(t, s, testMessageRecord("src", "m1", llm.RoleUser, textBlocks("帮我修 bug"), testTime))
+			mustAppend(t, s, testUsageRecord("src", 100, 20, testTime))
+			mustAppend(t, s, Record{
+				Type:      RecordCompact,
+				SessionID: "src",
+				Time:      testTime,
+				Compact:   &Compact{Trigger: "auto", Summary: "摘要", PreTokens: 100, PostTokens: 40},
+			})
+			mustAppend(t, s, testMessageRecord("src", "m2", llm.RoleAssistant, textBlocks("修好了"), testTime))
+			mustAppend(t, s, Record{Type: RecordMode, SessionID: "src", Time: testTime, Meta: map[string]string{"mode": "acceptEdits"}})
+
+			info, err := s.ForkSession(ctx, "src", Meta{ID: "dst"})
+			if err != nil {
+				t.Fatalf("ForkSession: %v", err)
+			}
+			if info.ID != "dst" || info.Title != "修复登录 (fork)" || info.WorkDir != "/repo" {
+				t.Fatalf("fork info = %+v", info)
+			}
+			if info.Messages != 2 {
+				t.Fatalf("fork messages = %d, want 2", info.Messages)
+			}
+
+			// 新会话可完整重放：meta + 5 条复制记录，SessionID 全部改写。
+			recs, err := s.Load(ctx, "dst")
+			if err != nil {
+				t.Fatalf("Load(dst): %v", err)
+			}
+			if len(recs) != 6 {
+				t.Fatalf("dst records = %d, want 6（meta + 5 条复制）", len(recs))
+			}
+			if recs[0].Type != RecordSessionMeta || recs[0].Meta["title"] != "修复登录 (fork)" {
+				t.Fatalf("dst meta = %+v", recs[0])
+			}
+			if recs[0].Meta["model"] != src.Model || recs[0].Meta["workDir"] != "/repo" {
+				t.Fatalf("dst meta 缺少派生的 model/workDir: %+v", recs[0].Meta)
+			}
+			for i, rec := range recs[1:] {
+				if rec.SessionID != "dst" {
+					t.Errorf("recs[%d].SessionID = %q, want dst", i+1, rec.SessionID)
+				}
+			}
+			if recs[3].Compact == nil || recs[3].Compact.Summary != "摘要" {
+				t.Fatalf("压缩边界未复制: %+v", recs[3])
+			}
+			if recs[5].Meta["mode"] != "acceptEdits" {
+				t.Fatalf("权限模式记录未复制: %+v", recs[5])
+			}
+
+			// 源会话不受影响。
+			srcRecs, err := s.Load(ctx, "src")
+			if err != nil {
+				t.Fatalf("Load(src): %v", err)
+			}
+			if len(srcRecs) != 6 {
+				t.Fatalf("src records = %d, want 6", len(srcRecs))
+			}
+			for _, rec := range srcRecs {
+				if rec.SessionID != "src" {
+					t.Fatalf("源会话记录被改写: %+v", rec)
+				}
+			}
+		})
+	}
+}
+
+// TestForkSessionErrors 验证错误路径：源不存在、目标同名、目标非法 ID。
+func TestForkSessionErrors(t *testing.T) {
+	s := testFileStore(t)
+	mustCreate(t, s, testMeta("src", "源", testTime))
+
+	if _, err := s.ForkSession(context.Background(), "missing", Meta{ID: "dst"}); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("missing source err = %v, want ErrSessionNotFound", err)
+	}
+	if _, err := s.ForkSession(context.Background(), "src", Meta{ID: "src"}); !errors.Is(err, ErrSessionExists) {
+		t.Fatalf("same id err = %v, want ErrSessionExists", err)
+	}
+	if _, err := s.ForkSession(context.Background(), "src", Meta{ID: "../escape"}); !errors.Is(err, ErrInvalidID) {
+		t.Fatalf("invalid id err = %v, want ErrInvalidID", err)
+	}
+
+	// 目标已存在：CreateSession 报 ErrSessionExists，源不受影响。
+	if _, err := s.ForkSession(context.Background(), "src", Meta{ID: "src"}); err == nil {
+		t.Fatal("dup target should fail")
+	}
+	dst := testMeta("occupied", "占用", testTime)
+	mustCreate(t, s, dst)
+	if _, err := s.ForkSession(context.Background(), "src", Meta{ID: "occupied"}); !errors.Is(err, ErrSessionExists) {
+		t.Fatalf("occupied err = %v, want ErrSessionExists", err)
+	}
+}
+
+// TestForkSessionExplicitMetaOverrides 验证 dst 显式字段优先于源派生。
+func TestForkSessionExplicitMetaOverrides(t *testing.T) {
+	s := NewMemStore()
+	mustCreate(t, s, testMeta("src", "源标题", testTime))
+	mustAppend(t, s, testMessageRecord("src", "m1", llm.RoleUser, textBlocks("hi"), testTime))
+
+	info, err := s.ForkSession(context.Background(), "src", Meta{ID: "dst", Title: "自定义", WorkDir: "/other", Model: "m2"})
+	if err != nil {
+		t.Fatalf("ForkSession: %v", err)
+	}
+	if info.Title != "自定义" || info.WorkDir != "/other" {
+		t.Fatalf("显式字段未生效: %+v", info)
+	}
+}

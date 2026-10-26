@@ -315,3 +315,97 @@ func newTestAppWithConfig(t *testing.T, cfg Config, provider llm.Provider) (*App
 	}
 	return application, collector
 }
+
+// TestForkSession 复制会话：新会话拥有完整历史、可独立继续对话，源会话不受影响。
+func TestForkSession(t *testing.T) {
+	provider := newFakeProvider(textStep("m1", "回复一"), textStep("m2", "分叉回复"), textStep("m3", "源继续"))
+	application, _ := newTestApp(t, provider)
+	info := createTestSession(t, application)
+	if _, err := application.SendMessage(info.ID, "第一条", nil); err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	waitIdle(t, application, info.ID)
+
+	forked, err := application.ForkSession(info.ID)
+	if err != nil {
+		t.Fatalf("ForkSession: %v", err)
+	}
+	if forked.ID == info.ID {
+		t.Fatal("fork 返回了源会话 ID")
+	}
+	if forked.Title != info.Title+" (fork)" {
+		t.Fatalf("fork 标题 = %q, want %q", forked.Title, info.Title+" (fork)")
+	}
+	srcNow, err := application.LoadSession(info.ID)
+	if err != nil {
+		t.Fatalf("LoadSession(src): %v", err)
+	}
+	if forked.Messages != len(srcNow.Messages) {
+		t.Fatalf("fork messages = %d, want %d", forked.Messages, len(srcNow.Messages))
+	}
+
+	// 新会话视图与源一致，且可独立继续对话。
+	view, err := application.LoadSession(forked.ID)
+	if err != nil {
+		t.Fatalf("LoadSession(fork): %v", err)
+	}
+	srcView, err := application.LoadSession(info.ID)
+	if err != nil {
+		t.Fatalf("LoadSession(src): %v", err)
+	}
+	if len(view.Messages) != len(srcView.Messages) {
+		t.Fatalf("fork 消息数 = %d, want %d", len(view.Messages), len(srcView.Messages))
+	}
+	if messageText(view.Messages[0]) != messageText(srcView.Messages[0]) {
+		t.Fatalf("fork 首条消息 = %q, want %q", messageText(view.Messages[0]), messageText(srcView.Messages[0]))
+	}
+
+	// 分叉线程独立推进，不写回源会话。
+	if _, err := application.SendMessage(forked.ID, "分叉后的问题", nil); err != nil {
+		t.Fatalf("SendMessage(fork): %v", err)
+	}
+	waitIdle(t, application, forked.ID)
+	forkedView, err := application.LoadSession(forked.ID)
+	if err != nil {
+		t.Fatalf("reload fork: %v", err)
+	}
+	if len(forkedView.Messages) != len(view.Messages)+2 {
+		t.Fatalf("fork 新增消息 = %d, want 2", len(forkedView.Messages)-len(view.Messages))
+	}
+	afterSrc, err := application.LoadSession(info.ID)
+	if err != nil {
+		t.Fatalf("reload src: %v", err)
+	}
+	if len(afterSrc.Messages) != len(srcView.Messages) {
+		t.Fatalf("源会话被污染：messages = %d, want %d", len(afterSrc.Messages), len(srcView.Messages))
+	}
+
+	// 会话列表同时包含两条线程。
+	sessions, err := application.ListSessions()
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	ids := make(map[string]bool, len(sessions))
+	for _, s := range sessions {
+		ids[s.ID] = true
+	}
+	if !ids[info.ID] || !ids[forked.ID] {
+		t.Fatalf("列表缺少源/分叉会话: %v", ids)
+	}
+
+	// 源不存在时报错。
+	if _, err := application.ForkSession("s_missing"); err == nil {
+		t.Fatal("fork missing session should fail")
+	}
+}
+
+// messageText 拼接消息 DTO 的文本块，供断言比较。
+func messageText(m MessageDTO) string {
+	var b strings.Builder
+	for _, block := range m.Blocks {
+		if block.Type == "text" {
+			b.WriteString(block.Text)
+		}
+	}
+	return b.String()
+}

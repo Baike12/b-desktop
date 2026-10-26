@@ -99,6 +99,13 @@ type Store interface {
 	// 该消息及其后的全部记录被丢弃，session_meta 首行保留。消息不存在返回
 	// ErrMessageNotFound。用于「回溯编辑」：后续消息作废，从锚点重开一轮。
 	RewindBefore(ctx context.Context, sessionID, messageID string) error
+	// ForkSession 把 srcID 的 transcript 快照复制为新会话：写 dst.ID 的
+	// session_meta 首行，其余记录原样复制并把 SessionID 改写为新 ID。
+	// dst 的 Title / WorkDir / Model 为空时从源会话派生：Title 在源标题后追加
+	// " (fork)"，WorkDir 与 Model 沿用源值。源会话不存在返回 ErrSessionNotFound；
+	// 复制中途失败时删除已写的新会话。损坏行按 Load 语义跳过，复制仍可用的记录。
+	// 返回新会话摘要。
+	ForkSession(ctx context.Context, srcID string, dst Meta) (Info, error)
 	// List 返回全部会话摘要，按 UpdatedAt 倒序。
 	List(ctx context.Context) ([]Info, error)
 	// Delete 删除一个会话及其文件。

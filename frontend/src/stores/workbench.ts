@@ -5,6 +5,7 @@ import {
   CompactSession,
   CreateSession,
   ExportSession,
+  ForkSession,
   GetProviderConfig,
   ListProjects,
   ListRewindPoints,
@@ -130,6 +131,8 @@ export interface WorkbenchState {
   refreshSessions: () => Promise<void>
   selectSession: (id: string) => Promise<void>
   newSession: (projectPath?: string) => Promise<void>
+  // forkSession 复制指定会话为新的独立线程（完整历史快照），并切换到新会话。
+  forkSession: (id: string) => Promise<void>
   openProject: () => Promise<void>
   send: (prompt: string, images?: UserImage[]) => Promise<void>
   // compact 手动压缩当前会话上下文（用户输入 /compact 时由 send 拦截调用）。
@@ -314,6 +317,19 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       await get().selectSession(info.id)
     } catch (err) {
       set({ loading: false, error: errorMessage(err) })
+    }
+  },
+
+  forkSession: async (id) => {
+    set({ error: null })
+    try {
+      const info = await ForkSession(id)
+      set((state) => ({
+        sessions: [info, ...state.sessions.filter((session) => session.id !== info.id)],
+      }))
+      await get().selectSession(info.id)
+    } catch (err) {
+      set({ error: errorMessage(err) })
     }
   },
 

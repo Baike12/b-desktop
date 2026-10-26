@@ -40,6 +40,8 @@ export function DiscardSessionFile(arg1:string,arg2:string,arg3:string,arg4:stri
 
 export function ExportSession(arg1:string,arg2:string):Promise<app.ExportResultDTO>;
 
+export function ForkSession(arg1:string):Promise<app.SessionInfoDTO>;
+
 export function GetProviderConfig():Promise<app.ProviderConfigDTO>;
 
 export function GetSessionFileDiff(arg1:string,arg2:string,arg3:string,arg4:boolean):Promise<app.FileDiffDTO>;

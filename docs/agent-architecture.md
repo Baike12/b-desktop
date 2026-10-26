@@ -948,6 +948,11 @@ type Store interface {
 	// Load 读取一个会话的全部记录（上限 50MB）。会话不存在返回 ErrSessionNotFound；
 	// 首行不是 session_meta 返回 ErrInvalidTranscript。
 	Load(ctx context.Context, sessionID string) ([]Record, error)
+	// RewindBefore 把 transcript 截断到指定用户消息之前（回溯编辑）。
+	RewindBefore(ctx context.Context, sessionID, messageID string) error
+	// ForkSession 把源 transcript 快照复制为新会话：SessionID 改写、标题追加
+	// " (fork)"；dst 显式字段优先。返回新会话摘要（实现见 store.go）。
+	ForkSession(ctx context.Context, srcID string, dst Meta) (Info, error)
 	// List 返回全部会话摘要，按 UpdatedAt 倒序。
 	List(ctx context.Context) ([]Info, error)
 	// Delete 删除一个会话文件。

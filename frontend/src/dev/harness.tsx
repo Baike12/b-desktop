@@ -1058,6 +1058,34 @@ const bindings = {
     return clone(info)
   },
 
+  // 分叉会话：深拷贝视图与新列表项，标题追加后缀（与后端 ForkSession 语义一致）。
+  ForkSession: async (sessionId: string) => {
+    const src = views.get(sessionId)
+    if (!src) throw new Error(`session not found: ${sessionId}`)
+    const id = `s_harness_${views.size + 1}`
+    const forked: FakeView = {
+      ...clone(src),
+      id,
+      title: `${src.title} (fork)`,
+      createdAtMs: Date.now(),
+      running: false,
+    }
+    views.set(id, forked)
+    const srcInfo = sessions.find((item) => item.id === sessionId)
+    const info: FakeSessionInfo = {
+      id,
+      title: forked.title,
+      workDir: forked.workDir,
+      projectPath: srcInfo?.projectPath ?? projectPathForWorkDir(forked.workDir),
+      messages: srcInfo?.messages ?? forked.messages.length,
+      updatedAtMs: Date.now(),
+      running: false,
+      questioning: false,
+    }
+    sessions.unshift(info)
+    return clone(info)
+  },
+
   SendMessage: async (sessionId: string, text: string, images?: { mediaType?: string; data: string }[]) => {
     const view = views.get(sessionId)
     const firstMessage = (view?.messages.length ?? 0) === 0

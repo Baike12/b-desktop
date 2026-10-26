@@ -21,6 +21,7 @@ import {
   useSettingsStore,
 } from '../stores/settings'
 import { useWorkbenchStore, type PanelId } from '../stores/workbench'
+import ContextMenu from './ContextMenu'
 import MascotAvatar from './MascotAvatar'
 import MascotPose from './MascotPose'
 import WorktreeMenu, { type WorktreeMenuAnchor } from './WorktreeMenu'
@@ -167,6 +168,8 @@ interface SessionRowProps {
   session: app.SessionInfoDTO
   active: boolean
   onSelect: (id: string) => void | Promise<void>
+  // onContextMenu 打开会话操作菜单（分叉会话）。
+  onContextMenu?: (session: app.SessionInfoDTO, event: React.MouseEvent) => void
   // 当前会话的状态以 store 为准，其余会话使用列表接口返回的状态。
   liveRunning?: boolean
   questioning?: boolean
@@ -177,6 +180,7 @@ const SessionRow = memo(function SessionRow({
   session,
   active,
   onSelect,
+  onContextMenu,
   liveRunning,
   questioning = false,
 }: SessionRowProps) {
@@ -189,6 +193,7 @@ const SessionRow = memo(function SessionRow({
       type="button"
       data-testid="session-row"
       onClick={() => void onSelect(session.id)}
+      onContextMenu={(event) => onContextMenu?.(session, event)}
       title={`${session.title}\n${session.workDir}`}
       className={
         active
@@ -234,6 +239,7 @@ interface ProjectSectionProps {
   onSelect: (id: string) => void | Promise<void>
   onCreate: (path: string) => void | Promise<void>
   onNewWorktree: (project: app.ProjectDTO, anchor: WorktreeMenuAnchor) => void
+  onSessionContextMenu: (session: app.SessionInfoDTO, event: React.MouseEvent) => void
 }
 
 // ProjectSection 是侧边栏的一个项目分组：标题行可折叠，悬停出现“新建工作树”与“新建会话”。
@@ -248,6 +254,7 @@ const ProjectSection = memo(function ProjectSection({
   onSelect,
   onCreate,
   onNewWorktree,
+  onSessionContextMenu,
 }: ProjectSectionProps) {
   return (
     <section data-testid="project-item" data-project={project.name} className="mt-2">
@@ -310,6 +317,7 @@ const ProjectSection = memo(function ProjectSection({
                   session.id === activeId ? activeQuestioning : session.questioning
                 }
                 onSelect={onSelect}
+                onContextMenu={onSessionContextMenu}
               />
             ))
           )}
@@ -328,6 +336,7 @@ export default function Sidebar() {
   const running = useWorkbenchStore((state) => state.running)
   const approvals = useWorkbenchStore((state) => state.approvals)
   const newSession = useWorkbenchStore((state) => state.newSession)
+  const forkSession = useWorkbenchStore((state) => state.forkSession)
   const openProject = useWorkbenchStore((state) => state.openProject)
   const selectSession = useWorkbenchStore((state) => state.selectSession)
   const activePanel = useWorkbenchStore((state) => state.activePanel)
@@ -345,6 +354,13 @@ export default function Sidebar() {
     project: app.ProjectDTO
     anchor: WorktreeMenuAnchor
   } | null>(null)
+  // sessionMenu 是会话行的右键菜单（分叉会话）。
+  const [sessionMenu, setSessionMenu] = useState<{ x: number; y: number; id: string } | null>(null)
+  const openSessionMenu = useCallback((session: app.SessionInfoDTO, event: React.MouseEvent) => {
+    event.preventDefault()
+    setSessionMenu({ x: event.clientX, y: event.clientY, id: session.id })
+  }, [])
+  const closeSessionMenu = useCallback(() => setSessionMenu(null), [])
   const { groups, orphans } = useMemo(
     () => groupSessionsByProject(projects, sessions),
     [projects, sessions],
@@ -638,6 +654,7 @@ export default function Sidebar() {
               onSelect={selectSession}
               onCreate={createSession}
               onNewWorktree={openWorktreeMenu}
+              onSessionContextMenu={openSessionMenu}
             />
           )
         })}
@@ -658,6 +675,7 @@ export default function Sidebar() {
                     session.id === activeId ? activeQuestioning : session.questioning
                   }
                   onSelect={selectSession}
+                  onContextMenu={openSessionMenu}
                 />
               ))}
             </div>
@@ -676,6 +694,25 @@ export default function Sidebar() {
           设置
         </button>
       </div>
+
+      {sessionMenu && (
+        <ContextMenu
+          x={sessionMenu.x}
+          y={sessionMenu.y}
+          items={[
+            {
+              id: 'fork-session',
+              label: '分叉会话',
+              onSelect: () => {
+                const { id } = sessionMenu
+                closeSessionMenu()
+                void forkSession(id)
+              },
+            },
+          ]}
+          onClose={closeSessionMenu}
+        />
+      )}
 
       {worktreeMenu && (
         <WorktreeMenu
