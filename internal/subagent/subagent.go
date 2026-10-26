@@ -36,6 +36,10 @@ const (
 	defaultAgentsDirName = "agents"
 	// defaultMaxToolConcurrency 与主 Agent 的默认工具并发上限一致。
 	defaultMaxToolConcurrency = 10
+	// defaultMaxConcurrent 是同时运行的子 Agent 任务上限。codex 默认 4-6
+	// （core/src/config/mod.rs DEFAULT_AGENT_MAX_THREADS），本机模型并发有限，
+	// 取 6 防止一次派发把配额挤兑光。
+	defaultMaxConcurrent = 6
 	// resumePromptPrefix 是 SendMessage 续跑时注入子 Agent 的消息前缀。
 	resumePromptPrefix = "The coordinator sent you a new message while you were idle:\n\n"
 	// steerNotice 是运行中任务收到消息时注入的通知包装。
@@ -56,6 +60,9 @@ var (
 	ErrClosed = errors.New("subagent: manager closed")
 	// ErrTaskNotFound 表示任务 ID 不存在（或已随 Manager 释放）。
 	ErrTaskNotFound = errors.New("subagent: task not found")
+	// ErrAgentLimit 表示运行中的子 Agent 数量已达上限（对齐 codex 的
+	// AgentLimitReached：spawn 前拒绝，模型可稍后重试）。
+	ErrAgentLimit = errors.New("subagent: agent limit reached")
 )
 
 // runOutcome 是一次执行的内部结果。
@@ -101,6 +108,8 @@ type Config struct {
 	WorkDir string
 	// AgentsDir 是子 Agent 类型定义目录，默认 ~/.b-desktop/agents。
 	AgentsDir string
+	// MaxConcurrent 是同时运行的子 Agent 任务上限，0 取 6。
+	MaxConcurrent int
 	// Runtime 在每次运行前解析动态配置，必填。
 	Runtime func(sessionID string) (Runtime, error)
 	// Tasks 是后台任务注册表；非 nil 时后台子 Agent 任务登记进它，
@@ -199,6 +208,9 @@ func NewManager(cfg Config) (*Manager, error) {
 	}
 	if cfg.NewID == nil {
 		cfg.NewID = defaultNewID
+	}
+	if cfg.MaxConcurrent <= 0 {
+		cfg.MaxConcurrent = defaultMaxConcurrent
 	}
 	if strings.TrimSpace(cfg.AgentsDir) == "" {
 		home, err := os.UserHomeDir()
@@ -346,6 +358,12 @@ func (m *Manager) Run(ctx context.Context, req agent.SubagentRequest, emit agent
 		emit = func(agent.Event) {}
 	}
 
+	// 运行中任务数达到上限时拒绝新任务（对齐 codex 的 AgentLimitReached），
+	// 模型收到错误后可等待或改为串行派发。
+	if err := m.reserveSlot(); err != nil {
+		return agent.SubagentResult{}, err
+	}
+
 	id := m.cfg.NewID("subagent")
 	if req.Background {
 		runCtx, cancel := context.WithCancel(m.rootCtx)
@@ -372,15 +390,39 @@ func (m *Manager) Run(ctx context.Context, req agent.SubagentRequest, emit agent
 	return out.result, nil
 }
 
+// reserveSlot 在运行任务数达到 MaxConcurrent 时返回错误。
+// 检查与登记之间没有原子性保证，超发只可能是短暂的一个，
+// 对「防止挤兑模型并发配额」的目的没有影响。
+func (m *Manager) reserveSlot() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed {
+		return fmt.Errorf("%w", ErrClosed)
+	}
+	running := 0
+	for _, t := range m.tasks {
+		if t.cancel != nil {
+			running++
+		}
+	}
+	if running >= m.cfg.MaxConcurrent {
+		return fmt.Errorf("%w: %d running, max %d", ErrAgentLimit, running, m.cfg.MaxConcurrent)
+	}
+	return nil
+}
+
 // runChild 构建子引擎、执行一次任务并落终态。任务期间收到的协调消息
 // 若未被引擎消费，结束后自动以该消息续跑（见 finish）。
 func (m *Manager) runChild(ctx context.Context, id, prompt string, emit agent.EventSink) runOutcome {
+	started := m.cfg.Now()
 	engine, out := m.start(ctx, id, prompt, emit)
 	if engine == nil {
+		out.result.DurationMS = m.cfg.Now().Sub(started).Milliseconds()
 		m.finish(id, out)
 		return out
 	}
 	out = m.runTurn(ctx, id, engine, prompt, emit)
+	out.result.DurationMS = m.cfg.Now().Sub(started).Milliseconds()
 	m.finish(id, out)
 	return out
 }

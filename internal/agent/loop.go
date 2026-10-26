@@ -167,8 +167,9 @@ func (t *turn) run() error {
 	}
 }
 
-// prepare 在每次模型调用前组装系统提示并检查 token 预算：
-// 超过阻塞线直接结束；否则执行压缩，压缩后写入会话边界。
+// prepare 在每次模型调用前压缩历史并检查 token 预算。顺序与参考实现的
+// 流水线一致（microCompact → autoCompact → 阻塞预检）：一条巨量工具结果会
+// 把估算直接推过阻塞线，此时正确动作是先压缩自救，压缩后仍超线才结束本轮。
 func (t *turn) prepare() (system string, specs []llm.ToolSpec, ended bool, err error) {
 	e := t.engine
 	registrySpecs := e.cfg.Tools.Specs()
@@ -176,19 +177,9 @@ func (t *turn) prepare() (system string, specs []llm.ToolSpec, ended bool, err e
 
 	history := e.historySnapshot()
 	budget := e.cfg.Compactor.Budget()
-	tokens := sysctx.EstimateMessages(history)
-	lastAt, lastUsage := e.metaSnapshot()
-	if u := usageTotal(lastUsage); u > tokens {
-		tokens = u
-	}
-	if tokens >= budget.BlockingLimit() {
-		msg := fmt.Sprintf("context estimate %d exceeds blocking limit %d", tokens, budget.BlockingLimit())
-		t.emitErrorView("context", &ErrorView{Kind: "context", Message: msg})
-		t.end(StopBlockingLimit, msg)
-		return "", nil, true, nil
-	}
-
 	preTokens := sysctx.EstimateMessages(history)
+	lastAt, lastUsage := e.metaSnapshot()
+
 	compactStarted := false
 	var compactFailure string
 	progress := func(p sysctx.CompactProgress) {
@@ -232,6 +223,7 @@ func (t *turn) prepare() (system string, specs []llm.ToolSpec, ended bool, err e
 		t.emitEvent(EventCompactEnd, func(ev *Event) { ev.Compact = view })
 	}
 
+	msgs := history
 	if compactErr != nil {
 		// 压缩失败不阻断调用：保留原历史，错误只上报给前端。
 		t.emitErrorView("compact", &ErrorView{Kind: "compact", Message: compactErr.Error()})
@@ -242,6 +234,20 @@ func (t *turn) prepare() (system string, specs []llm.ToolSpec, ended bool, err e
 		e.replaceHistory(compacted.Messages)
 		// 压缩已替换历史，旧的最近用量描述的是压缩前的规模，不再适用。
 		e.resetLastUsage()
+		lastUsage = llm.Usage{}
+		msgs = compacted.Messages
+	}
+
+	// 阻塞预检在压缩之后：压缩失败时以原历史兜底判定。
+	tokens := sysctx.EstimateMessages(msgs)
+	if u := usageTotal(lastUsage); u > tokens {
+		tokens = u
+	}
+	if tokens >= budget.BlockingLimit() {
+		msg := fmt.Sprintf("context estimate %d exceeds blocking limit %d", tokens, budget.BlockingLimit())
+		t.emitErrorView("context", &ErrorView{Kind: "context", Message: msg})
+		t.end(StopBlockingLimit, msg)
+		return "", nil, true, nil
 	}
 
 	if t.ctx.Err() != nil {
@@ -1288,6 +1294,12 @@ func (t *turn) executeTools(calls []tool.Call) error {
 				}
 			}
 		}
+	}
+
+	// 结果回灌历史前做统一兜底截断：工具自身截断（Bash/Read/Grep/Glob）之外，
+	// MCP 与未来工具的超大输出在这里被拦在上下文之外。
+	for i := range calls {
+		results[i] = limitToolResult(results[i], contentLimit(resolved[i]))
 	}
 
 	return t.finishToolExecution(calls, results, done, paths, canceled)

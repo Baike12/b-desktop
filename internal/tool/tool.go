@@ -91,6 +91,15 @@ type Interactive interface {
 	Interactive() bool
 }
 
+// ContentLimiter 由需要自定义结果体积上限的工具实现（例如已经自行截断的
+// Bash、以文件为界的 Read）。返回值含义：>0 覆盖 agent 层的默认兜底上限
+// （字节）；<0 表示不限，由工具自行保证体积。未实现本接口的工具按 agent
+// 默认上限做兜底截断，防止 MCP 或未来工具把一次超大输出直接灌进上下文。
+type ContentLimiter interface {
+	// ContentLimit 返回结果 Content 的字节上限。
+	ContentLimit() int
+}
+
 // Spec 是工具的对外规格，由 agent 转换成 llm.ToolSpec。
 type Spec struct {
 	Name        string

@@ -2051,14 +2051,16 @@ Run(ctx, in, emit)
        ├─ emit(step_start)
        ├─ system, err := builder.System(ctx, tools.Specs())   // 每步重算（静态层走缓存）
        ├─ budget := compactor.Budget()                 // 唯一来源，不自行 NewBudget
-       ├─ 预算检查：max(EstimateMessages(history), lastUsage.Total()) > budget.BlockingLimit()
-       │     → turn_end{blocking_limit}; return
        ├─ r := compactor.BeforeCall(ctx, BeforeCallInput{history, lastAssistantAt, lastUsage}, progress)
        │     progress: Start → emit(compact_start)；Done/Failed → emit(compact_end)
        │     若 r.Compacted：
        │         e.append(persistCtx, RecordCompact{Info, Model: cfg.Model})
        │         for m in r.Info.KeptMessages: e.append(persistCtx, message 记录)
        │         history = r.Messages; e.flush(persistCtx)
+       ├─ 阻塞检查在压缩之后：max(EstimateMessages(history), lastUsage.Total()) > budget.BlockingLimit()
+       │     → turn_end{blocking_limit}; return
+       │     （对齐 cc query.ts 流水线：一条巨量工具结果把估算推过阻塞线时，
+       │       先压缩自救，压缩后仍超线才结束本轮）
        ├─ req := prompt.Build(system, history, tools.Specs())  // req.MaxTokens = budget.MaxOutputTokens
        ├─ stream := provider.Stream(ctx, req)
        ├─ 累积 assistant 消息（§6.3）；逐条 emit 增量；本步结束必须 stream.Close()
@@ -2074,6 +2076,9 @@ Run(ctx, in, emit)
        ├─ precheck：对每个 call 求 Check（纯判定）→ allow/ask/deny
        ├─ group := tool.Group(calls, registry, allowed, MaxToolConcurrency)
        ├─ 执行批次（§6.5）：每个工具完成立即 emit(tool_result)
+       ├─ 结果兜底截断：Content 超过工具声明上限或默认 50000 字节时
+       │     中间截断（保头 40KB + 尾 10KB，不切断 UTF-8）并插入自述标记、
+       │     置 Truncated；工具实现 tool.ContentLimiter 可覆盖（<0 不限）
        ├─ 组装一条 user 消息（全部 tool_result，顺序与 toolCalls 一致）并落盘
        └─ continue
 ```
@@ -2334,7 +2339,8 @@ func EstimateMessages(msgs []llm.Message) int   // 每条消息 +4，每块 +6
 
 动作：
 
-- 只处理工具结果块，保留最近 `KeepRecentToolResults`（默认 5）组，其余 `Text` 替换为 `"[old tool result cleared]"`。
+- 只处理**白名单工具**（`Read / Bash / Grep / Glob / Edit / Write / WebFetch / WebSearch / PowerShell`，与 cc 的 COMPACTABLE_TOOLS 一致）的非错误旧结果；MCP 工具、AskUserQuestion 等白名单外的结果与错误结果一律保留（错误结果是恢复工作的关键线索）。
+- 保留最近 `KeepRecentToolResults`（默认 5）组可清结果，其余 `Text` 替换为 `"[old tool result cleared]"`。
 - 工具结果所属的 `tool_use` 及其 assistant 消息不动，保证配对结构完整。
 - 节省不足 256 token 时整体放弃（zcode.md:179）。
 - 返回新切片，不修改入参。
@@ -2346,7 +2352,7 @@ func EstimateMessages(msgs []llm.Message) int   // 每条消息 +4，每块 +6
 动作：
 
 1. `BeforeCall` 一旦决定压缩，**先**回调 `progress(CompactPhaseStart)` → agent emit `compact_start`；并用 `defer` 保证函数返回前必回调 `CompactPhaseDone` 或 `CompactPhaseFailed`（评审第 2 轮缺失项 2）。agent 在 Failed 时 emit `compact_end{failed:true,error}`，前端一定能结束「压缩中」状态。
-2. 用 `Provider.Stream` 发一次无工具、`MaxTokens=8000` 的请求，system 为压缩指令，消息为完整历史 + 固定摘要提示；摘要提示为五段式 `Goal / State / Context / Next / Pitfalls`（zed.md:356）。
+2. 用 `Provider.Stream` 发一次无工具、`MaxTokens=8000` 的请求，system 为压缩指令，消息为完整历史（图片已剥离）；摘要提示为九段式 `Primary Request and Intent / Key Technical Concepts / Files and Code Sections / Errors and fixes / Problem Solving / All user messages / Pending Tasks / Current Work / Optional Next Step`，首尾禁工具、要求逐字保留安全相关指令（cc compact/prompt.ts 与 zcode.md 同构）。
 3. 摘要请求返回 `context_overflow`：从最旧消息开始按「一整组（assistant + 其 tool_result）」删除后重试一次（codex.md:265）。
 4. 摘要为空 → `consecutiveFailures++`，回调 Failed；连续 3 次失败后返回 `ErrCompactionDisabled`（cc.md:335、zcode.md:184）。
 5. 成功 → `consecutiveFailures=0`，回调 `progress(CompactPhaseDone)`。

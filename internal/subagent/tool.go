@@ -61,12 +61,17 @@ func NewAgentTool(m *Manager) tool.Tool { return &agentTool{mgr: m} }
 // Name 返回工具名。
 func (t *agentTool) Name() string { return ToolName }
 
-// Description 返回工具说明，并列出当前可用的子 Agent 类型。
+// Description 返回工具说明，并列出当前可用的子 Agent 类型。防误用规则
+// 与参考实现一致（cc AgentTool/prompt.ts、ZCode agent.ts）：结果须由主
+// Agent 转述、已委派的工作不要重复做。
 func (t *agentTool) Description() string {
 	var b strings.Builder
 	b.WriteString("Launch a sub-agent that runs independently and returns its final text result. ")
 	b.WriteString("The sub-agent has its own conversation history, tool set and permission scope; it cannot see this dialogue. ")
 	b.WriteString("Use it for research, batch changes or independent review. ")
+	b.WriteString("When NOT to use: if you know the file paths or the search is a quick lookup, do it yourself with Read/Grep/Glob — spawning an agent for that wastes time. ")
+	b.WriteString("If you already delegated a search or task to a sub-agent, do not repeat the same work yourself. ")
+	b.WriteString("The sub-agent's final message is returned to you, not shown to the user — relay the findings in your own reply. ")
 	b.WriteString("Long or self-contained tasks accept run_in_background=true: you get an agent ID immediately and a ")
 	b.WriteString("task-notification when it finishes; steer or continue the agent later with SendMessage.")
 	types := t.mgr.Types()
@@ -138,6 +143,10 @@ func (t *agentTool) Run(ctx context.Context, input json.RawMessage, progress too
 	if strings.TrimSpace(text) == "" {
 		text = "(Sub-agent completed but returned no output.)"
 	}
+	// 统计行与 cc 的 finalizeAgentTool（agentToolUtils.ts）一致：让父 Agent
+	// 与用户都能看到子 Agent 的规模，同时保留续接提示。
 	text += fmt.Sprintf("\n\nagentId: %s (use SendMessage with to: '%s' to continue this agent)", res.ID, res.ID)
+	text += fmt.Sprintf("\n\n<usage>subagent_tokens: %d, turns: %d, duration_ms: %d</usage>",
+		res.Usage.InputTokens+res.Usage.OutputTokens, res.Turns, res.DurationMS)
 	return tool.Result{Content: text, Display: res.Text, Meta: map[string]string{"taskId": res.ID}}, nil
 }

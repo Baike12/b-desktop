@@ -1396,7 +1396,7 @@ const bindings = {
       blocks: [
         {
           type: 'text',
-          text: 'The conversation was compacted. Summary:\n（此前对话的摘要：工作台会话进行中，已确认 @ 引用与 / 命令可用。）',
+          text: 'This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation:\n\n（此前对话的摘要：工作台会话进行中，已确认 @ 引用与 / 命令可用。）',
         },
       ],
       timeMs: Date.now(),

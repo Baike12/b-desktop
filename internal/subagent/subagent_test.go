@@ -465,3 +465,84 @@ func waitFor(t *testing.T, timeout time.Duration, cond func() bool, what string)
 	}
 	t.Fatalf("timeout waiting for %s", what)
 }
+
+// TestRunRejectsWhenConcurrentLimitReached 验证运行任务数达到上限时拒绝
+// 新任务（对齐 codex 的 AgentLimitReached），取消一个后恢复接受。
+func TestRunRejectsWhenConcurrentLimitReached(t *testing.T) {
+	dir := t.TempDir()
+	provider := newFakeProvider(scriptStep{block: true}, textStep("m2", "第三个"))
+	mgr, err := NewManager(Config{
+		WorkDir:       dir,
+		MaxConcurrent: 1,
+		Runtime: func(string) (Runtime, error) {
+			return Runtime{
+				Provider: provider, Model: "test-model", WorkDir: dir,
+				PermissionMode: permission.ModeBypassPermissions,
+				ContextWindow:  200000, MaxOutputTokens: 8192,
+			}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	t.Cleanup(func() { _ = mgr.Close() })
+
+	first, err := mgr.Run(context.Background(), agent.SubagentRequest{
+		SessionID: "parent", Description: "第一个", Prompt: "一直等待", Background: true,
+	}, nil)
+	if err != nil {
+		t.Fatalf("first Run: %v", err)
+	}
+	waitFor(t, 2*time.Second, func() bool { return provider.CallCount() == 1 }, "first model call")
+
+	_, err = mgr.Run(context.Background(), agent.SubagentRequest{
+		SessionID: "parent", Description: "第二个", Prompt: "同样等待", Background: true,
+	}, nil)
+	if !errors.Is(err, ErrAgentLimit) {
+		t.Fatalf("second Run err = %v, want ErrAgentLimit", err)
+	}
+
+	if !mgr.CancelTask(first.ID) {
+		t.Fatal("CancelTask = false")
+	}
+	waitFor(t, 2*time.Second, func() bool {
+		task, ok := mgr.Task(first.ID)
+		return ok && task.Status == TaskCanceled
+	}, "first task canceled")
+
+	third, err := mgr.Run(context.Background(), agent.SubagentRequest{
+		SessionID: "parent", Description: "第三个", Prompt: "现在可以跑", Background: true,
+	}, nil)
+	if err != nil {
+		t.Fatalf("third Run after cancel: %v", err)
+	}
+	waitFor(t, 2*time.Second, func() bool {
+		task, ok := mgr.Task(third.ID)
+		return ok && task.Status == TaskCompleted
+	}, "third task completed")
+}
+
+// TestAgentToolResultIncludesUsage 验证同步结果带 usage 统计行与耗时。
+func TestAgentToolResultIncludesUsage(t *testing.T) {
+	dir := t.TempDir()
+	provider := newFakeProvider(textStep("m1", "分析", "完成"))
+	mgr := newTestManager(t, dir, filepath.Join(dir, "agents"), provider, "")
+	tl := NewAgentTool(mgr)
+
+	out, err := tl.Run(context.Background(), json.RawMessage(`{"description":"跑分析","prompt":"分析一下"}`), nil)
+	if err != nil {
+		t.Fatalf("tool Run: %v", err)
+	}
+	if !strings.Contains(out.Content, "<usage>") || !strings.Contains(out.Content, "turns: 1") {
+		t.Fatalf("结果缺少 usage 统计行: %q", out.Content)
+	}
+	if !strings.Contains(out.Content, "duration_ms: ") {
+		t.Fatalf("结果缺少耗时统计: %q", out.Content)
+	}
+	if !strings.Contains(tl.Description(), "do not repeat the same work") {
+		t.Fatal("工具描述缺少防重复委派规则")
+	}
+	if !strings.Contains(tl.Description(), "not shown to the user") {
+		t.Fatal("工具描述缺少转述约定")
+	}
+}

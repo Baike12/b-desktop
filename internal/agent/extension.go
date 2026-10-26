@@ -112,6 +112,8 @@ type SubagentResult struct {
 	Error string
 	Usage llm.Usage
 	Turns int
+	// DurationMS 是本次运行的总耗时（后台续跑时为最近一段运行的耗时）。
+	DurationMS int64
 }
 
 // SubagentRunner 执行子 Agent。实现拥有独立的上下文、工具池与权限范围，

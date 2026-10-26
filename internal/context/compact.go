@@ -31,19 +31,44 @@ const (
 )
 
 // compactSummaryPrefix 是压缩后注入历史的第一条 user 消息前缀。
-const compactSummaryPrefix = "The conversation was compacted. Summary:\n"
+// 语境句与参考实现一致（cc compact/prompt.ts：压缩摘要以 "This session is
+// being continued..." 开头），让模型明确知道自己拿到的是续接摘要而非对话起点。
+const compactSummaryPrefix = "This session is being continued from a previous conversation " +
+	"that ran out of context. The summary below covers the earlier portion of the conversation:\n\n"
 
 // clearedToolResult 是旧工具结果的替换文本。
 const clearedToolResult = "[old tool result cleared]"
 
-// SummaryInstruction 是发给摘要模型的固定指令（五段式 Goal / State / Context / Next / Pitfalls）。
+// compactableTools 是微压缩允许清除旧结果的白名单（与 cc 的 COMPACTABLE_TOOLS
+// 一致，microCompact.ts）：这些工具的旧结果可以安全丢弃，模型需要时可重新调用；
+// 白名单之外（MCP、AskUserQuestion、TodoWrite 等）与错误结果一律保留。
+var compactableTools = map[string]bool{
+	"Read":       true,
+	"Bash":       true,
+	"Grep":       true,
+	"Glob":       true,
+	"Edit":       true,
+	"Write":      true,
+	"WebFetch":   true,
+	"WebSearch":  true,
+	"PowerShell": true,
+}
+
+// SummaryInstruction 是发给摘要模型的固定指令（与 cc/ZCode 的九段结构一致，
+// compact/prompt.ts）：首尾禁工具，要求逐字保留安全相关指令。
 const SummaryInstruction = "你负责压缩对话上下文。请阅读完整对话，输出一份能让另一个 Agent 无缝继续工作的摘要。\n" +
-	"严格按五段输出，每段用标题开头：\n" +
-	"Goal: 用户最终想完成什么。\n" +
-	"State: 已完成的工作与当前代码/环境状态。\n" +
-	"Context: 继续工作必须知道的约束、路径、命令与结论。\n" +
-	"Next: 接下来要做的具体步骤。\n" +
-	"Pitfalls: 已知的坑、失败过的尝试与注意事项。\n" +
+	"只输出摘要文本，不要调用任何工具，工具调用会被拒绝。\n" +
+	"严格按以下九段输出，每段以段名开头（保留英文段名）：\n" +
+	"1. Primary Request and Intent: 用户的最终目标与全部明确要求，逐条列出。\n" +
+	"2. Key Technical Concepts: 涉及的关键技术、架构与约定。\n" +
+	"3. Files and Code Sections: 已读/已改的文件路径、关键改动与代码片段。\n" +
+	"4. Errors and fixes: 出现过的错误与最终修复方式；未解决的错误单独标注。\n" +
+	"5. Problem Solving: 问题处理思路与已放弃的方案。\n" +
+	"6. All user messages: 按顺序列出用户的全部非工具消息（截取要点，保留原意）。\n" +
+	"7. Pending Tasks: 尚未完成的任务。\n" +
+	"8. Current Work: 被压缩时刻正在做什么、进行到哪一步。\n" +
+	"9. Optional Next Step: 接下来具体要做的事；没有则写 None。\n" +
+	"安全相关指令（权限边界、用户否决过的操作）必须逐字保留，不得改写。\n" +
 	"只写事实，不要寒暄，不要编造未发生的事。"
 
 // 压缩错误哨兵。
@@ -426,16 +451,36 @@ func (c *Compactor) BeforeCall(ctx stdctx.Context, in BeforeCallInput, progress 
 	return res, nil
 }
 
-// MicroCompact 把最近 keepRecent 组之外的旧工具结果替换为 "[old tool result cleared]"，
-// 返回新切片（不修改入参）、替换块数与节省的 token 估算。
-// 节省不足 256 token 时整体放弃，返回原切片。
+// toolUseNames 从历史 assistant 消息里收集 toolUseID → 工具名。
+// 微压缩据此判断一条旧结果是否来自白名单工具。
+func toolUseNames(msgs []llm.Message) map[string]string {
+	names := make(map[string]string)
+	for _, m := range msgs {
+		if m.Role != llm.RoleAssistant {
+			continue
+		}
+		for _, b := range m.Blocks {
+			if b.Type == llm.BlockToolUse && b.ToolUseID != "" && b.ToolName != "" {
+				names[b.ToolUseID] = b.ToolName
+			}
+		}
+	}
+	return names
+}
+
+// MicroCompact 把白名单工具（compactableTools）最近 keepRecent 组之外的旧
+// tool_result 替换为 "[old tool result cleared]"，返回新切片（不修改入参）、
+// 替换块数与节省的 token 估算。错误结果一律保留（它们是恢复工作的关键线索），
+// 白名单之外的工具与身份不明的结果也保留。节省不足 256 token 时整体放弃，
+// 返回原切片。
 func MicroCompact(msgs []llm.Message, keepRecent int) (out []llm.Message, cleared int, savedTokens int) {
 	if keepRecent < 0 {
 		keepRecent = 0
 	}
+	names := toolUseNames(msgs)
 	groups := make([]int, 0, len(msgs))
 	for i, m := range msgs {
-		if m.Role == llm.RoleUser && hasToolResult(m) {
+		if m.Role == llm.RoleUser && hasClearableToolResult(m, names) {
 			groups = append(groups, i)
 		}
 	}
@@ -455,7 +500,7 @@ func MicroCompact(msgs []llm.Message, keepRecent int) (out []llm.Message, cleare
 			if b.Type != llm.BlockToolResult {
 				continue
 			}
-			if strings.TrimSpace(b.Text) == "" || b.Text == clearedToolResult {
+			if b.IsError || strings.TrimSpace(b.Text) == "" || b.Text == clearedToolResult {
 				if len(b.Images) == 0 {
 					continue
 				}
@@ -477,6 +522,22 @@ func MicroCompact(msgs []llm.Message, keepRecent int) (out []llm.Message, cleare
 		return msgs, 0, 0
 	}
 	return out, cleared, savedTokens
+}
+
+// hasClearableToolResult 报告消息里是否含有「白名单工具的非错误结果」。
+func hasClearableToolResult(m llm.Message, names map[string]string) bool {
+	for _, b := range m.Blocks {
+		if b.Type != llm.BlockToolResult {
+			continue
+		}
+		if b.IsError {
+			continue
+		}
+		if name, ok := names[b.ToolUseID]; ok && compactableTools[name] {
+			return true
+		}
+	}
+	return false
 }
 
 // AutoCompact 调用注入的 Summarizer 生成摘要，返回「摘要消息 + 保留的最近消息」。
@@ -691,16 +752,6 @@ func trimOldestGroup(msgs []llm.Message) []llm.Message {
 	out := make([]llm.Message, len(msgs)-i)
 	copy(out, msgs[i:])
 	return out
-}
-
-// hasToolResult 报告消息是否包含工具结果块。
-func hasToolResult(m llm.Message) bool {
-	for _, b := range m.Blocks {
-		if b.Type == llm.BlockToolResult {
-			return true
-		}
-	}
-	return false
 }
 
 // hasToolUse 报告消息是否包含工具调用块。

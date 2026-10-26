@@ -311,7 +311,7 @@ func TestBeforeCallAutoTriggeredByEstimate(t *testing.T) {
 	if len(res.Info.KeptMessages) != 4 {
 		t.Fatalf("KeptMessages = %d, want 4", len(res.Info.KeptMessages))
 	}
-	if res.Messages[0].Role != llm.RoleUser || !strings.Contains(res.Messages[0].Blocks[0].Text, "The conversation was compacted") {
+	if res.Messages[0].Role != llm.RoleUser || !strings.Contains(res.Messages[0].Blocks[0].Text, "being continued from a previous conversation") {
 		t.Fatalf("新历史首条应为摘要 user 消息: %+v", res.Messages[0])
 	}
 	if !strings.Contains(res.Messages[0].Blocks[0].Text, "Goal: ship it") {
@@ -679,4 +679,56 @@ func TestAutoCompactRetriesOnRealStreamErrorOverflow(t *testing.T) {
 	if len(out) == 0 || out[0].Blocks[0].Text != compactSummaryPrefix+"S" {
 		t.Fatalf("摘要消息错误: %+v", out)
 	}
+}
+
+// TestMicroCompactRespectsWhitelistAndErrors 验证微压缩只清白名单工具的
+// 非错误旧结果：白名单外与错误结果一律保留（对齐 cc COMPACTABLE_TOOLS 与
+// ZCode 的 error 保护）。
+func TestMicroCompactRespectsWhitelistAndErrors(t *testing.T) {
+	long := strings.Repeat("x", 2000)
+	msgs := []llm.Message{
+		toolUseMessageNamed("ta", "MCPFetch"), toolResultMessage("ta", long),
+		toolUseMessageNamed("tb", "Read"), toolResultMessage("tb", long),
+		toolUseMessageNamed("tc", "Bash"), errorToolResultMessage("tc", long),
+		toolUseMessageNamed("td", "Grep"), toolResultMessage("td", long),
+	}
+
+	// keepRecent=0：清掉全部可清的旧结果，验证白名单与 error 保护。
+	out, cleared, saved := MicroCompact(msgs, 0)
+	if cleared != 2 {
+		t.Fatalf("cleared = %d, want 2（Read 与 Grep 的旧结果）", cleared)
+	}
+	if saved < microCompactMinSaved {
+		t.Fatalf("saved = %d, want >= %d", saved, microCompactMinSaved)
+	}
+	if got := out[1].Blocks[0].Text; got != long {
+		t.Errorf("白名单外工具（MCPFetch）的结果不应被清空")
+	}
+	if got := out[3].Blocks[0].Text; got != clearedToolResult {
+		t.Errorf("白名单工具（Read）的旧结果应被清空")
+	}
+	if got := out[5].Blocks[0].Text; got != long {
+		t.Errorf("错误结果不应被清空")
+	}
+	if !out[5].Blocks[0].IsError {
+		t.Errorf("错误结果应保持 IsError 标记")
+	}
+	if got := out[7].Blocks[0].Text; got != clearedToolResult {
+		t.Errorf("白名单工具（Grep）的旧结果应被清空")
+	}
+
+}
+
+// toolUseMessageNamed 构造指定工具名的 tool_use 消息。
+func toolUseMessageNamed(id, name string) llm.Message {
+	m := toolUseMessage(id)
+	m.Blocks[0].ToolName = name
+	return m
+}
+
+// errorToolResultMessage 构造一条错误工具结果。
+func errorToolResultMessage(id, text string) llm.Message {
+	m := toolResultMessage(id, text)
+	m.Blocks[0].IsError = true
+	return m
 }
