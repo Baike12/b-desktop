@@ -654,7 +654,13 @@ func (b *Bridge) handleUpdate(update SessionUpdate) {
 	case UpdateAvailableCommands:
 		commands := make([]agent.CommandView, 0, len(update.Commands))
 		for _, command := range update.Commands {
-			commands = append(commands, agent.CommandView{Name: command.Name, Description: command.Description, Hint: command.Hint})
+			// ACP 规范的命令名不带斜杠；个别后端可能带，统一剥掉，
+			// 前端渲染 / 补全时自己补斜杠，避免出现 //cmd。
+			name := strings.TrimPrefix(strings.TrimSpace(command.Name), "/")
+			if name == "" {
+				continue
+			}
+			commands = append(commands, agent.CommandView{Name: name, Description: command.Description, Hint: command.Hint})
 		}
 		base.Type = agent.EventCommandsUpdate
 		base.Commands = &agent.CommandsView{Commands: commands}

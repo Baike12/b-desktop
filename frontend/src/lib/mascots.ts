@@ -59,7 +59,9 @@ type MascotArt = {
   poses: Record<MascotPoseName, MascotPoseArt>
 }
 
-export const MASCOTS: Record<CharacterId, MascotArt> = {
+// 默认主题没有吉祥物素材：使用处先判断 character === 'default' 渲染原生图标，
+// 不查这张表，所以这里只覆盖两个吉祥物角色。
+export const MASCOTS: Record<Exclude<CharacterId, 'default'>, MascotArt> = {
   lulu: {
     avatar: luluAvatarUrl,
     poses: {

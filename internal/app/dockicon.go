@@ -2,6 +2,9 @@ package app
 
 import _ "embed"
 
+//go:embed icons/default.png
+var defaultDockIcon []byte
+
 //go:embed icons/lulu.png
 var luluDockIcon []byte
 
@@ -11,9 +14,12 @@ var benbenDockIcon []byte
 // SetDockIcon switches the macOS Dock icon to the selected character.
 // Platforms without runtime icon support treat it as a no-op.
 func (a *App) SetDockIcon(character string) {
-	if character == "benben" {
+	switch character {
+	case "benben":
 		setDockIcon(benbenDockIcon)
-		return
+	case "lulu":
+		setDockIcon(luluDockIcon)
+	default:
+		setDockIcon(defaultDockIcon)
 	}
-	setDockIcon(luluDockIcon)
 }

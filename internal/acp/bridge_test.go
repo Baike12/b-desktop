@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Baike12/b-desktop/internal/agent"
+	"github.com/Baike12/b-desktop/internal/llm"
 	"github.com/Baike12/b-desktop/internal/permission"
 	"github.com/Baike12/b-desktop/internal/session"
 )
@@ -127,7 +128,7 @@ func TestBridgeRunEmitsEventsAndPersists(t *testing.T) {
 				ToolCallID: "t1", Status: StatusCompleted, RawOutput: json.RawMessage(`"文件内容"`),
 			}},
 			{Kind: UpdatePlan, Plan: &Plan{Entries: []PlanEntry{{Content: "调研", Status: "completed"}}}},
-			{Kind: UpdateAvailableCommands, Commands: []AvailableCommand{{Name: "review"}}},
+			{Kind: UpdateAvailableCommands, Commands: []AvailableCommand{{Name: "/review"}}},
 		},
 		result: PromptResult{StopReason: StopEndTurn, Usage: &UsageSummary{InputTokens: 100, OutputTokens: 20, CachedRead: 5}, Turns: 2},
 	}
@@ -156,6 +157,10 @@ func TestBridgeRunEmitsEventsAndPersists(t *testing.T) {
 		}
 		if ev.Type == agent.EventCommandsUpdate {
 			commandsSeen = true
+			// 带斜杠的命令名被 normalize 成不带斜杠（前端渲染时自己补 /）。
+			if ev.Commands == nil || len(ev.Commands.Commands) != 1 || ev.Commands.Commands[0].Name != "review" {
+				t.Fatalf("commands update = %+v", ev.Commands)
+			}
 		}
 	}
 	expect := []agent.EventType{
@@ -360,4 +365,23 @@ func TestBridgePathAllowed(t *testing.T) {
 		t.Fatalf("outside path allowed")
 	}
 	_ = permission.ModeDefault
+}
+
+func TestPromptBlocksCarriesImages(t *testing.T) {
+	blocks := promptBlocks(agent.Input{
+		Prompt: "看看这张图",
+		Images: []llm.ContentBlock{
+			llm.ImageBlock("image/png", "aGk="),
+			{Type: llm.BlockText, Text: "应被忽略的图片位"},
+		},
+	})
+	if len(blocks) != 2 {
+		t.Fatalf("blocks = %d, want 2", len(blocks))
+	}
+	if blocks[0].Type != "text" || blocks[0].Text != "看看这张图" {
+		t.Fatalf("text block = %+v", blocks[0])
+	}
+	if blocks[1].Type != "image" || blocks[1].Data != "aGk=" || blocks[1].MimeType != "image/png" {
+		t.Fatalf("image block = %+v", blocks[1])
+	}
 }

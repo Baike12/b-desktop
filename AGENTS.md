@@ -192,7 +192,7 @@ cd frontend && npm run harness   # 5173，strictPort；已占用则直接复用
 
 ## 前端视觉规范
 
-界面语言是「暖调工作台」：纸面底色、圆角分层、发丝描边、等宽元信息、单一强调色。规则写在 `frontend/src/style.css` 顶部，新增界面必须沿用：
+界面语言是「圆角分层工作台」：圆角分层、发丝描边、等宽元信息、单一强调色。角色主题（`data-character`）决定强调色与吉祥物：默认主题用原生蓝 + 原生图标（无吉祥物），噜噜覆盖为奶油黄，奔奔覆盖为雾灰。亮主题的基础色板对齐 Zed agent panel + VSCode Light+，会话区 Markdown 排版对齐 Zed 的 `MarkdownStyle::themed(Agent)` 规格（16px Sans 正文、12px mono 代码、标题不加粗、代码块白底描边）。规则写在 `frontend/src/style.css` 顶部，新增界面必须沿用：
 
 1. **圆角按层级递进。** 容器 16px（`rounded-xl`）、卡片 12px（`rounded-lg`）、控件 8px（`rounded-md`）、标签 4px（`rounded-xs`）；只有按钮与状态药丸用 `rounded-full`。圆角尺度定义在 `style.css` 的 `@theme`，不要写任意 px 圆角。
 2. **阴影只给浮层。** 工作区整体浮层用 `shadow-pane`、弹窗/菜单用 `shadow-pop`、内部小卡片用 `shadow-card`；聊天区与右侧预览、文件树始终属于同一个浮层，只用发丝分隔线分栏，内容区（消息、Markdown、表格、行内元素）不加阴影。

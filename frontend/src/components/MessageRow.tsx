@@ -2,14 +2,13 @@ import { memo, useState } from 'react'
 import { useWorkbenchStore } from '../stores/workbench'
 import type { AssistantBlock, ChatItem } from '../types/chat'
 import { MarkdownText } from './MarkdownText'
-import MascotPose from './MascotPose'
 import { ToolCallCard } from './ToolCallCard'
 
 function blockKey(block: AssistantBlock): string {
   return `${block.kind}-${block.index}`
 }
 
-function ChevronIcon() {
+function ChevronIcon({ className = '' }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -18,15 +17,36 @@ function ChevronIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="size-3 shrink-0 text-subtle transition-transform group-open:rotate-90"
+      className={`size-3 shrink-0 text-subtle transition-transform ${className}`}
       aria-hidden="true"
     >
-      <path d="m9 18 6-6-6-6" />
+      <path d="m6 9 6 6 6-6" />
     </svg>
   )
 }
 
-// ThinkingBlock 是一张低对比软卡片：标题行可折叠，正文缩进在卡片内部。
+// ThoughtIcon 对齐 Zed thinking 头部的小灯泡图标。
+function ThoughtIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+      <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3h6c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z" />
+    </svg>
+  )
+}
+
+// ThinkingBlock 对齐 Zed 的思考块：一行 muted 小标题可点折叠，
+// 内容用普通 Markdown 排版缩进在左侧竖线后面（非斜体、不缩灰）。
 //
 // 展开策略与 Zed 的默认行为一致：流式期间展开让人实时看到模型的思考，
 // 思考结束后自动收起不占空间；用户一旦手动切换，之后不再自动干预。
@@ -36,35 +56,24 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }
   const open = userOverride ?? streaming
 
   return (
-    <details
-      open={open}
-      className={`group min-w-0 overflow-hidden rounded-xl border bg-panel transition ${
-        streaming ? 'border-accent/40' : 'border-line/80'
-      }`}
-    >
-      <summary
-        // 阻止 details 的原生 toggle，改由 state 驱动，
-        // 这样才能区分「用户手动切换」与「流式状态变化」。
-        onClick={(event) => {
-          event.preventDefault()
-          setUserOverride(!open)
-        }}
-        className="flex w-full cursor-pointer select-none list-none items-center gap-1.5 px-3 py-2 font-mono text-[10px] tracking-[0.12em] text-subtle transition hover:bg-hover hover:text-fg [&::-webkit-details-marker]:hidden"
+    <div data-testid="thinking-block" className="group min-w-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        data-testid="thinking-toggle"
+        onClick={() => setUserOverride(!open)}
+        className="flex cursor-pointer items-center gap-1.5 rounded-xs py-0.5 text-[13px] text-muted transition hover:text-fg"
       >
-        <span
-          data-testid="thinking-mascot"
-          className="-my-1.5 flex size-7 shrink-0 items-center justify-center"
-        >
-          <MascotPose pose="thinking" className="h-7" />
-        </span>
-        <span className="uppercase">{streaming ? '思考中' : '思考过程'}</span>
-        <span className="normal-case tracking-normal">{text.length} 字</span>
-        <ChevronIcon />
-      </summary>
-      <div className="max-h-64 overflow-auto whitespace-pre-wrap break-words border-t border-line/70 px-3 py-2 text-[12.5px] leading-6 text-subtle">
-        {text}
-      </div>
-    </details>
+        <ThoughtIcon />
+        <span>{streaming ? '思考中' : '思考过程'}</span>
+        <ChevronIcon className={`opacity-0 transition-opacity group-hover:opacity-100 ${open ? '' : 'rotate-[-90deg]'}`} />
+      </button>
+      {open && (
+        <div className="ml-1.5 max-h-64 overflow-auto border-l border-line-strong pl-3.5 pt-1">
+          <MarkdownText text={text} streaming={streaming} />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -87,32 +96,34 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
       )
     }
     return (
-      <div className="flex justify-end">
+      // Zed 的用户消息是一张全宽卡片：白底 + 1px 描边 + 6px 圆角，
+      // 文字用等宽 12px（agent_buffer_font_size），hover 时描边转强调色。
+      <div className="flex">
         <div
           data-testid={item.queued ? 'queued-message' : 'user-message'}
           title="双击回溯到这条消息"
           onDoubleClick={() => void openRewind()}
-          className={`max-w-[85%] rounded-2xl rounded-br-md border px-4 py-2.5 shadow-card ${
+          className={`w-full rounded-sm border px-3 py-2.5 shadow-card transition ${
             item.queued
               ? 'border-dashed border-line bg-panel/60 opacity-80'
-              : 'border-accent/25 bg-accent-soft'
+              : 'border-line bg-surface hover:border-accent/50'
           }`}
         >
           {item.queued && (
-            <p className="mb-1 text-right font-mono text-[10px] tracking-[0.12em] text-subtle">
+            <p className="mb-1 font-mono text-[10px] tracking-[0.12em] text-subtle">
               排队中 · 本轮结束后自动发送
             </p>
           )}
           {item.attachments && item.attachments.length > 0 && (
             <div
               data-testid="user-attachments"
-              className={`flex flex-wrap justify-end gap-1 ${item.text || item.images?.length ? 'mb-2' : ''}`}
+              className={`flex flex-wrap gap-1 ${item.text || item.images?.length ? 'mb-2' : ''}`}
             >
               {item.attachments.map((mention, index) => (
                 <span
                   key={`${mention.kind}-${mention.label}-${index}`}
                   title={mention.label}
-                  className="max-w-56 truncate rounded-xs border border-accent/25 bg-panel/70 px-1.5 py-0.5 font-mono text-[10px] text-muted"
+                  className="max-w-56 truncate rounded-xs border border-line bg-panel px-1.5 py-0.5 font-mono text-[10px] text-muted"
                 >
                   <span className="text-accent-text">
                     {mention.kind === 'command' ? '/' : '@'}
@@ -123,7 +134,7 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
             </div>
           )}
           {item.images && item.images.length > 0 && (
-            <div className={`flex flex-wrap justify-end gap-2 ${item.text ? 'mb-2' : ''}`}>
+            <div className={`flex flex-wrap gap-2 ${item.text ? 'mb-2' : ''}`}>
               {item.images.map((img, index) => (
                 <img
                   key={`${index}-${img.data.length}`}
@@ -135,7 +146,9 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
             </div>
           )}
           {item.text !== '' && (
-            <p className="whitespace-pre-wrap break-words text-[13px] leading-6 text-fg">{item.text}</p>
+            <p className="whitespace-pre-wrap break-words font-mono text-[12px] leading-[1.75] text-fg">
+              {item.text}
+            </p>
           )}
         </div>
       </div>
@@ -249,7 +262,7 @@ function SubagentThread({ agentId }: { agentId: string }) {
           className={`size-1.5 rounded-full ${streaming ? 'animate-pulse bg-accent' : 'bg-success'}`}
         />
         子 Agent 线程 · {children.length} 条
-        <ChevronIcon />
+        <ChevronIcon className="group-open:rotate-180" />
       </summary>
       <div className="flex flex-col gap-3 border-t border-line/70 px-3 py-3">
         {children.map((item) => (

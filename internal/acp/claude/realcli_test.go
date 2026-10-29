@@ -62,6 +62,9 @@ func TestRealCLIHandshake(t *testing.T) {
 		}
 		if update.Kind == acp.UpdateAvailableCommands {
 			sawCommands = true
+			for _, command := range update.Commands {
+				t.Logf("command: %q desc=%q hint=%q", command.Name, command.Description, command.Hint)
+			}
 		}
 	}
 	if !sawModel || !sawCommands {

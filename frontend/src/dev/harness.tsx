@@ -1741,7 +1741,7 @@ const api = {
         .map((element) => element.getAttribute('data-testid')?.replace('agent-option-', '') ?? null),
       agentSelectLabel: textOf('[data-testid="agent-select"]'),
       subagentThreads: document.querySelectorAll('[data-testid^="subagent-thread-"]').length,
-      thinkingMascot: document.querySelector('[data-testid="thinking-mascot"]') !== null,
+      thinkingToggle: document.querySelector('[data-testid="thinking-toggle"]') !== null,
       askMascot: document.querySelector('[data-testid="ask-mascot"]') !== null,
       sessionMascots: document.querySelectorAll('[data-testid="session-mascot"]').length,
       sessionMascotPoses: [

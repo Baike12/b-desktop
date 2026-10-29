@@ -8,6 +8,7 @@ import lidRightUrl from '../assets/mascot-lid-right.png'
 import { characterName } from '../lib/character'
 import { MASCOTS } from '../lib/mascots'
 import { useSettingsStore } from '../stores/settings'
+import AppMark from './AppMark'
 
 type MascotStageProps = {
   className?: string
@@ -15,8 +16,13 @@ type MascotStageProps = {
 
 // 欢迎页吉祥物：噜噜沿用分层骨骼（手绕腕关节摆动），
 // 奔奔拆成「补平手部的底图 + 手部图层」，复用同一套腕部挥手节奏。
+// 默认主题显示原生应用图标。
 export default function MascotStage({ className = '' }: MascotStageProps) {
   const character = useSettingsStore((state) => state.character)
+
+  if (character === 'default') {
+    return <AppMark className={`select-none ${className}`} />
+  }
 
   if (character === 'benben') {
     const stage = MASCOTS.benben.stage

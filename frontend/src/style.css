@@ -1,23 +1,27 @@
 @import "tailwindcss";
 
 /*
- * 设计语言：暖调工作台（圆角分层）。
+ * 设计语言：圆角分层工作台。会话区排版对齐 Zed agent panel（VSCode Light+）。
  *
  * 规则：
  * 1. 圆角按层级递进：容器 16px、卡片 12px、控件 8px、标签 4px；只有按钮与状态药丸用 full。
  * 2. 层级 = 底色差 + 发丝描边 + 极淡阴影。阴影只给浮层（工作区卡片、弹窗、菜单），
  *    内容区不使用阴影，避免出现脏边。
- * 3. 元信息（路径、计数、时间、状态）一律等宽小字，正文用无衬线。
- * 4. 单一强调色（奶油黄）只用于当前项、主按钮、链接与焦点环。
+ * 3. 元信息（路径、计数、时间、状态）一律等宽小字，正文用无衬线（IBM Plex Sans 优先）。
+ * 4. 单一强调色只用于当前项、主按钮、链接与焦点环：默认主题是原生蓝，
+ *    噜噜覆盖为奶油黄、奔奔覆盖为雾灰（见角色色板）。
  * 5. 交互状态用背景色 + 圆角过渡表达，选中项是「抬起的小卡片」，不用左侧竖线。
  */
 
-/* 字体与圆角/阴影尺度：组件只使用这套尺度，不写任意 px 圆角。 */
+/* 字体与圆角/阴影尺度：组件只使用这套尺度，不写任意 px 圆角。
+   会话区对齐 Zed agent panel 的字体选择：正文用 IBM Plex Sans（Zed 的
+   .ZedSans 别名目标），等宽用 Lilex（.ZedMono 别名目标），未安装时回退系统字体。 */
 @theme {
-  --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
-    "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
-  --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
+  --font-sans: "IBM Plex Sans", "SF Pro Text", -apple-system, BlinkMacSystemFont,
+    "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    system-ui, sans-serif;
+  --font-mono: "Lilex", "IBM Plex Mono", "SF Mono", ui-monospace, "JetBrains Mono",
+    "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   --radius-xs: 4px;
   --radius-sm: 6px;
@@ -334,14 +338,14 @@
   --fg: #f3f3f5;
   --muted: #9d9daa;
   --subtle: #6b6b78;
-  --accent: #e9c96e;
-  --accent-hover: #f2d98c;
-  --accent-text: #f0d58a;
-  --accent-soft: rgba(233, 201, 110, 0.15);
-  --on-accent: #241c06;
-  --cta: #c0a052;
-  --cta-hover: #cfae5d;
-  --on-cta: #1c1504;
+  --accent: #51a4ff;
+  --accent-hover: #6cb4ff;
+  --accent-text: #6cb4ff;
+  --accent-soft: rgba(81, 164, 255, 0.15);
+  --on-accent: #0a1a2e;
+  --cta: #2f78d0;
+  --cta-hover: #4188dd;
+  --on-cta: #ffffff;
   --danger: #e0405a;
   --danger-hover: #f0556d;
   --danger-text: #ff8a9d;
@@ -359,7 +363,7 @@
   --resize-shadow: rgba(0, 0, 0, 0.7);
   --shadow-soft: rgba(0, 0, 0, 0.55);
   --shadow-deep: rgba(0, 0, 0, 0.8);
-  --rail-glow: rgba(233, 201, 110, 0.06);
+  --rail-glow: rgba(81, 164, 255, 0.06);
   --hl-comment: #6b6b78;
   --hl-keyword: #c08cf5;
   --hl-string: #64d99b;
@@ -372,19 +376,76 @@
   --scrollbar: #34343f;
 }
 
+/* 亮主题对齐 Zed agent panel + VSCode Light+（主题导入后的 Zed token 值）：
+   面板底 sand-2 #F9F9F8、正文 sand-12 #21201C、弱文本 #616161、
+   强调蓝 blue-11 #0D74CE、主按钮 VSCode button.background #007ACC。 */
 :root[data-theme="light"] {
   color-scheme: light;
   --surface: #ffffff;
-  --rail: #ededf0;
-  --panel: #fbfbfc;
-  --raised: #f4f4f6;
-  --hover: #ececee;
-  --code: #f7f7f9;
-  --line: #e4e4e8;
-  --line-strong: #cdccd3;
-  --fg: #101014;
-  --muted: #52525c;
-  --subtle: #8a8a95;
+  --rail: #f3f3f3;
+  --panel: #f9f9f8;
+  --raised: #f1f0ef;
+  --hover: #e8e8e8;
+  --code: #f8f8f8;
+  --line: #e4e4e4;
+  --line-strong: #d4d4d4;
+  --fg: #21201c;
+  --muted: #616161;
+  --subtle: #8d8d86;
+  --accent: #0d74ce;
+  --accent-hover: #0b66b6;
+  --accent-text: #0d74ce;
+  --accent-soft: rgba(13, 116, 206, 0.1);
+  --on-accent: #ffffff;
+  --cta: #007acc;
+  --cta-hover: #0084d1;
+  --on-cta: #ffffff;
+  --danger: #e51400;
+  --danger-hover: #c11100;
+  --danger-text: #c91200;
+  --danger-soft: #fdeceb;
+  --danger-line: #f4c7c2;
+  --warn-text: #bf8803;
+  --warn-soft: #fdf4dd;
+  --warn-line: #ecd9a8;
+  --success: #388a34;
+  --success-hover: #2f7a2c;
+  --success-text: #388a34;
+  --success-soft: #e9f4e8;
+  --success-line: #c4dfc2;
+  --overlay: rgba(49, 49, 49, 0.4);
+  --resize-shadow: rgba(16, 16, 20, 0.2);
+  --shadow-soft: rgba(20, 22, 26, 0.06);
+  --shadow-deep: rgba(20, 22, 26, 0.18);
+  --rail-glow: rgba(13, 116, 206, 0.05);
+  /* VSCode Light+ 语法 token（theme-defaults light_plus.json）。 */
+  --hl-comment: #008000;
+  --hl-keyword: #0000ff;
+  --hl-string: #a31515;
+  --hl-number: #098658;
+  --hl-title: #795e26;
+  --hl-variable: #001080;
+  --hl-builtin: #267f99;
+  --hl-meta: #616161;
+  --hl-operator: #000000;
+  --scrollbar: #c8c8c8;
+}
+
+/* 角色色板：默认主题使用基础色板（原生蓝）；噜噜把强调色换成奶油黄，
+   奔奔换成雾灰，明暗两套各自保留对比度。 */
+:root[data-theme='dark'][data-character='lulu'] {
+  --accent: #e9c96e;
+  --accent-hover: #f2d98c;
+  --accent-text: #f0d58a;
+  --accent-soft: rgba(233, 201, 110, 0.15);
+  --on-accent: #241c06;
+  --cta: #c0a052;
+  --cta-hover: #cfae5d;
+  --on-cta: #1c1504;
+  --rail-glow: rgba(233, 201, 110, 0.06);
+}
+
+:root[data-theme='light'][data-character='lulu'] {
   --accent: #e8c25a;
   --accent-hover: #dcb23f;
   --accent-text: #7f5a09;
@@ -393,37 +454,11 @@
   --cta: #f0d88f;
   --cta-hover: #e8cc75;
   --on-cta: #3a2c06;
-  --danger: #c81e3a;
-  --danger-hover: #a5162e;
-  --danger-text: #b3122f;
-  --danger-soft: #fdeef0;
-  --danger-line: #f2c3cb;
-  --warn-text: #a45a00;
-  --warn-soft: #fdf0df;
-  --warn-line: #eed0b0;
-  --success: #0a7d55;
-  --success-hover: #086946;
-  --success-text: #0a7d55;
-  --success-soft: #e8f7f0;
-  --success-line: #b3e2cc;
-  --overlay: rgba(16, 16, 20, 0.42);
-  --resize-shadow: rgba(16, 16, 20, 0.2);
+  --rail-glow: rgba(232, 194, 90, 0.12);
   --shadow-soft: rgba(24, 20, 8, 0.06);
   --shadow-deep: rgba(24, 20, 8, 0.18);
-  --rail-glow: rgba(232, 194, 90, 0.12);
-  --hl-comment: #8a8a95;
-  --hl-keyword: #7c3aed;
-  --hl-string: #0a7d55;
-  --hl-number: #8f5c07;
-  --hl-title: #1d4ed8;
-  --hl-variable: #33333c;
-  --hl-builtin: #0e7490;
-  --hl-meta: #52525c;
-  --hl-operator: #52525c;
-  --scrollbar: #c8c8d0;
 }
 
-/* 角色色板：奔奔把噜噜的奶油黄换成雾灰，明暗两套各自保留对比度。 */
 :root[data-theme='dark'][data-character='benben'] {
   --accent: #b8bdc3;
   --accent-hover: #c8cdd2;
@@ -608,12 +643,15 @@ body {
   }
 }
 
-/* ---------- Markdown 正文 ---------- */
+/* ---------- Markdown 正文（对齐 Zed agent panel 的 MarkdownStyle::themed(Agent)） ----------
+   字号：正文 UI Sans 16px；标题只缩放不加粗（1.15/1.1/1.05/1/0.95/0.875 rem）；
+   代码一律 mono 12px。间距：段落 8px、标题上 1rem 下 0.5rem、列表项 4px。
+   代码块：白底 + 1px 边框 + 8px 内边距 + 8px 圆角；行内代码是无边框的浅色 chip。 */
 
 .markdown-body {
   color: var(--fg);
-  font-size: 0.9375rem;
-  line-height: 1.75;
+  font-size: 1rem;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
@@ -626,7 +664,7 @@ body {
 }
 
 .markdown-body p {
-  margin: 0.6rem 0;
+  margin: 0.5rem 0;
 }
 
 .markdown-body h1,
@@ -635,37 +673,39 @@ body {
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  margin: 1.5rem 0 0.6rem;
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
+  margin: 1rem 0 0.5rem;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .markdown-body h1 {
-  font-size: 1.375rem;
-  letter-spacing: -0.02em;
+  font-size: 1.15rem;
 }
 
 .markdown-body h2 {
-  font-size: 1.1875rem;
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--line);
+  font-size: 1.1rem;
 }
 
 .markdown-body h3 {
-  font-size: 1.0625rem;
+  font-size: 1.05rem;
 }
 
-.markdown-body h4,
-.markdown-body h5,
+.markdown-body h4 {
+  font-size: 1rem;
+}
+
+.markdown-body h5 {
+  font-size: 0.95rem;
+}
+
 .markdown-body h6 {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 .markdown-body ul,
 .markdown-body ol {
-  margin: 0.6rem 0;
-  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
 }
 
 .markdown-body ul {
@@ -684,69 +724,74 @@ body {
   margin: 0.25rem 0;
 }
 
+/* Zed 的 bullet 与正文同色，不做弱化。 */
 .markdown-body li::marker {
-  color: var(--subtle);
+  color: var(--fg);
   font-variant-numeric: tabular-nums;
 }
 
+/* 链接：强调色文字 + 2.5% 前景底 + 半透明强调色下划线（Zed agent 分支）。 */
 .markdown-body a {
-  color: var(--accent-text);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--fg) 2.5%, transparent);
   text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 50%, transparent);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  border-radius: 2px;
 }
 
 .markdown-body a:hover {
-  color: var(--accent);
+  color: var(--accent-hover);
 }
 
 .markdown-body strong {
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--fg);
 }
 
+/* 引用块：左侧 4px 竖线 + 1rem 缩进，无底色，正文不缩灰。 */
 .markdown-body blockquote {
-  margin: 0.9rem 0;
-  border-left: 3px solid var(--accent);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-  background: var(--panel);
-  padding: 0.55rem 0.9rem;
-  color: var(--muted);
+  margin: 0.5rem 0;
+  border-left: 4px solid var(--line-strong);
+  padding: 0.1rem 0 0.1rem 1rem;
 }
 
 .markdown-body hr {
-  margin: 1.4rem 0;
+  margin: 0.5rem 0;
   border: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-strong);
 }
 
-/* 表格：外圈圆角由首末单元格补齐，横滚仍由 table 自身承担。 */
+/* 表格：1.5px 外框 + 4px 圆角，单元格只用左/上细线分格，表头灰底半粗。 */
 .markdown-body table {
   display: block;
   max-width: 100%;
   overflow-x: auto;
   border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  font-size: 0.875rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
 }
 
 .markdown-body th,
 .markdown-body td {
   border: 0;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding: 0.4rem 0.7rem;
+  border-left: 1px solid var(--line-strong);
+  border-top: 1px solid var(--line-strong);
+  padding: 0.3rem 0.55rem;
   text-align: left;
 }
 
-.markdown-body tr:last-child td {
-  border-bottom: 0;
+.markdown-body th:first-child,
+.markdown-body td:first-child {
+  border-left: 0;
 }
 
-.markdown-body th:last-child,
-.markdown-body td:last-child {
-  border-right: 0;
+.markdown-body tr:first-child th,
+.markdown-body tr:first-child td {
+  border-top: 0;
 }
 
 .markdown-body thead th {
@@ -754,39 +799,42 @@ body {
   font-weight: 600;
 }
 
+.markdown-body tbody tr:nth-child(even) td {
+  background: var(--panel);
+}
+
 .markdown-body thead th:first-child {
-  border-top-left-radius: calc(var(--radius-lg) - 1px);
+  border-top-left-radius: calc(4px - 1.5px);
 }
 
 .markdown-body thead th:last-child {
-  border-top-right-radius: calc(var(--radius-lg) - 1px);
+  border-top-right-radius: calc(4px - 1.5px);
 }
 
 .markdown-body tbody tr:last-child td:first-child {
-  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+  border-bottom-left-radius: calc(4px - 1.5px);
 }
 
 .markdown-body tbody tr:last-child td:last-child {
-  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+  border-bottom-right-radius: calc(4px - 1.5px);
 }
 
-/* 行内代码：小圆角色块。 */
+/* 行内代码：8% 前景底的 4px 圆角 chip，无边框（Zed 用绘制层补 1px 外扩）。 */
 .markdown-body code {
-  border: 1px solid var(--line);
   border-radius: var(--radius-xs);
-  background: var(--code);
-  padding: 0.05em 0.32em;
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  padding: 0.08em 3px;
   font-family: var(--font-mono);
-  font-size: 0.8125em;
+  font-size: 0.75rem;
 }
 
 .markdown-body pre {
-  margin: 0.8rem 0;
+  margin: 0.5rem 0 0.75rem;
   overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--code);
-  padding: 0.85rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0.5rem;
 }
 
 .markdown-body pre code {
@@ -794,13 +842,13 @@ body {
   border: 0;
   background: transparent;
   padding: 0;
-  font-size: 0.8125rem;
-  line-height: 1.7;
+  font-size: 0.75rem;
+  line-height: 1.618;
 }
 
 .markdown-body img {
   max-width: 100%;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 
 /* Mermaid 容器自带描边，内部代码块不再重复描边。 */
@@ -833,7 +881,6 @@ body {
 .hljs-comment,
 .hljs-quote {
   color: var(--hl-comment);
-  font-style: italic;
 }
 
 .hljs-keyword,

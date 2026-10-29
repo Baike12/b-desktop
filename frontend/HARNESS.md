@@ -41,7 +41,7 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 | `window.__bdesk.openChanges()` | 打开「变更」审阅标签 |
 | `window.__bdesk.text()` / `bootErrors()` | 页面文本 / 启动期错误 |
 
-`metrics()` 覆盖：`agentKind`（会话当前 agent）、`agentOptions`（agent 菜单条目）、`agentSelectLabel`（选择器文案）、`subagentThreads`（子 Agent 线程数量）、`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`toolMascots`、`toolMascotPoses`、`thinkingMascot`、`askMascot`、`sessionMascots`、`sessionMascotPoses`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
+`metrics()` 覆盖：`agentKind`（会话当前 agent）、`agentOptions`（agent 菜单条目）、`agentSelectLabel`（选择器文案）、`subagentThreads`（子 Agent 线程数量）、`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`toolMascots`、`toolMascotPoses`、`thinkingToggle`、`askMascot`、`sessionMascots`、`sessionMascotPoses`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
 
 右侧文件面板另有：`fileRows`、`filePaths`、`filePreview`、`filePreviewImage`、`filePreviewPath`、`filePreviewMarkdown`、`markdownViewMode`、`filePreviewLines`、`previewPaneWidth`、`previewTabs`、`previewTokens`、`changesPanel`、`changeRows`、`reviewDiff`、`diffTokens`。
 
@@ -57,6 +57,8 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 
 ## 已验证的基线
 
+- 角色主题：`character` 默认为 `default`（原生图标，所有吉祥物位渲染 AppMark SVG）；设置页角色区三选（`settings-character-default/lulu/benben`），切换后 `data-character` 与强调色板（默认蓝 / 噜噜奶油黄 / 奔奔雾灰）同步生效，`dockIconCalls` 记录每次同步。
+- 会话区排版：亮主题对齐 Zed agent panel（VSCode Light+）——用户消息是全宽 mono 12px 白底卡片（`rounded-sm` + 描边），思考块为「灯泡图标 + muted 标题 + 左竖线内容」的折叠块（`thinkingToggle`），Markdown 正文 16px、标题不加粗、代码块白底描边、行内代码为无边框浅色 chip。
 - Markdown：`headings` / `codeBlocks` / `tables` / `inlineCode` / `links` 均大于 0，代码块含高亮 token。
 - Mermaid：合法代码块渲染为 `[data-testid="mermaid"] .mermaid-svg > svg`（`mermaidSvgs === 1`），非法代码块回退为 `mermaid-error`（`mermaidErrors === 1`）；流式期间只出现 `mermaid-streaming` 占位、不产生 SVG，结束后才渲染；切换明暗主题会按新配色重绘。点击图表任意位置后 `mermaidFullscreen === true`，图表按 SVG 逻辑尺寸（1:1）渲染、字号与正文一致，支持滚轮缩放、拖动平移与双击复位，按 Esc 关闭并恢复页面滚动。
 - Markdown 文件预览：打开 `README.md` 默认渲染（`filePreviewMarkdown === true`、`markdownViewMode === 'rendered'`），标题、列表与代码块复用会话的 `MarkdownText`；切到「原文」后 `markdownViewMode === 'source'` 并出现 `file-preview-content`；关闭标签再打开恢复默认渲染。

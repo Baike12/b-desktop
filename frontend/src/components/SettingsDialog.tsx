@@ -13,6 +13,7 @@ import { MASCOTS } from '../lib/mascots'
 import type { ThemeMode } from '../lib/theme'
 import { useSettingsStore } from '../stores/settings'
 import { errorMessage, useWorkbenchStore } from '../stores/workbench'
+import AppMark from './AppMark'
 import ModelPresetPicker from './ModelPresetPicker'
 import McpSettings from './McpSettings'
 import MemorySettings from './MemorySettings'
@@ -634,12 +635,16 @@ export default function SettingsDialog() {
                       className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ${ selected ? 'border-accent bg-accent-soft shadow-card' : 'border-line hover:border-line-strong hover:bg-hover' }`}
                     >
                       <span className="grid size-12 shrink-0 place-items-center rounded-lg border border-line bg-surface">
-                        <img
-                          src={MASCOTS[item.id].avatar}
-                          alt=""
-                          draggable={false}
-                          className="size-11 select-none object-contain"
-                        />
+                        {item.id === 'default' ? (
+                          <AppMark className="size-8 select-none" />
+                        ) : (
+                          <img
+                            src={MASCOTS[item.id].avatar}
+                            alt=""
+                            draggable={false}
+                            className="size-11 select-none object-contain"
+                          />
+                        )}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2 text-[13px] font-medium text-fg">
