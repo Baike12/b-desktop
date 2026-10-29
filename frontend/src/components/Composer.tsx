@@ -6,6 +6,7 @@ import { imageDataUrl, prepareImageFile } from '../lib/image'
 import { useAppStore } from '../stores/app'
 import { useWorkbenchStore } from '../stores/workbench'
 import type { UserImage } from '../types/chat'
+import AgentSelect from './AgentSelect'
 import PermissionModeSelect from './PermissionModeSelect'
 
 // 补全面板的候选：@ 文件路径或 / 命令。
@@ -166,17 +167,35 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill?.nonce])
 
+  // 外部 agent 的可用命令（commands_update 推送）：并入 / 补全，本应用
+  // 内置命令优先（同名时以本地为准，因为本地命令由前端直接执行）。
+  const acpCommands = useWorkbenchStore((state) => state.acpCommands)
+  const agentKind = useWorkbenchStore((state) => state.agentKind)
+
   const candidates = useMemo<SuggestCandidate[]>(() => {
     if (!suggest) return []
     if (suggest.mode === 'at') {
       return fileCandidates.slice(0, MAX_SUGGESTIONS).map((path) => ({ kind: 'file', path }))
     }
     const query = suggest.query.toLowerCase()
-    return commands
+    const local = commands
       .filter((command) => command.name.toLowerCase().includes(query))
-      .slice(0, MAX_SUGGESTIONS)
-      .map((command) => ({ kind: 'command', ...command }))
-  }, [suggest, fileCandidates, commands])
+      .map<SuggestCandidate>((command) => ({ kind: 'command', ...command }))
+    if (agentKind !== 'benben') {
+      for (const command of acpCommands) {
+        if (!command.name.toLowerCase().includes(query)) continue
+        if (local.some((item) => item.kind === 'command' && item.name === command.name)) continue
+        local.push({
+          kind: 'command',
+          name: command.name,
+          description: command.description ?? '',
+          argumentHint: command.hint ?? '',
+          source: 'agent',
+        })
+      }
+    }
+    return local.slice(0, MAX_SUGGESTIONS)
+  }, [suggest, fileCandidates, commands, acpCommands, agentKind])
 
   useEffect(() => {
     if (selected >= candidates.length) setSelected(0)
@@ -506,6 +525,7 @@ export default function Composer({ variant = 'docked' }: ComposerProps) {
               >
                 <AttachIcon />
               </button>
+              <AgentSelect />
               <PermissionModeSelect />
               {compacting && (
                 <span className="shrink-0 font-mono text-[10px] text-warn-text">压缩中…</span>

@@ -60,9 +60,11 @@ export default function MessageList() {
             发送第一条消息开始对话。
           </div>
         )}
-        {items.map((item) => (
-          <MessageRow key={item.id} item={item} />
-        ))}
+        {items
+          .filter((item) => item.kind === 'system' || !item.agentId)
+          .map((item) => (
+            <MessageRow key={item.id} item={item} />
+          ))}
         {running && items.length === 0 && (
           <p className="text-center text-xs text-subtle">等待模型响应…</p>
         )}

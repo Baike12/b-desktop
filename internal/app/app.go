@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Baike12/b-desktop/internal/acp"
 	"github.com/Baike12/b-desktop/internal/agent"
 	"github.com/Baike12/b-desktop/internal/llm"
 	"github.com/Baike12/b-desktop/internal/memory"
@@ -482,18 +483,43 @@ type sessionRuntime struct {
 	turnCancel context.CancelFunc
 	running    bool
 	closed     bool
+	// agent 是会话当前使用的 agent（benbenAgentID 或 ACP 后端 ID）；
+	// agentKeys 记录各外部 agent 的会话键（如 claude 会话 uuid）。
+	agent     string
+	agentKeys map[string]string
+	// acp 是外部 agent 的桥接层；acpAgent 记录它对应的 agent ID。
+	acp      *acp.Bridge
+	acpAgent string
 	// titleChecked 表示本次进程内已检查过是否需要一个自动标题，
 	// 避免每轮消息都读取 transcript。
 	titleChecked bool
 }
 
-// newSessionRuntime 创建运行时。
-func newSessionRuntime(meta session.Meta) *sessionRuntime {
-	return &sessionRuntime{
+// newSessionRuntime 创建运行时；agentState 是重放出的 agent_state（可为 nil）。
+func newSessionRuntime(meta session.Meta, agentState map[string]string) *sessionRuntime {
+	rt := &sessionRuntime{
 		id:        meta.ID,
 		workDir:   meta.WorkDir,
 		approvals: agent.NewApprovals(),
 		notifs:    agent.NewNotificationBuffer(),
+		agentKeys: make(map[string]string),
+	}
+	rt.applyAgentState(agentState)
+	return rt
+}
+
+// applyAgentState 应用重放出的 agent_state：当前 agent 与各 agent 的会话键。
+func (rt *sessionRuntime) applyAgentState(state map[string]string) {
+	if state == nil {
+		return
+	}
+	if agentID := strings.TrimSpace(state["agent"]); agentID != "" {
+		rt.agent = agentID
+	}
+	for key, value := range state {
+		if id, found := strings.CutSuffix(key, ".key"); found && id != "" && value != "" {
+			rt.agentKeys[id] = value
+		}
 	}
 }
 
@@ -697,7 +723,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	}
 }
 
-// shutdown 取消轮次、关闭审批通道并释放引擎。
+// shutdown 取消轮次、关闭审批通道并释放引擎与外部 agent 会话。
 func (rt *sessionRuntime) shutdown() {
 	rt.mu.Lock()
 	rt.closed = true
@@ -705,6 +731,9 @@ func (rt *sessionRuntime) shutdown() {
 	engine := rt.engine
 	rt.engine = nil
 	rt.turnCancel = nil
+	bridge := rt.acp
+	rt.acp = nil
+	rt.acpAgent = ""
 	rt.mu.Unlock()
 
 	if cancel != nil {
@@ -713,6 +742,9 @@ func (rt *sessionRuntime) shutdown() {
 	rt.approvals.CancelSession(rt.id)
 	if engine != nil {
 		_ = engine.Close()
+	}
+	if bridge != nil {
+		_ = bridge.Close()
 	}
 }
 
@@ -764,7 +796,11 @@ func (a *App) CreateSession(in CreateSessionInput) (SessionInfoDTO, error) {
 		a.mu.Unlock()
 		return SessionInfoDTO{}, ErrClosed
 	}
-	a.sessions[id] = newSessionRuntime(meta)
+	runtime := newSessionRuntime(meta, nil)
+	if agentID := strings.TrimSpace(in.Agent); agentID != "" {
+		runtime.agent = agentID
+	}
+	a.sessions[id] = runtime
 	a.mu.Unlock()
 
 	info := toSessionInfoDTO(session.Info{
@@ -923,7 +959,11 @@ func (a *App) LoadSession(sessionID string) (SessionViewDTO, error) {
 			mode = string(m)
 		}
 	}
-	return toSessionViewDTO(loaded, model, mode, running), nil
+	agentID := loaded.AgentState["agent"]
+	if agentID == "" {
+		agentID = benbenAgentID
+	}
+	return toSessionViewDTO(loaded, model, mode, running, agentID), nil
 }
 
 // SendMessage 启动一轮用户输入并立即返回 turnID；输出通过 "agent:event" 推送。
@@ -980,10 +1020,26 @@ func (a *App) SendMessage(sessionID, prompt string, images []ImageInput) (SendMe
 	}
 	// 首次发送消息时异步生成会话标题；它不参与本轮，也不阻塞返回。
 	a.startSessionTitle(rt, prompt, cfg)
-	engine, err := a.ensureEngineLocked(rt, cfg, gen)
-	if err != nil {
-		rt.mu.Unlock()
-		return SendMessageResult{}, err
+
+	// agent 路由：benben 走本地引擎，外部 agent 走 ACP 桥接层。
+	agentID := rt.agent
+	if agentID == "" {
+		agentID = benbenAgentID
+	}
+	var engine *agent.Engine
+	var bridge *acp.Bridge
+	if agentID != benbenAgentID {
+		bridge, err = a.ensureBridgeLocked(rt, agentID, a.modeString(rt, cfg))
+		if err != nil {
+			rt.mu.Unlock()
+			return SendMessageResult{}, err
+		}
+	} else {
+		engine, err = a.ensureEngineLocked(rt, cfg, gen)
+		if err != nil {
+			rt.mu.Unlock()
+			return SendMessageResult{}, err
+		}
 	}
 
 	base := a.lifeCtx()
@@ -1024,13 +1080,17 @@ func (a *App) SendMessage(sessionID, prompt string, images []ImageInput) (SendMe
 		// 这里取走并以它们自动续跑（cc 的 target-continuation 语义），
 		// 直到没有遗留通知或本轮被用户取消。
 		// 图片与附件块只随首次提交进入 user 消息；通知续跑轮次不携带。
+		emit := func(ev agent.Event) { a.emitter.Emit(base, ev) }
+		if bridge != nil {
+			// 外部 agent：没有本地通知队列，也不自动续跑。
+			_, _ = bridge.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt, Attachments: attachments, Images: promptBlocks}, emit)
+			return
+		}
 		prompt := prompt
 		promptBlocks := promptBlocks
 		attachments := attachments
 		for {
-			_, err := engine.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt, Attachments: attachments, Images: promptBlocks}, func(ev agent.Event) {
-				a.emitter.Emit(base, ev)
-			})
+			_, err := engine.Run(turnCtx, agent.Input{TurnID: turnID, Prompt: prompt, Attachments: attachments, Images: promptBlocks}, emit)
 			attachments = nil
 			promptBlocks = nil
 			if err != nil || turnCtx.Err() != nil {
@@ -1086,12 +1146,16 @@ func (a *App) CancelTurn(sessionID string) error {
 	rt.mu.Lock()
 	cancel := rt.turnCancel
 	engine := rt.engine
+	bridge := rt.acp
 	rt.mu.Unlock()
 	if cancel != nil {
 		cancel()
 	}
 	if engine != nil {
 		engine.Cancel()
+	}
+	if bridge != nil {
+		bridge.Cancel()
 	}
 	rt.notifs.Drain()
 	return nil
@@ -1160,8 +1224,14 @@ func (a *App) SetPermissionMode(sessionID, mode string) error {
 	}
 	rt.mode = parsed
 	engine := rt.engine
+	bridge := rt.acp
 	rt.mu.Unlock()
 
+	if bridge != nil {
+		if err := bridge.SetPermissionMode(parsed); err != nil {
+			return fmt.Errorf("app: set permission mode: %w", err)
+		}
+	}
 	if engine != nil {
 		if err := engine.SetPermissionMode(parsed); err != nil {
 			return fmt.Errorf("app: set permission mode: %w", err)
@@ -1337,7 +1407,7 @@ func (a *App) runtimeForSend(sessionID string) (*sessionRuntime, error) {
 		return nil, fmt.Errorf("app: load session %q: %w", sessionID, err)
 	}
 
-	rt := newSessionRuntime(loaded.Meta)
+	rt := newSessionRuntime(loaded.Meta, loaded.AgentState)
 	if mode, err := permission.ParseMode(loaded.Mode); err == nil {
 		rt.mode = mode
 	}

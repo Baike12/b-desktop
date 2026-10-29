@@ -185,7 +185,18 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
             />
           )
         }
-        return <ToolCallCard key={blockKey(block)} block={block} />
+        if (block.kind === 'tool') {
+          const hasThread =
+            (block.toolName === 'Task' || block.toolName === 'Agent') &&
+            block.toolUseId !== ''
+          return (
+            <div key={blockKey(block)} className="min-w-0">
+              <ToolCallCard block={block} />
+              {hasThread && <SubagentThread agentId={block.toolUseId} />}
+            </div>
+          )
+        }
+        return null
       })}
 
       {item.streaming && item.blocks.length === 0 && (
@@ -194,3 +205,57 @@ export const MessageRow = memo(function MessageRow({ item }: { item: ChatItem })
     </div>
   )
 })
+
+// SubagentThread 渲染某个 Task/Agent 工具调用的子 Agent 线程：
+// agentId 等于该工具 toolUseId 的消息在这里嵌套展示，不再出现在主消息流。
+// 流式期间默认展开，用户可手动收起（与 ThinkingBlock 的交互约定一致）。
+function SubagentThread({ agentId }: { agentId: string }) {
+  const items = useWorkbenchStore((state) => state.items)
+  const [userOverride, setUserOverride] = useState<boolean | null>(null)
+
+  const children = items.filter(
+    (item) => (item.kind === 'assistant' || item.kind === 'user') && item.agentId === agentId,
+  )
+  if (children.length === 0) return null
+
+  const streaming = children.some((item) => {
+    if (item.kind !== 'assistant') return false
+    return (
+      item.streaming ||
+      item.blocks.some(
+        (block) => (block.kind === 'text' || block.kind === 'thinking') && block.active === true,
+      ) ||
+      item.blocks.some((block) => block.kind === 'tool' && (block.status === 'running' || block.status === 'pending' || block.status === 'waiting'))
+    )
+  })
+  const open = userOverride ?? streaming
+
+  return (
+    <details
+      open={open}
+      data-testid={`subagent-thread-${agentId}`}
+      className={`group mt-1 overflow-hidden rounded-xl border bg-panel/60 transition ${
+        streaming ? 'border-accent/40' : 'border-line/80'
+      }`}
+    >
+      <summary
+        onClick={(event) => {
+          event.preventDefault()
+          setUserOverride(!open)
+        }}
+        className="flex w-full cursor-pointer select-none list-none items-center gap-2 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-subtle transition hover:bg-hover hover:text-fg [&::-webkit-details-marker]:hidden"
+      >
+        <span
+          className={`size-1.5 rounded-full ${streaming ? 'animate-pulse bg-accent' : 'bg-success'}`}
+        />
+        子 Agent 线程 · {children.length} 条
+        <ChevronIcon />
+      </summary>
+      <div className="flex flex-col gap-3 border-t border-line/70 px-3 py-3">
+        {children.map((item) => (
+          <MessageRow key={item.id} item={item} />
+        ))}
+      </div>
+    </details>
+  )
+}

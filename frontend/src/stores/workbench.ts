@@ -7,6 +7,7 @@ import {
   ExportSession,
   ForkSession,
   GetProviderConfig,
+  ListAgents,
   ListProjects,
   ListRewindPoints,
   ListSessions,
@@ -16,6 +17,7 @@ import {
   SendMessage,
   SetPermissionMode,
   SetProviderConfig,
+  SetSessionAgent,
 } from '../../wailsjs/go/app/App'
 import type { app } from '../../wailsjs/go/models'
 import { addUsage, emptyUsage } from '../lib/format'
@@ -23,7 +25,16 @@ import { parseUserMentions } from '../lib/mentions'
 import { normalizePermissionMode } from '../lib/permission'
 import { reduceAgentEvents, type StreamState } from '../lib/reduceAgentEvents'
 import { viewToItems } from '../lib/sessionView'
-import type { AgentEvent, ApprovalView, PermissionMode, RetryInfo, TodoItemView, Usage } from '../types/agent'
+import type {
+  AgentEvent,
+  AgentInfo,
+  ApprovalView,
+  CommandView,
+  PermissionMode,
+  RetryInfo,
+  TodoItemView,
+  Usage,
+} from '../types/agent'
 import type { UserImage } from '../types/chat'
 import type { ChatItem } from '../types/chat'
 import { useAppStore } from './app'
@@ -117,6 +128,12 @@ export interface WorkbenchState {
   todos: TodoItemView[]
   // supportsImages 报告当前模型是否接受图像输入（能力门控）。
   supportsImages: boolean
+  // agents 是 agent 选择器条目（benben + 可用的 ACP 后端）。
+  agents: AgentInfo[]
+  // agentKind 是当前会话使用的 agent ID；benben 为本地 agent。
+  agentKind: string
+  // acpCommands 是外部 agent 推送的可用斜杠命令（commands_update）。
+  acpCommands: CommandView[]
   // queues 是每个会话的运行中排队输入；轮次结束后合并发送。
   queues: Record<string, QueuedInput[]>
   // 回溯状态：选择器打开时展示 rewindPoints。
@@ -125,6 +142,8 @@ export interface WorkbenchState {
   rewindLoading: boolean
   // prefill 是回溯后回填输入框的内容；Composer 按 nonce 消费。
   prefill: Prefill | null
+  // setAgent 切换当前会话使用的 agent（运行中禁止）。
+  setAgent: (agentId: string) => Promise<void>
 
   init: () => Promise<void>
   setPanel: (panel: PanelId) => void
@@ -208,6 +227,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   filesRevision: 0,
   todos: [],
   supportsImages: true,
+  agents: [],
+  agentKind: 'benben',
+  acpCommands: [],
   queues: {},
   rewindOpen: false,
   rewindPoints: [],
@@ -235,6 +257,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         bootstrapped: true,
         bootstrapping: false,
       })
+      // agent 清单失败不阻塞启动：选择器展示为空。
+      ListAgents()
+        .then((agents) => set({ agents: agents ?? [] }))
+        .catch(() => set({ agents: [] }))
       useAppStore.getState().setStatus('ready')
       if (sessions.length > 0) {
         await get().selectSession(sessions[0].id)
@@ -277,6 +303,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         workDir: view.workDir,
         model: view.model || get().model,
         permissionMode: normalizePermissionMode(view.permissionMode || get().permissionMode),
+        agentKind: (view as { agent?: string }).agent || 'benben',
+        acpCommands: [],
         items: viewToItems(view),
         usage: toUsage(view.usage),
         roundUsage: null,
@@ -391,7 +419,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     }
 
     // 内置本地命令：不进入模型消息，由前端直接执行。
-    if (LOCAL_COMMAND_RE.test(text)) {
+    // 外部 agent（claude）有自己的 /compact 与 /clear：原文转发给 agent；
+    // /model 与 /export 始终是本应用命令。
+    const external = get().agentKind !== 'benben'
+    if (!external && LOCAL_COMMAND_RE.test(text)) {
       const name = text.slice(1).split(/\s/, 1)[0]
       const args = text.slice(1 + name.length).trim()
       if (name === 'compact') {
@@ -505,6 +536,22 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     }
   },
 
+  // setAgent 切换当前会话的 agent；切换后推送一条系统提示。
+  setAgent: async (agentId) => {
+    const sessionId = get().activeId
+    if (!sessionId || get().running) return
+    const previous = get().agentKind
+    if (previous === agentId) return
+    set({ agentKind: agentId, error: null })
+    try {
+      await SetSessionAgent(sessionId, agentId)
+      const name = get().agents.find((agent) => agent.id === agentId)?.name ?? agentId
+      pushSystemItem(`已切换到 ${name}：新 agent 使用自己的上下文，历史消息不会自动带入`)
+    } catch (err) {
+      set({ agentKind: previous, error: errorMessage(err) })
+    }
+  },
+
   // applyProviderConfig 在设置页保存后同步模型名、上下文窗口与图像能力；
   // 已在运行中的会话在下一轮由后端按新配置重建引擎。
   applyProviderConfig: (config) => {
@@ -549,6 +596,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       contextTokens: previous.contextTokens,
       stopReason: previous.stopReason,
       todos: previous.todos,
+      commands: previous.acpCommands,
     }
     const next = reduceAgentEvents(stream, relevant)
     const ended = relevant.some((event) => event.type === 'turn_end')
@@ -569,6 +617,17 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       usage,
       notice: null,
       todos: next.todos,
+      acpCommands: next.commands,
+      // 外部 agent 的模型/模式快照：仅在有更新时覆盖。
+      ...(next.agentModel !== undefined || next.agentContextWindow !== undefined
+        ? {
+            model: next.agentModel ?? previous.model,
+            contextWindow: next.agentContextWindow ?? previous.contextWindow,
+          }
+        : {}),
+      ...(next.agentMode !== undefined
+        ? { permissionMode: normalizePermissionMode(next.agentMode) }
+        : {}),
       // 一轮结束可能改了文件；右侧文件树据此刷新已展开目录。
       filesRevision: ended ? previous.filesRevision + 1 : previous.filesRevision,
     })

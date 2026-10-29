@@ -35,14 +35,25 @@ npm run harness        # 5173 是 strictPort；先探测端口，已占用就直
 | `window.__bdesk.openSettings()` / `closeSettings()` | 打开/关闭设置页 |
 | `window.__bdesk.toggleSidebar()` | 折叠/展开侧边栏 |
 | `window.__bdesk.setPermissionMode(mode)` | 切换会话权限模式 |
+| `window.__bdesk.setAgent(agentId)` | 切换会话 agent（benben / claude） |
 | `window.__bdesk.openFile(path)` | 在右侧预览面板打开一个文件 |
 | `window.__bdesk.closePreview()` | 关闭预览面板的当前标签 |
 | `window.__bdesk.openChanges()` | 打开「变更」审阅标签 |
 | `window.__bdesk.text()` / `bootErrors()` | 页面文本 / 启动期错误 |
 
-`metrics()` 覆盖：`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`toolMascots`、`toolMascotPoses`、`thinkingMascot`、`askMascot`、`sessionMascots`、`sessionMascotPoses`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
+`metrics()` 覆盖：`agentKind`（会话当前 agent）、`agentOptions`（agent 菜单条目）、`agentSelectLabel`（选择器文案）、`subagentThreads`（子 Agent 线程数量）、`theme`、`settingsOpen`、`usage`、`usageTooltip`、`usageInsideComposer`、`statusBarPresent`、`markdownRoots`、`headings`、`codeBlocks`、`highlightedTokens`、`tables`、`inlineCode`、`links`、`toolCards`、`toolMascots`、`toolMascotPoses`、`thinkingMascot`、`askMascot`、`sessionMascots`、`sessionMascotPoses`、`items`、`running`、`projectCount`、`projectNames`、`projectSessionCounts`、`orphanRows`、`hasOpenProjectButton`、`hasNewTaskButton`、`welcome`、`heroComposer`、`modelContext`、`modelContextTitle`、`contextTokens`、`contextWindow`、`model`、`headerText`、`enterHintPresent`、`sidebarCollapsed`、`sidebarWidth`、`settingsModelValue`、`settingsContextValue`、`settingsSaveDisabled`、`mermaidBlocks`、`mermaidSvgs`、`mermaidErrors`、`mermaidStreaming`、`mermaidErrorText`、`mermaidFullscreen`、`mermaidFullscreenSvg`。
 
 右侧文件面板另有：`fileRows`、`filePaths`、`filePreview`、`filePreviewImage`、`filePreviewPath`、`filePreviewMarkdown`、`markdownViewMode`、`filePreviewLines`、`previewPaneWidth`、`previewTabs`、`previewTokens`、`changesPanel`、`changeRows`、`reviewDiff`、`diffTokens`。
+
+## ACP / agent 选择（已验证）
+
+- `agent-select` 按钮位于权限模式选择左侧，标签为当前 agent 名（`Benben Agent` / `Claude Code`）。
+- 打开菜单后 `agentOptions === ['benben','claude']`；点击 claude 后 `agentKind === 'claude'`，并追加系统提示「已切换到 Claude Code」。
+- 注入 `agent_status`（model/contextWindow/mode）后输入框模型名与上下文窗口同步更新。
+- 注入 `commands_update` 后 `/` 补全合并 agent 命令（本地同名命令优先）。
+- 注入带 `agentId` 的子 agent 事件后，Task 工具卡下出现 `subagent-thread-<toolUseId>`，嵌套渲染子线程的文本与工具卡；主消息流不出现这些消息。
+- claude 会话下发送 `/compact` / `/clear` 走 `SendMessage` 原文直传（不走本地压缩/清空）。
+- ACP 风格权限请求（allow-once / allow-with-updates / reject 三选项）在现有审批弹窗正常渲染与应答。
 
 ## 已验证的基线
 

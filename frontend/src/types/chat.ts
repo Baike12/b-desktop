@@ -37,6 +37,9 @@ export type AssistantItem = {
   timeMs: number
   streaming: boolean
   discarded?: boolean
+  // agentId 是子 Agent 线程路由键：非空的消息渲染在对应 Task 工具卡内部，
+  // 不出现在主消息流；空/缺省为主线程。
+  agentId?: string
 }
 
 // UserImage 是随用户消息提交的一张 base64 图片。
@@ -60,6 +63,8 @@ export type UserItem = {
   attachments?: UserMention[]
   // queued 表示这条消息在运行中提交、尚未真正发送（轮次结束后自动发送）。
   queued?: boolean
+  // agentId 是子 Agent 线程路由键（外部 agent 的 tool_result 消息等）。
+  agentId?: string
   timeMs: number
 }
 

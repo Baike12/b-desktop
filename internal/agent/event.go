@@ -37,6 +37,8 @@ const (
 	EventMessageDiscard     EventType = "message_discard"     // EventMessageDiscard 表示丢弃未完成的 assistant 消息。
 	EventTaskUpdate         EventType = "task_update"         // EventTaskUpdate 表示一个后台任务状态变化。
 	EventTodoUpdate         EventType = "todo_update"         // EventTodoUpdate 表示会话待办清单整体变化。
+	EventCommandsUpdate     EventType = "commands_update"     // EventCommandsUpdate 表示外部 agent 的可用斜杠命令更新。
+	EventAgentStatus        EventType = "agent_status"        // EventAgentStatus 表示外部 agent 的状态快照（模型、上下文窗口、模式）。
 	EventError              EventType = "error"               // EventError 表示可展示的错误。
 	EventTurnEnd            EventType = "turn_end"            // EventTurnEnd 表示轮次结束，一定是本轮最后一个事件。
 )
@@ -81,6 +83,32 @@ type Event struct {
 	Task          *TaskView      `json:"task,omitempty"`
 	// Todos 是 todo_update 事件的完整清单快照；其他事件恒为 nil。
 	Todos *TodoStateView `json:"todos,omitempty"`
+	// Commands 是 commands_update 事件的命令清单快照；其他事件恒为 nil。
+	Commands *CommandsView `json:"commands,omitempty"`
+	// AgentStatus 是 agent_status 事件的状态快照；其他事件恒为 nil。
+	AgentStatus *AgentStatusView `json:"agentStatus,omitempty"`
+	// AgentID 是子 Agent 线程路由键（外部 agent 的 parent_tool_use_id）。
+	// 空表示主线程；非空时事件归属 toolUseId 等于该值的工具调用线程。
+	AgentID string `json:"agentId,omitempty"`
+}
+
+// CommandsView 是外部 agent 可用斜杠命令的快照，整体替换语义。
+type CommandsView struct {
+	Commands []CommandView `json:"commands"`
+}
+
+// CommandView 是一条斜杠命令。
+type CommandView struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Hint        string `json:"hint,omitempty"`
+}
+
+// AgentStatusView 是外部 agent 的状态快照。
+type AgentStatusView struct {
+	Model         string `json:"model,omitempty"`
+	ContextWindow int    `json:"contextWindow,omitempty"`
+	Mode          string `json:"mode,omitempty"`
 }
 
 // TodoStateView 是待办清单的前端视图，条目按提交顺序排列。

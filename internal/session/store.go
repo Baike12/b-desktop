@@ -143,7 +143,7 @@ func Decode(line []byte) (Record, error) {
 
 func isKnownType(t RecordType) bool {
 	switch t {
-	case RecordSessionMeta, RecordMessage, RecordCompact, RecordUsage, RecordMode, RecordTitle, RecordTurnEnd:
+	case RecordSessionMeta, RecordMessage, RecordCompact, RecordUsage, RecordMode, RecordTitle, RecordAgentState, RecordTurnEnd:
 		return true
 	}
 	return false
@@ -171,6 +171,10 @@ func validatePayload(r Record) error {
 		if strings.TrimSpace(r.Meta["title"]) == "" {
 			return errors.New("session: title record without title")
 		}
+	case RecordAgentState:
+		if strings.TrimSpace(r.Meta["agent"]) == "" {
+			return errors.New("session: agent_state record without agent")
+		}
 	}
 	return nil
 }
@@ -178,7 +182,7 @@ func validatePayload(r Record) error {
 // needsSync 报告该类型写入后是否必须 fsync。mode 等低价值记录只写页缓存。
 func needsSync(t RecordType) bool {
 	switch t {
-	case RecordSessionMeta, RecordMessage, RecordCompact, RecordUsage, RecordTitle, RecordTurnEnd:
+	case RecordSessionMeta, RecordMessage, RecordCompact, RecordUsage, RecordTitle, RecordAgentState, RecordTurnEnd:
 		return true
 	}
 	return false

@@ -17,7 +17,7 @@
 9. Computer Use、桌面宠物、多主题
 10. H5 远程访问、IM 接入（Telegram / 飞书 / 微信 / 钉钉 / WhatsApp）
 
-当前已实现 Agent 运行时、扩展体系（MCP / Skills / Hooks / SubAgent）、工作台与会话持久化、右侧工作区面板（文件预览 + 语法高亮 + 文件操作 + git 变更审阅）；本地 Server、H5、IM 适配等能力按文末顺序继续补齐。
+当前已实现 Agent 运行时、扩展体系（MCP / Skills / Hooks / SubAgent）、ACP 外部 agent 桥接（内置 Claude Code 后端，行为对齐 zed 的 claude-agent-acp，docs/acp.md）、工作台与会话持久化、右侧工作区面板（文件预览 + 语法高亮 + 文件操作 + git 变更审阅）；本地 Server、H5、IM 适配等能力按文末顺序继续补齐。
 
 右侧工作区面板的架构与约定见 `docs/workspace-panel.md`。
 
@@ -138,6 +138,8 @@ Wails 应用（单个 Go 进程）
 main.go                  Wails 入口：窗口配置、资源嵌入、Bind
 internal/app/            Wails 绑定对象（前端可调用方法的唯一入口）
 internal/agent/          Agent 循环、流式事件、会话编排（规划）
+internal/acp/            ACP 外部 agent 桥接：协议类型、Backend/Session 抽象、通用外部进程客户端、桥接层（docs/acp.md）
+internal/acp/claude/     内置 Claude Code 后端：直接驱动 claude CLI 的 stream-json 协议，对齐 zed claude-agent-acp
 internal/tool/           Tool 契约、注册表与内置工具（规划）
 internal/permission/     权限模式、规则与审批（规划）
 internal/llm/            模型 Provider 与流式客户端（规划）

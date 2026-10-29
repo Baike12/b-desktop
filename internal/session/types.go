@@ -20,6 +20,8 @@ type RecordType string
 //   - usage：Usage
 //   - mode：Meta["mode"]
 //   - title：Meta["title"]
+//   - agent_state：Meta["agent"]（会话当前 agent）与 Meta["key"]（外部 agent
+//     的会话键，如 claude 会话 uuid），追加式记录、最后一条生效
 //   - turn_end：TurnEnd
 const (
 	RecordSessionMeta RecordType = "session_meta" // RecordSessionMeta 是首行元信息。
@@ -28,6 +30,7 @@ const (
 	RecordUsage       RecordType = "usage"        // RecordUsage 是一次模型调用的用量。
 	RecordMode        RecordType = "mode"         // RecordMode 是权限模式变更。
 	RecordTitle       RecordType = "title"        // RecordTitle 是会话标题更新。
+	RecordAgentState  RecordType = "agent_state"  // RecordAgentState 是会话 agent 切换记录。
 	RecordTurnEnd     RecordType = "turn_end"     // RecordTurnEnd 是一轮结束。
 )
 
@@ -116,13 +119,16 @@ type Store interface {
 
 // Loaded 是重放结果。
 type Loaded struct {
-	Messages        []llm.Message
-	Records         int
-	Meta            Meta      // 由首行 session_meta 重建
-	Boundary        *Compact  // 最后一条压缩边界；nil 表示从未压缩
-	Usage           llm.Usage // 全部 usage 记录的 Sum
-	LastUsage       llm.Usage // 最后一条 usage 记录；零值表示无。用于判断当前上下文规模
-	Mode            string    // 最后一条 mode 记录；空表示未记录
+	Messages  []llm.Message
+	Records   int
+	Meta      Meta      // 由首行 session_meta 重建
+	Boundary  *Compact  // 最后一条压缩边界；nil 表示从未压缩
+	Usage     llm.Usage // 全部 usage 记录的 Sum
+	LastUsage llm.Usage // 最后一条 usage 记录；零值表示无。用于判断当前上下文规模
+	Mode      string    // 最后一条 mode 记录；空表示未记录
+	// AgentState 是最后一条 agent_state 记录的 Meta：
+	// "agent" 是会话当前的 agent ID，"key" 是外部 agent 的会话键。
+	AgentState      map[string]string
 	LastAssistantAt time.Time // 最后一条 assistant 消息的时间，供 microCompact 判断
 	Interrupted     bool      // 最后一条 assistant 的 tool_use 没有对应结果
 }

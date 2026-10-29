@@ -28,6 +28,14 @@ func (a *App) CompactSession(sessionID string) (CompactResultDTO, error) {
 	if err != nil {
 		return CompactResultDTO{}, err
 	}
+	// 外部 agent（如 claude）的上下文由其自管：/compact 原文转发给 agent，
+	// 这里的本地压缩引擎对它没有意义。
+	rt.mu.Lock()
+	agentID := rt.agent
+	rt.mu.Unlock()
+	if agentID != "" && agentID != benbenAgentID {
+		return CompactResultDTO{}, fmt.Errorf("app: compact session: %w（请在输入框发送 /compact 转给 agent）", ErrAgentUnsupportedOp)
+	}
 	cfg, gen := a.configSnapshot()
 	rt.mu.Lock()
 	if rt.closed {

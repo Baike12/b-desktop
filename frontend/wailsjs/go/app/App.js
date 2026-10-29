@@ -102,6 +102,10 @@ export function Greet(arg1) {
   return window['go']['app']['App']['Greet'](arg1);
 }
 
+export function ListAgents() {
+  return window['go']['app']['App']['ListAgents']();
+}
+
 export function ListBackgroundTasks() {
   return window['go']['app']['App']['ListBackgroundTasks']();
 }
@@ -260,6 +264,10 @@ export function SetPermissionMode(arg1, arg2) {
 
 export function SetProviderConfig(arg1) {
   return window['go']['app']['App']['SetProviderConfig'](arg1);
+}
+
+export function SetSessionAgent(arg1, arg2) {
+  return window['go']['app']['App']['SetSessionAgent'](arg1, arg2);
 }
 
 export function StageSessionFiles(arg1, arg2, arg3) {

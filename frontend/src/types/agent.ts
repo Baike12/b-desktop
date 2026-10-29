@@ -90,6 +90,34 @@ export interface TodoStateView {
   items: TodoItemView[]
 }
 
+// CommandView 是外部 agent 提供的一条斜杠命令（commands_update）。
+export interface CommandView {
+  name: string
+  description?: string
+  hint?: string
+}
+
+// CommandsView 是命令清单快照，整体替换语义。
+export interface CommandsView {
+  commands: CommandView[]
+}
+
+// AgentStatusView 是外部 agent 的状态快照（agent_status 事件）。
+export interface AgentStatusView {
+  model?: string
+  contextWindow?: number
+  mode?: string
+}
+
+// AgentInfo 是 agent 选择器的一个条目（ListAgents 绑定返回）。
+export interface AgentInfo {
+  id: string
+  name: string
+  description?: string
+  available: boolean
+  detail?: string
+}
+
 export type AgentEventType =
   | 'turn_queued'
   | 'turn_start'
@@ -113,6 +141,8 @@ export type AgentEventType =
   | 'message_discard'
   | 'task_update'
   | 'todo_update'
+  | 'commands_update'
+  | 'agent_status'
   | 'error'
   | 'turn_end'
 
@@ -150,4 +180,11 @@ export interface AgentEvent {
   task?: TaskView
   // todos 是 todo_update 事件的完整清单快照；其他事件恒为 undefined。
   todos?: TodoStateView
+  // commands 是 commands_update 事件的命令清单快照；其他事件恒为 undefined。
+  commands?: CommandsView
+  // agentStatus 是 agent_status 事件的状态快照；其他事件恒为 undefined。
+  agentStatus?: AgentStatusView
+  // agentId 是子 Agent 线程路由键（外部 agent 的 parent_tool_use_id）：
+  // 空 = 主线程；非空 = 归属 toolUseId 等于该值的工具调用线程。
+  agentId?: string
 }

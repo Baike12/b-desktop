@@ -52,6 +52,8 @@ export function GetUsageSummary(arg1:number):Promise<app.UsageSummaryDTO>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function ListAgents():Promise<Array<app.AgentDTO>>;
+
 export function ListBackgroundTasks():Promise<Array<app.BackgroundTaskDTO>>;
 
 export function ListHooks(arg1:string):Promise<Array<app.HookDTO>>;
@@ -131,6 +133,8 @@ export function SetDockIcon(arg1:string):Promise<void>;
 export function SetPermissionMode(arg1:string,arg2:string):Promise<void>;
 
 export function SetProviderConfig(arg1:app.ProviderConfigInput):Promise<void>;
+
+export function SetSessionAgent(arg1:string,arg2:string):Promise<void>;
 
 export function StageSessionFiles(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
 

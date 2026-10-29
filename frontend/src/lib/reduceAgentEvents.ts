@@ -1,4 +1,11 @@
-import type { AgentEvent, ApprovalView, RetryInfo, TodoItemView, Usage } from '../types/agent'
+import type {
+  AgentEvent,
+  ApprovalView,
+  CommandView,
+  RetryInfo,
+  TodoItemView,
+  Usage,
+} from '../types/agent'
 import type { AssistantBlock, AssistantItem, ChatItem, ToolStatus } from '../types/chat'
 
 // StreamState 是 agent 事件影响的状态子集，便于纯函数式归并。
@@ -13,6 +20,13 @@ export interface StreamState {
   contextTokens: number
   stopReason: string | null
   todos: TodoItemView[]
+  // commands 是外部 agent 的斜杠命令清单：commands_update 整体替换，其余事件不变。
+  commands: CommandView[]
+  // agentModel / agentContextWindow / agentMode 是 agent_status 携带的状态；
+  // undefined 表示本批事件没有更新。
+  agentModel?: string
+  agentContextWindow?: number
+  agentMode?: string
 }
 
 // Draft 在一帧内对 items 做写时复制：数组只复制一次，单条消息只在首次修改时复制，
@@ -88,9 +102,12 @@ function assistantFor(
   messageIndex: Map<string, number>,
   messageId: string | undefined,
   timeMs: number,
+  agentId = '',
 ): { item: AssistantItem; index: number } | null {
   if (!messageId) return null
-  const existing = messageIndex.get(messageId)
+  // 子线程与主线程的消息分开分组：key = agentId|messageId。
+  const key = `${agentId}|${messageId}`
+  const existing = messageIndex.get(key)
   if (existing !== undefined) {
     const item = mutableAssistant(draft, existing)
     return item ? { item, index: existing } : null
@@ -101,10 +118,11 @@ function assistantFor(
     blocks: [],
     timeMs,
     streaming: true,
+    agentId: agentId || undefined,
   }
   draft.items.push(item)
   const position = draft.items.length - 1
-  messageIndex.set(messageId, position)
+  messageIndex.set(key, position)
   draft.cloned.add(position)
   return { item, index: position }
 }
@@ -264,7 +282,7 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
   const draft: Draft = { items: state.items.slice(), cloned: new Set<number>() }
   const messageIndex = new Map<string, number>()
   draft.items.forEach((item, index) => {
-    if (item.kind === 'assistant') messageIndex.set(item.id, index)
+    if (item.kind === 'assistant') messageIndex.set(`${item.agentId ?? ''}|${item.id}`, index)
   })
 
   let running = state.running
@@ -276,10 +294,15 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
   let contextTokens = state.contextTokens
   let stopReason = state.stopReason
   let todos = state.todos
+  let commands = state.commands
+  let agentModel = state.agentModel
+  let agentContextWindow = state.agentContextWindow
+  let agentMode = state.agentMode
 
   for (const ev of events) {
     const timeMs = ev.timeMs || Date.now()
     const blockIndex = ev.blockIndex ?? 0
+    const agentId = ev.agentId ?? ''
 
     switch (ev.type) {
       case 'turn_queued': {
@@ -299,11 +322,11 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         break
       }
       case 'message_start': {
-        assistantFor(draft, messageIndex, ev.messageId, timeMs)
+        assistantFor(draft, messageIndex, ev.messageId, timeMs, agentId)
         break
       }
       case 'text_delta': {
-        const target = assistantFor(draft, messageIndex, ev.messageId, timeMs)
+        const target = assistantFor(draft, messageIndex, ev.messageId, timeMs, agentId)
         if (!target) break
         const block = ensureTextBlock(target.item, blockIndex, 'text')
         if (block && block.kind === 'text') {
@@ -315,7 +338,7 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         break
       }
       case 'thinking_delta': {
-        const target = assistantFor(draft, messageIndex, ev.messageId, timeMs)
+        const target = assistantFor(draft, messageIndex, ev.messageId, timeMs, agentId)
         if (!target) break
         const block = ensureTextBlock(target.item, blockIndex, 'thinking')
         if (block && block.kind === 'thinking') {
@@ -327,7 +350,7 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         break
       }
       case 'tool_call_start': {
-        const target = assistantFor(draft, messageIndex, ev.messageId, timeMs)
+        const target = assistantFor(draft, messageIndex, ev.messageId, timeMs, agentId)
         if (!target) break
         const block = ensureToolBlock(
           target.item,
@@ -350,7 +373,7 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
           tool.block.inputText += ev.text ?? ''
           break
         }
-        const target = assistantFor(draft, messageIndex, ev.messageId, timeMs)
+        const target = assistantFor(draft, messageIndex, ev.messageId, timeMs, agentId)
         if (!target) break
         const block = ensureToolBlock(
           target.item,
@@ -366,7 +389,7 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         const block =
           tool?.block ??
           (() => {
-            const target = assistantFor(draft, messageIndex, ev.messageId, timeMs)
+            const target = assistantFor(draft, messageIndex, ev.messageId, timeMs, agentId)
             if (!target) return null
             const created = ensureToolBlock(
               target.item,
@@ -479,6 +502,19 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
         todos = ev.todos?.items ?? []
         break
       }
+      case 'commands_update': {
+        // 外部 agent 的可用斜杠命令：整体替换。
+        commands = ev.commands?.commands ?? []
+        break
+      }
+      case 'agent_status': {
+        const status = ev.agentStatus
+        if (!status) break
+        if (status.model) agentModel = status.model
+        if (status.contextWindow) agentContextWindow = status.contextWindow
+        if (status.mode) agentMode = status.mode
+        break
+      }
       case 'message_stop': {
         markMessageStreaming(draft, ev.messageId, false)
         clearMessageActive(draft, ev.messageId)
@@ -486,13 +522,13 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
       }
       case 'message_discard': {
         if (ev.messageId) {
-          const index = messageIndex.get(ev.messageId)
+          const index = messageIndex.get(`${agentId}|${ev.messageId}`)
           if (index !== undefined) {
             draft.items = draft.items.filter((_, position) => position !== index)
             draft.cloned.clear()
             messageIndex.clear()
             draft.items.forEach((item, position) => {
-              if (item.kind === 'assistant') messageIndex.set(item.id, position)
+              if (item.kind === 'assistant') messageIndex.set(`${item.agentId ?? ''}|${item.id}`, position)
             })
           }
         }
@@ -542,5 +578,9 @@ export function reduceAgentEvents(state: StreamState, events: AgentEvent[]): Str
     contextTokens,
     stopReason,
     todos,
+    commands,
+    agentModel,
+    agentContextWindow,
+    agentMode,
   }
 }

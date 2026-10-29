@@ -398,7 +398,7 @@ func TestSessionViewContextTokens(t *testing.T) {
 			CacheCreationInputTokens: 4,
 		},
 	}
-	dto := toSessionViewDTO(loaded, "m", "default", false)
+	dto := toSessionViewDTO(loaded, "m", "default", false, "benben")
 	if dto.ContextTokens != 46 {
 		t.Fatalf("ContextTokens = %d, want 46", dto.ContextTokens)
 	}
@@ -457,7 +457,7 @@ func TestDTOConversion(t *testing.T) {
 		Messages: []llm.Message{msg},
 		Meta:     session.Meta{ID: "s1", Title: "t", WorkDir: "/tmp", CreatedAt: at},
 		Usage:    llm.Usage{InputTokens: 1},
-	}, "model-x", "default", true)
+	}, "model-x", "default", true, "benben")
 	if view.ID != "s1" || view.Model != "model-x" || !view.Running || len(view.Messages) != 1 {
 		t.Fatalf("session view = %+v", view)
 	}

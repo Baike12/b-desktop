@@ -12,10 +12,12 @@ import (
 
 // CreateSessionInput 是 CreateSession 的入参。
 // SessionID 与 WorkDir 可省略：分别自动生成与取应用默认工作目录。
+// Agent 是会话使用的 agent ID（benben 或 ACP 后端 ID）；空为本地 benben。
 type CreateSessionInput struct {
 	SessionID string `json:"sessionId,omitempty"`
 	Title     string `json:"title,omitempty"`
 	WorkDir   string `json:"workDir,omitempty"`
+	Agent     string `json:"agent,omitempty"`
 }
 
 // SendMessageResult 是 SendMessage 的返回值。输出不在这里返回：
@@ -74,8 +76,10 @@ type SessionViewDTO struct {
 	Messages       []MessageDTO `json:"messages"`
 	Usage          UsageDTO     `json:"usage"`
 	// ContextTokens 是最近一次模型调用占用的上下文规模；0 表示尚无调用记录。
-	ContextTokens int  `json:"contextTokens"`
-	Running       bool `json:"running"`
+	ContextTokens int `json:"contextTokens"`
+	// Agent 是会话当前使用的 agent ID（benben 或 ACP 后端 ID）。
+	Agent   string `json:"agent"`
+	Running bool   `json:"running"`
 }
 
 // MessageDTO 是一条消息的前端视图。TimeMS 来自 llm.Message.Time（Unix 毫秒）。
@@ -173,7 +177,7 @@ func toSessionInfoDTO(info session.Info, running bool) SessionInfoDTO {
 }
 
 // toSessionViewDTO 把重放结果转换成会话详情。
-func toSessionViewDTO(loaded session.Loaded, model, permissionMode string, running bool) SessionViewDTO {
+func toSessionViewDTO(loaded session.Loaded, model, permissionMode string, running bool, agentID string) SessionViewDTO {
 	return SessionViewDTO{
 		ID:             loaded.Meta.ID,
 		Title:          loaded.Meta.Title,
@@ -184,6 +188,7 @@ func toSessionViewDTO(loaded session.Loaded, model, permissionMode string, runni
 		Messages:       toMessagesDTO(loaded.Messages),
 		Usage:          toUsageDTO(loaded.Usage),
 		ContextTokens:  loaded.LastUsage.ContextTokens(),
+		Agent:          agentID,
 		Running:        running,
 	}
 }

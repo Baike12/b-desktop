@@ -100,6 +100,7 @@ interface FakeView {
   usage: Dict
   contextTokens: number
   running: boolean
+  agent: string
 }
 interface FakeSessionInfo {
   id: string
@@ -199,6 +200,7 @@ function seedView(): FakeView {
     },
     contextTokens: 32390,
     running: false,
+    agent: 'benben',
   }
 }
 
@@ -213,6 +215,7 @@ const views = new Map<string, FakeView>([[SESSION_MD, seedView()], [SESSION_EMPT
   usage: { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
   contextTokens: 0,
   running: false,
+  agent: 'benben',
 }], [SESSION_ORPHAN, {
   id: SESSION_ORPHAN,
   title: '未归属会话',
@@ -224,6 +227,7 @@ const views = new Map<string, FakeView>([[SESSION_MD, seedView()], [SESSION_EMPT
   usage: { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
   contextTokens: 0,
   running: false,
+  agent: 'benben',
 }]])
 
 const sessions: FakeSessionInfo[] = [
@@ -741,6 +745,18 @@ const bindings = {
 
   GetProviderConfig: async () => clone(providerConfig),
 
+  // agent 选择器：benben 恒可用，claude 代表外部 ACP 后端。
+  ListAgents: async () => [
+    { id: 'benben', name: 'Benben Agent', description: '本地内置 agent', available: true, detail: '' },
+    { id: 'claude', name: 'Claude Code', description: '通过内置 ACP 桥接驱动 claude CLI', available: true, detail: '' },
+  ],
+
+  SetSessionAgent: async (sessionId: string, agentId: string) => {
+    const view = views.get(sessionId)
+    if (!view) throw new Error(`session not found: ${sessionId}`)
+    view.agent = agentId
+  },
+
   SetDockIcon: async (character: string) => {
     dockIconCalls.push(character)
   },
@@ -1042,6 +1058,7 @@ const bindings = {
       usage: { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
       contextTokens: 0,
       running: false,
+      agent: 'benben',
     }
     views.set(id, view)
     const info: FakeSessionInfo = {
@@ -1690,6 +1707,7 @@ const api = {
   setTheme: (mode: ThemeMode) => useSettingsStore.getState().setTheme(mode),
   setCharacter: (id: CharacterId) => useSettingsStore.getState().setCharacter(id),
   setPermissionMode: (mode: PermissionMode) => useWorkbenchStore.getState().setPermissionMode(mode),
+  setAgent: (agentId: string) => useWorkbenchStore.getState().setAgent(agentId),
 
   /** 一次取回所有可断言的 DOM/状态指标。 */
   metrics: () => {
@@ -1718,6 +1736,11 @@ const api = {
       toolMascotPoses: [
         ...document.querySelectorAll('[data-testid="tool-mascot"] [data-mascot-pose]'),
       ].map((element) => element.getAttribute('data-mascot-pose')),
+      agentKind: useWorkbenchStore.getState().agentKind,
+      agentOptions: [...document.querySelectorAll('[data-testid="agent-menu"] [role="menuitemradio"]')]
+        .map((element) => element.getAttribute('data-testid')?.replace('agent-option-', '') ?? null),
+      agentSelectLabel: textOf('[data-testid="agent-select"]'),
+      subagentThreads: document.querySelectorAll('[data-testid^="subagent-thread-"]').length,
       thinkingMascot: document.querySelector('[data-testid="thinking-mascot"]') !== null,
       askMascot: document.querySelector('[data-testid="ask-mascot"]') !== null,
       sessionMascots: document.querySelectorAll('[data-testid="session-mascot"]').length,

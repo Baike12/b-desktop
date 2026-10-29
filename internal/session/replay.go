@@ -62,6 +62,14 @@ func Replay(recs []Record) (Loaded, error) {
 			if v := r.Meta["title"]; v != "" {
 				out.Meta.Title = v
 			}
+		case RecordAgentState:
+			// agent_state 也是追加记录：最后一条生效。
+			if len(r.Meta) > 0 {
+				out.AgentState = make(map[string]string, len(r.Meta))
+				for key, value := range r.Meta {
+					out.AgentState[key] = value
+				}
+			}
 		}
 	}
 

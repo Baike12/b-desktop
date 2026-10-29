@@ -1,5 +1,25 @@
 export namespace app {
 	
+	export class AgentDTO {
+	    id: string;
+	    name: string;
+	    description?: string;
+	    available: boolean;
+	    detail?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AgentDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.available = source["available"];
+	        this.detail = source["detail"];
+	    }
+	}
 	export class BackgroundTaskDTO {
 	    id: string;
 	    kind: string;
@@ -178,6 +198,7 @@ export namespace app {
 	    sessionId?: string;
 	    title?: string;
 	    workDir?: string;
+	    agent?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new CreateSessionInput(source);
@@ -188,6 +209,7 @@ export namespace app {
 	        this.sessionId = source["sessionId"];
 	        this.title = source["title"];
 	        this.workDir = source["workDir"];
+	        this.agent = source["agent"];
 	    }
 	}
 	export class ModelUsageDTO {
@@ -1153,6 +1175,7 @@ export namespace app {
 	    messages: MessageDTO[];
 	    usage: UsageDTO;
 	    contextTokens: number;
+	    agent: string;
 	    running: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -1170,6 +1193,7 @@ export namespace app {
 	        this.messages = this.convertValues(source["messages"], MessageDTO);
 	        this.usage = this.convertValues(source["usage"], UsageDTO);
 	        this.contextTokens = source["contextTokens"];
+	        this.agent = source["agent"];
 	        this.running = source["running"];
 	    }
 	

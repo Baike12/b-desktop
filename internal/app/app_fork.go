@@ -42,7 +42,7 @@ func (a *App) ForkSession(sessionID string) (SessionInfoDTO, error) {
 		a.mu.Unlock()
 		return SessionInfoDTO{}, ErrClosed
 	}
-	a.sessions[info.ID] = newSessionRuntime(meta)
+	a.sessions[info.ID] = newSessionRuntime(meta, nil)
 	a.mu.Unlock()
 
 	dto := toSessionInfoDTO(info, false)
