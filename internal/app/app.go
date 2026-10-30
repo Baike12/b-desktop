@@ -625,6 +625,7 @@ func newApp(cfg Config, sender Sender, store session.Store, factory ProviderFact
 		sender:   sender,
 		factory:  factory,
 		sessions: make(map[string]*sessionRuntime),
+		extData:  make(map[string]any),
 	}
 	a.pickDir = func(ctx context.Context) (string, error) {
 		a.mu.Lock()

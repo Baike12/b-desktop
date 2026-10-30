@@ -147,24 +147,24 @@ func (a *App) probeAgent(agentID string) error {
 
 // agentRegistry 返回进程内唯一的 ACP 后端注册表（惰性创建）。
 func (a *App) agentRegistry() *acp.Registry {
-	a.extMu.Lock()
-	defer a.extMu.Unlock()
-	if cached, ok := a.extData["acp-registry"].(*acp.Registry); ok {
-		return cached
+	if cached, err := a.extensionStore("acp-registry", func() (any, error) {
+		registry := acp.NewRegistry()
+		registry.Register(acp.AgentInfo{
+			ID:          claude.BackendID,
+			Name:        "Claude Code",
+			Description: "通过内置 ACP 桥接驱动 claude CLI（对齐 zed 的 claude-agent-acp）",
+		}, func(ctx context.Context) (acp.Backend, error) {
+			if _, err := claude.ResolveCLI(os.Getenv); err != nil {
+				return nil, err
+			}
+			return claude.NewBackend(), nil
+		})
+		return registry, nil
+	}); err == nil {
+		return cached.(*acp.Registry)
 	}
-	registry := acp.NewRegistry()
-	registry.Register(acp.AgentInfo{
-		ID:          claude.BackendID,
-		Name:        "Claude Code",
-		Description: "通过内置 ACP 桥接驱动 claude CLI（对齐 zed 的 claude-agent-acp）",
-	}, func(ctx context.Context) (acp.Backend, error) {
-		if _, err := claude.ResolveCLI(os.Getenv); err != nil {
-			return nil, err
-		}
-		return claude.NewBackend(), nil
-	})
-	a.extData["acp-registry"] = registry
-	return registry
+	// 注册表创建不会失败；走到这里说明 init 出错，退回空注册表。
+	return acp.NewRegistry()
 }
 
 // agentKeyFromState 从 agent_state 元信息里取指定 agent 的会话键。
